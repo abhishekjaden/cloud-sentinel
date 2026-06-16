@@ -141,3 +141,23 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# CDK
+cdk/cdk.out/
+cdk/.env
+cdk.context.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Env & secrets
+.env
+!.env.example
+secrets/
+*.pem
+
+# OS
+.DS_Store
