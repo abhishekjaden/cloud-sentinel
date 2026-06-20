@@ -5,9 +5,10 @@ export const ACCOUNTS = {
   management: '062345618950',
   audit:      '118821712739',  // Config aggregator / Security Hub admin
   logArchive: '605911095588',  // Centralized CloudTrail / log storage
-  workload:   '',              // TODO: set after Account Factory provisions it
+  workload:   '743181156000', // cloudsentinel-workload (Sandbox OU)
 };
 
+export const WORKLOAD_VPC_ID = 'vpc-09886eb9d93721805';
 export const REGION = 'us-east-1';
 export const SECONDARY_REGION = 'us-west-2';
 
