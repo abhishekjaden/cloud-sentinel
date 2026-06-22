@@ -9,6 +9,7 @@ export const ACCOUNTS = {
 };
 
 export const WORKLOAD_VPC_ID = 'vpc-09886eb9d93721805';
+export const OPENSEARCH_ENDPOINT = 'search-cloudsentinel-findings-ytbm4zwd6mnhyrfkpw6u6f7qaq.us-east-1.es.amazonaws.com';
 export const REGION = 'us-east-1';
 export const SECONDARY_REGION = 'us-west-2';
 

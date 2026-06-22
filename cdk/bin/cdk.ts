@@ -4,6 +4,7 @@ import { ACCOUNTS, env } from '../lib/config';
 import { SecurityServicesStack } from '../lib/stacks/security-services-stack';
 import { WorkloadNetworkStack } from '../lib/stacks/workload-network-stack';
 import { IngestionStack } from '../lib/stacks/ingestion-stack';
+import { DataStoresStack } from '../lib/stacks/datastores-stack';
 
 const app = new cdk.App();
 
@@ -15,6 +16,11 @@ new SecurityServicesStack(app, 'CloudSentinel-SecurityServices', {
 new WorkloadNetworkStack(app, 'CloudSentinel-WorkloadNetwork', {
   env: env(ACCOUNTS.workload),
   description: 'CloudSentinel: workload VPC with Flow Logs',
+});
+
+new DataStoresStack(app, 'CloudSentinel-DataStores', {
+  env: env(ACCOUNTS.audit),
+  description: 'CloudSentinel: DynamoDB + OpenSearch for normalized findings (Audit account)',
 });
 
 new IngestionStack(app, 'CloudSentinel-Ingestion', {

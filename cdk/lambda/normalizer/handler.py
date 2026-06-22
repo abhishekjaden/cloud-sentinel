@@ -1,21 +1,39 @@
 """
 CloudSentinel finding normalizer.
 
-Consumes raw security findings from Kinesis (delivered as base64 records),
-maps each source's native shape to a single common schema, and emits the
-normalized finding to CloudWatch Logs (interim sink; DynamoDB/OpenSearch
-added Day 5).
+Consumes raw security findings from Kinesis, maps each source's native
+shape into a single common schema, and persists to DynamoDB (queryable
+store; the dashboard's primary data source). OpenSearch indexing added
+next session.
 
-Common schema:
-  finding_id, source, account_id, region, severity (0-100 normalized),
-  title, resource, finding_type, created_at, raw_severity_label
+DynamoDB item keys:
+  pk = "<source>#<account_id>"
+  sk = "<created_at>#<finding_id>"
+  severity_bucket = CRITICAL|HIGH|MEDIUM|LOW|INFO  (for severity GSI)
 """
 import base64
 import json
 import logging
+import os
+import boto3
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+_TABLE_NAME = os.environ.get("FINDINGS_TABLE", "cloudsentinel-findings")
+_table = boto3.resource("dynamodb").Table(_TABLE_NAME)
+
+
+def _severity_bucket(score):
+    if score >= 90:
+        return "CRITICAL"
+    if score >= 70:
+        return "HIGH"
+    if score >= 40:
+        return "MEDIUM"
+    if score >= 1:
+        return "LOW"
+    return "INFO"
 
 
 def _severity_to_score(source, raw):
@@ -37,7 +55,6 @@ def _severity_to_score(source, raw):
 def _normalize(event):
     src = event.get("source", "")
     detail = event.get("detail", {})
-
     if src == "aws.guardduty":
         return {
             "finding_id": detail.get("id"),
@@ -51,7 +68,6 @@ def _normalize(event):
             "resource": json.dumps(detail.get("resource", {}))[:1024],
             "created_at": detail.get("createdAt") or event.get("time"),
         }
-
     if src == "aws.securityhub":
         findings = detail.get("findings", [{}])
         f = findings[0] if findings else {}
@@ -68,7 +84,6 @@ def _normalize(event):
             "resource": json.dumps(f.get("Resources", []))[:1024],
             "created_at": f.get("CreatedAt") or event.get("time"),
         }
-
     if src == "aws.inspector2":
         return {
             "finding_id": detail.get("findingArn"),
@@ -82,7 +97,6 @@ def _normalize(event):
             "resource": json.dumps(detail.get("resources", []))[:1024],
             "created_at": detail.get("firstObservedAt") or event.get("time"),
         }
-
     return {
         "finding_id": event.get("id"),
         "source": src or "unknown",
@@ -97,6 +111,19 @@ def _normalize(event):
     }
 
 
+def _persist(finding):
+    """Write a normalized finding to DynamoDB."""
+    fid = finding.get("finding_id") or "unknown"
+    created = finding.get("created_at") or "unknown"
+    item = dict(finding)
+    item["pk"] = f"{finding.get('source', 'unknown')}#{finding.get('account_id', 'unknown')}"
+    item["sk"] = f"{created}#{fid}"
+    item["severity_bucket"] = _severity_bucket(finding.get("severity", 0))
+    # DynamoDB rejects empty strings in some contexts; drop null/empty values
+    item = {k: v for k, v in item.items() if v is not None and v != ""}
+    _table.put_item(Item=item)
+
+
 def handler(event, context):
     processed = 0
     for record in event.get("Records", []):
@@ -104,6 +131,7 @@ def handler(event, context):
             payload = base64.b64decode(record["kinesis"]["data"])
             raw_event = json.loads(payload)
             normalized = _normalize(raw_event)
+            _persist(normalized)
             logger.info("NORMALIZED_FINDING %s", json.dumps(normalized))
             processed += 1
         except Exception as exc:  # noqa: BLE001

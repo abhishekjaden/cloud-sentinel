@@ -8,6 +8,7 @@ import { Duration } from 'aws-cdk-lib/core';
 import { StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { KinesisEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from 'path';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 
 /**
  * IngestionStack — deploys to the Audit account (118821712739).
@@ -37,6 +38,7 @@ export class IngestionStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../lambda/normalizer')),
       timeout: Duration.seconds(60),
       memorySize: 256,
+      environment: { FINDINGS_TABLE: 'cloudsentinel-findings' },
       description: 'Normalizes security findings into a common schema',
     });
 
@@ -47,6 +49,11 @@ export class IngestionStack extends cdk.Stack {
       maxBatchingWindow: Duration.seconds(10),
       retryAttempts: 2,
     }));
+
+    // Grant the normalizer write access to the findings table (by name,
+    // avoids cross-stack coupling; table lives in DataStoresStack).
+    const findingsTable = dynamodb.Table.fromTableName(this, 'FindingsTableRef', 'cloudsentinel-findings');
+    findingsTable.grantWriteData(normalizer);
 
     // EventBridge rules -> Kinesis, one per finding source
     const sources = [
