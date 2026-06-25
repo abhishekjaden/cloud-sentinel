@@ -5,6 +5,7 @@ import { SecurityServicesStack } from '../lib/stacks/security-services-stack';
 import { WorkloadNetworkStack } from '../lib/stacks/workload-network-stack';
 import { IngestionStack } from '../lib/stacks/ingestion-stack';
 import { DataStoresStack } from '../lib/stacks/datastores-stack';
+import { MLStack } from '../lib/stacks/ml-stack';
 
 const app = new cdk.App();
 
@@ -26,6 +27,11 @@ new DataStoresStack(app, 'CloudSentinel-DataStores', {
 new IngestionStack(app, 'CloudSentinel-Ingestion', {
   env: env(ACCOUNTS.audit),
   description: 'CloudSentinel: findings ingestion — EventBridge -> Kinesis -> normalizer (Audit account)',
+});
+
+new MLStack(app, 'CloudSentinel-ML', {
+  env: env(ACCOUNTS.workload),
+  description: 'CloudSentinel: ML data lake for intrusion detection (workload account)',
 });
 
 app.synth();
