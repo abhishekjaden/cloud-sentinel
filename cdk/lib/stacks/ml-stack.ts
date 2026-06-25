@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
 
 /**
@@ -32,6 +33,14 @@ export class MLStack extends cdk.Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
     });
+
+    // Grant the SageMaker Studio execution role read/write to the data lake.
+    // Role was created by the console domain bootstrap (ADR 0003); we look it
+    // up by name and grant least-privilege access to this bucket only.
+    const sagemakerRole = iam.Role.fromRoleName(
+      this, 'SageMakerExecRole', 'AmazonSageMaker-ExecutionRole-20260624T010157'
+    );
+    this.dataLake.grantReadWrite(sagemakerRole);
 
     new cdk.CfnOutput(this, 'DataLakeBucket', { value: this.dataLake.bucketName });
   }
