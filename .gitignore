@@ -163,3 +163,4 @@ secrets/
 .DS_Store
 test-data/
 ml/processing/__pycache__/
+ml/models/*_model.json
