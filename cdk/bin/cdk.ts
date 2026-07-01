@@ -6,6 +6,7 @@ import { WorkloadNetworkStack } from '../lib/stacks/workload-network-stack';
 import { IngestionStack } from '../lib/stacks/ingestion-stack';
 import { DataStoresStack } from '../lib/stacks/datastores-stack';
 import { MLStack } from '../lib/stacks/ml-stack';
+import { RemediationStack } from '../lib/stacks/remediation-stack';
 
 const app = new cdk.App();
 
@@ -34,4 +35,8 @@ new MLStack(app, 'CloudSentinel-ML', {
   description: 'CloudSentinel: ML data lake for intrusion detection (workload account)',
 });
 
+new RemediationStack(app, 'CloudSentinel-Remediation', {
+  env: env(ACCOUNTS.audit),
+  description: 'CloudSentinel: Step Functions remediation playbooks / SOAR layer (Audit account)',
+});
 app.synth();
