@@ -4,6 +4,9 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Duration } from 'aws-cdk-lib/core';
 import * as path from 'path';
@@ -123,6 +126,33 @@ export class RemediationStack extends cdk.Stack {
       stateMachineName: 'cloudsentinel-remediation',
       definitionBody: sfn.DefinitionBody.fromChainable(classify),
       timeout: Duration.hours(24), // allow time for human approval
+    });
+
+    // Router Lambda: EventBridge -> maps finding to playbook -> starts state machine.
+    const router = new lambda.Function(this, 'RemediationRouter', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../lambda/router')),
+      timeout: Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        STATE_MACHINE_ARN: stateMachine.stateMachineArn,
+        QUARANTINE_SG: 'sg-quarantine-placeholder',
+      },
+      description: 'Routes high-severity findings to the remediation state machine',
+    });
+    stateMachine.grantStartExecution(router);
+
+    // EventBridge rule: high-severity GuardDuty findings -> router.
+    new events.Rule(this, 'HighSevFindingRule', {
+      ruleName: 'cloudsentinel-highsev-remediation',
+      description: 'Route high-severity GuardDuty findings to the remediation router',
+      eventPattern: {
+        source: ['aws.guardduty'],
+        detailType: ['GuardDuty Finding'],
+        detail: { severity: [{ numeric: ['>=', 7] }] },
+      },
+      targets: [new targets.LambdaFunction(router)],
     });
 
     new cdk.CfnOutput(this, 'StateMachineArn', { value: stateMachine.stateMachineArn });
