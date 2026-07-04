@@ -164,3 +164,6 @@ secrets/
 test-data/
 ml/processing/__pycache__/
 ml/models/*_model.json
+test-finding.json
+router-test-event.json
+router-out.json
