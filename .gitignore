@@ -167,3 +167,5 @@ ml/models/*_model.json
 test-finding.json
 router-test-event.json
 router-out.json
+backend/.venv-backend/
+backend/binary_model.json
