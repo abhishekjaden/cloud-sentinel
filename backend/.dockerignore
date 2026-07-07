@@ -1,0 +1,4 @@
+.venv-backend/
+__pycache__/
+*.pyc
+binary_model.json

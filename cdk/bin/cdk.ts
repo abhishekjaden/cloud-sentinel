@@ -7,6 +7,7 @@ import { IngestionStack } from '../lib/stacks/ingestion-stack';
 import { DataStoresStack } from '../lib/stacks/datastores-stack';
 import { MLStack } from '../lib/stacks/ml-stack';
 import { RemediationStack } from '../lib/stacks/remediation-stack';
+import { ApiStack } from '../lib/stacks/api-stack';
 
 const app = new cdk.App();
 
@@ -38,5 +39,9 @@ new MLStack(app, 'CloudSentinel-ML', {
 new RemediationStack(app, 'CloudSentinel-Remediation', {
   env: env(ACCOUNTS.audit),
   description: 'CloudSentinel: Step Functions remediation playbooks / SOAR layer (Audit account)',
+});
+new ApiStack(app, 'CloudSentinel-Api', {
+  env: env(ACCOUNTS.audit),
+  description: 'CloudSentinel: FastAPI backend on ECS Fargate + ALB (Audit account)',
 });
 app.synth();
