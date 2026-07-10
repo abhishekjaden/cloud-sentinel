@@ -8,6 +8,7 @@ import { DataStoresStack } from '../lib/stacks/datastores-stack';
 import { MLStack } from '../lib/stacks/ml-stack';
 import { RemediationStack } from '../lib/stacks/remediation-stack';
 import { ApiStack } from '../lib/stacks/api-stack';
+import { DashboardStack } from '../lib/stacks/dashboard-stack';
 
 const app = new cdk.App();
 
@@ -43,5 +44,9 @@ new RemediationStack(app, 'CloudSentinel-Remediation', {
 new ApiStack(app, 'CloudSentinel-Api', {
   env: env(ACCOUNTS.audit),
   description: 'CloudSentinel: FastAPI backend on ECS Fargate + ALB (Audit account)',
+});
+new DashboardStack(app, 'CloudSentinel-Dashboard', {
+  env: env(ACCOUNTS.audit),
+  description: 'CloudSentinel: React SOC dashboard on S3 + CloudFront (Audit account)',
 });
 app.synth();
