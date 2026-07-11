@@ -9,6 +9,7 @@ import { MLStack } from '../lib/stacks/ml-stack';
 import { RemediationStack } from '../lib/stacks/remediation-stack';
 import { ApiStack } from '../lib/stacks/api-stack';
 import { DashboardStack } from '../lib/stacks/dashboard-stack';
+import { DnsDelegationStack } from '../lib/stacks/dns-delegation-stack';
 
 const app = new cdk.App();
 
@@ -48,5 +49,9 @@ new ApiStack(app, 'CloudSentinel-Api', {
 new DashboardStack(app, 'CloudSentinel-Dashboard', {
   env: env(ACCOUNTS.audit),
   description: 'CloudSentinel: React SOC dashboard on S3 + CloudFront (Audit account)',
+});
+new DnsDelegationStack(app, 'CloudSentinel-DnsDelegation', {
+  env: env(ACCOUNTS.management),
+  description: 'CloudSentinel: DNS delegation role for api subdomain (Management account)',
 });
 app.synth();

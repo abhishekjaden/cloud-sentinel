@@ -6,6 +6,10 @@ import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Duration } from 'aws-cdk-lib/core';
 import * as path from 'path';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import { ACCOUNTS } from '../config';
 
 /**
  * ApiStack — deploys to the Audit account (118821712739).
@@ -20,6 +24,9 @@ import * as path from 'path';
  * Cost note: ALB + Fargate + NAT are always-on. Run `cdk destroy
  * CloudSentinel-Api` when not actively demoing.
  */
+const API_DOMAIN = 'api.cloudsentinel-soc.com';
+const PARENT_ZONE_ID = 'Z0387487U1PUV4VLJE46';
+
 export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -36,6 +43,31 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Fargate service + ALB in one construct. Builds the image from backend/.
+    // ---- DNS + TLS ----
+    // Audit owns the delegated subdomain zone outright, so cert, DNS records
+    // and ALB all live same-account. The NS delegation is written into the
+    // parent zone (Management account) via an assumed delegation role.
+    const apiZone = new route53.PublicHostedZone(this, 'ApiZone', {
+      zoneName: API_DOMAIN,
+    });
+
+    const delegationRole = iam.Role.fromRoleArn(
+      this,
+      'DnsDelegationRole',
+      `arn:aws:iam::${ACCOUNTS.management}:role/CloudSentinelApiDnsDelegationRole`,
+    );
+
+    new route53.CrossAccountZoneDelegationRecord(this, 'ApiZoneDelegation', {
+      delegatedZone: apiZone,
+      parentHostedZoneId: PARENT_ZONE_ID,
+      delegationRole,
+    });
+
+    const cert = new acm.Certificate(this, 'ApiCertificate', {
+      domainName: API_DOMAIN,
+      validation: acm.CertificateValidation.fromDns(apiZone),
+    });
+
     const service = new ecsPatterns.ApplicationLoadBalancedFargateService(this, 'ApiService', {
       cluster,
       serviceName: 'cloudsentinel-api',
@@ -56,6 +88,13 @@ export class ApiStack extends cdk.Stack {
         },
       },
       publicLoadBalancer: true,
+      // TLS: HTTPS listener on 443 with the ACM cert, alias record in our zone,
+      // and an HTTP:80 -> HTTPS:443 redirect.
+      certificate: cert,
+      domainName: API_DOMAIN,
+      domainZone: apiZone,
+      protocol: elbv2.ApplicationProtocol.HTTPS,
+      redirectHTTP: true,
     });
 
     // Health check hits /health (our FastAPI route).
@@ -85,8 +124,7 @@ export class ApiStack extends cdk.Stack {
       resources: [`arn:aws:states:${this.region}:${this.account}:stateMachine:cloudsentinel-remediation`],
     }));
 
-    new cdk.CfnOutput(this, 'ApiUrl', {
-      value: `http://${service.loadBalancer.loadBalancerDnsName}`,
-    });
+    new cdk.CfnOutput(this, 'ApiUrl', { value: `https://${API_DOMAIN}` });
+    new cdk.CfnOutput(this, 'AlbDnsName', { value: service.loadBalancer.loadBalancerDnsName });
   }
 }
