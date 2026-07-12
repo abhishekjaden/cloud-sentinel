@@ -1,14 +1,12 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
 
 export class DataStoresStack extends cdk.Stack {
   public readonly findingsTable: dynamodb.Table;
-  public readonly searchDomain: opensearch.Domain;
   public readonly modelsBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -26,24 +24,6 @@ export class DataStoresStack extends cdk.Stack {
       partitionKey: { name: 'severity_bucket', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'severity', type: dynamodb.AttributeType.NUMBER },
     });
-    this.searchDomain = new opensearch.Domain(this, 'SearchDomain', {
-      version: opensearch.EngineVersion.OPENSEARCH_2_11,
-      domainName: 'cloudsentinel-findings',
-      capacity: {
-        dataNodes: 1,
-        dataNodeInstanceType: 't3.small.search',
-        multiAzWithStandbyEnabled: false,
-      },
-      ebs: {
-        volumeSize: 10,
-        volumeType: ec2.EbsDeviceVolumeType.GP3,
-      },
-      zoneAwareness: { enabled: false },
-      encryptionAtRest: { enabled: true },
-      nodeToNodeEncryption: true,
-      enforceHttps: true,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
     // Serving-side model artifacts. Models trained in the workload account are
     // promoted here (audit account) so the API serves them same-account.
     this.modelsBucket = new s3.Bucket(this, 'ModelsBucket', {
@@ -59,9 +39,6 @@ export class DataStoresStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'FindingsTableName', {
       value: this.findingsTable.tableName,
-    });
-    new cdk.CfnOutput(this, 'SearchDomainEndpoint', {
-      value: this.searchDomain.domainEndpoint,
     });
   }
 }

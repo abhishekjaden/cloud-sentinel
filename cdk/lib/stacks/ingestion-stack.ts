@@ -18,7 +18,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
  *    and route them to a Kinesis Data Stream (decoupled, buffered).
  *  - A Lambda normalizer consumes the stream and maps every source's native
  *    shape into one common schema, emitting to CloudWatch Logs (interim sink;
- *    DynamoDB + OpenSearch added Day 5).
+ *    DynamoDB).
  */
 export class IngestionStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {

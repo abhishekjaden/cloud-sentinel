@@ -25,7 +25,7 @@ new WorkloadNetworkStack(app, 'CloudSentinel-WorkloadNetwork', {
 
 new DataStoresStack(app, 'CloudSentinel-DataStores', {
   env: env(ACCOUNTS.audit),
-  description: 'CloudSentinel: DynamoDB + OpenSearch for normalized findings (Audit account)',
+  description: 'CloudSentinel: DynamoDB for normalized findings (Audit account)',
 });
 
 new IngestionStack(app, 'CloudSentinel-Ingestion', {

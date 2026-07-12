@@ -3,8 +3,7 @@ CloudSentinel finding normalizer.
 
 Consumes raw security findings from Kinesis, maps each source's native
 shape into a single common schema, and persists to DynamoDB (queryable
-store; the dashboard's primary data source). OpenSearch indexing added
-next session.
+store; the dashboard's primary data source).
 
 DynamoDB item keys:
   pk = "<source>#<account_id>"
