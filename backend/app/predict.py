@@ -1,11 +1,13 @@
 """Prediction route — binary intrusion detection via the trained XGBoost model."""
 import os
 import tempfile
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import boto3
 import numpy as np
 import xgboost as xgb
+
+from app.auth import require_auth
 
 router = APIRouter()
 
@@ -40,7 +42,7 @@ class PredictResponse(BaseModel):
     threshold: float
 
 
-@router.post("/predict", response_model=PredictResponse)
+@router.post("/predict", response_model=PredictResponse, dependencies=[Depends(require_auth)])
 def predict(req: PredictRequest, threshold: float = 0.5):
     """Score a single network flow: returns attack probability + label."""
     try:

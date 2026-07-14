@@ -1,9 +1,11 @@
 """Findings routes — read normalized findings from DynamoDB."""
 import os
 from collections import Counter
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 import boto3
 from boto3.dynamodb.conditions import Key
+
+from app.auth import require_auth
 
 router = APIRouter()
 
@@ -14,7 +16,7 @@ _dynamodb = boto3.resource("dynamodb", region_name=REGION)
 _table = _dynamodb.Table(TABLE_NAME)
 
 
-@router.get("/findings")
+@router.get("/findings", dependencies=[Depends(require_auth)])
 def list_findings(
     limit: int = Query(50, ge=1, le=200),
     severity_bucket: str | None = Query(None, description="filter: LOW/MEDIUM/HIGH/CRITICAL"),
@@ -36,7 +38,7 @@ def list_findings(
         raise HTTPException(status_code=500, detail=f"findings query failed: {e}")
 
 
-@router.get("/findings/{pk}")
+@router.get("/findings/{pk}", dependencies=[Depends(require_auth)])
 def get_finding(pk: str):
     """Fetch a single finding by its partition key."""
     try:
@@ -51,7 +53,7 @@ def get_finding(pk: str):
         raise HTTPException(status_code=500, detail=f"finding fetch failed: {e}")
 
 
-@router.get("/stats")
+@router.get("/stats", dependencies=[Depends(require_auth)])
 def stats():
     """Dashboard summary: counts by severity bucket and finding source/type."""
     try:

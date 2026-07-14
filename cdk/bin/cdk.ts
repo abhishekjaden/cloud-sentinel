@@ -10,6 +10,7 @@ import { RemediationStack } from '../lib/stacks/remediation-stack';
 import { ApiStack } from '../lib/stacks/api-stack';
 import { DashboardStack } from '../lib/stacks/dashboard-stack';
 import { DnsDelegationStack } from '../lib/stacks/dns-delegation-stack';
+import { AuthStack } from '../lib/stacks/auth-stack';
 
 const app = new cdk.App();
 
@@ -53,5 +54,9 @@ new DashboardStack(app, 'CloudSentinel-Dashboard', {
 new DnsDelegationStack(app, 'CloudSentinel-DnsDelegation', {
   env: env(ACCOUNTS.management),
   description: 'CloudSentinel: DNS delegation role for api subdomain (Management account)',
+});
+new AuthStack(app, 'CloudSentinel-Auth', {
+  env: env(ACCOUNTS.audit),
+  description: 'CloudSentinel: Cognito user pool for SOC dashboard + API auth (Audit account)',
 });
 app.synth();

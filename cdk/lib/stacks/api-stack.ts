@@ -26,6 +26,8 @@ import { ACCOUNTS } from '../config';
  */
 const API_DOMAIN = 'api.cloudsentinel-soc.com';
 const PARENT_ZONE_ID = 'Z0387487U1PUV4VLJE46';
+const COGNITO_USER_POOL_ID = 'us-east-1_jHroJVSo9';
+const COGNITO_CLIENT_ID = '3i0gv6cm27of4hancq8fjs551t';
 
 export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -85,6 +87,10 @@ export class ApiStack extends cdk.Stack {
           ML_BUCKET: `cloudsentinel-models-${this.account}`,
           MODEL_KEY: 'binary_model.json',
           STATE_MACHINE_ARN: `arn:aws:states:${this.region}:${this.account}:stateMachine:cloudsentinel-remediation`,
+          // Cognito: the API verifies every data request's JWT against the pool.
+          COGNITO_USER_POOL_ID: COGNITO_USER_POOL_ID,
+          COGNITO_CLIENT_ID: COGNITO_CLIENT_ID,
+          AUTH_ENABLED: 'true',
         },
       },
       publicLoadBalancer: true,

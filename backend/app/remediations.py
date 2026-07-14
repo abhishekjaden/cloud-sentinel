@@ -1,7 +1,9 @@
 """Remediation routes — recent SOAR executions from Step Functions."""
 import os
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 import boto3
+
+from app.auth import require_auth
 
 router = APIRouter()
 
@@ -14,7 +16,7 @@ STATE_MACHINE_ARN = os.environ.get(
 _sfn = boto3.client("stepfunctions", region_name=REGION)
 
 
-@router.get("/remediations")
+@router.get("/remediations", dependencies=[Depends(require_auth)])
 def list_remediations(limit: int = Query(20, ge=1, le=100)):
     """Recent remediation executions with status (RUNNING = awaiting approval)."""
     try:

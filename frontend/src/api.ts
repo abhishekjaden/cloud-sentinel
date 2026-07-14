@@ -3,10 +3,16 @@ import type {
   FindingsResponse, Stats, RemediationsResponse, PredictResponse,
 } from "./types";
 import { loadApiBaseUrl } from "./config";
+import { getToken } from "./auth";
 
 async function client() {
   const baseURL = await loadApiBaseUrl();
-  return axios.create({ baseURL, timeout: 15000 });
+  const token = getToken();
+  return axios.create({
+    baseURL,
+    timeout: 15000,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
 }
 
 export async function getStats(): Promise<Stats> {
