@@ -10,6 +10,7 @@ import { RemediationStack } from '../lib/stacks/remediation-stack';
 import { ApiStack } from '../lib/stacks/api-stack';
 import { DashboardStack } from '../lib/stacks/dashboard-stack';
 import { DnsDelegationStack } from '../lib/stacks/dns-delegation-stack';
+import { DnsStack } from '../lib/stacks/dns-stack';
 import { AuthStack } from '../lib/stacks/auth-stack';
 
 const app = new cdk.App();
@@ -43,9 +44,16 @@ new RemediationStack(app, 'CloudSentinel-Remediation', {
   env: env(ACCOUNTS.audit),
   description: 'CloudSentinel: Step Functions remediation playbooks / SOAR layer (Audit account)',
 });
+const dnsStack = new DnsStack(app, 'CloudSentinel-Dns', {
+  env: env(ACCOUNTS.audit),
+  description: 'CloudSentinel: api subdomain zone + ACM cert (Audit account, persistent)',
+});
+
 new ApiStack(app, 'CloudSentinel-Api', {
   env: env(ACCOUNTS.audit),
   description: 'CloudSentinel: FastAPI backend on ECS Fargate + ALB (Audit account)',
+  apiZone: dnsStack.apiZone,
+  apiCertificate: dnsStack.apiCertificate,
 });
 new DashboardStack(app, 'CloudSentinel-Dashboard', {
   env: env(ACCOUNTS.audit),

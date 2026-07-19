@@ -25,13 +25,18 @@ import { ACCOUNTS } from '../config';
  * CloudSentinel-Api` when not actively demoing.
  */
 const API_DOMAIN = 'api.cloudsentinel-soc.com';
-const PARENT_ZONE_ID = 'Z0387487U1PUV4VLJE46';
 const COGNITO_USER_POOL_ID = 'us-east-1_jHroJVSo9';
 const COGNITO_CLIENT_ID = '3i0gv6cm27of4hancq8fjs551t';
 
+interface ApiStackProps extends cdk.StackProps {
+  apiZone: route53.IPublicHostedZone;
+  apiCertificate: acm.ICertificate;
+}
+
 export class ApiStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
+    const { apiZone, apiCertificate } = props;
 
     // Minimal 2-AZ VPC: public subnets for the ALB, private (w/ NAT) for tasks.
     const vpc = new ec2.Vpc(this, 'ApiVpc', {
@@ -45,30 +50,6 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Fargate service + ALB in one construct. Builds the image from backend/.
-    // ---- DNS + TLS ----
-    // Audit owns the delegated subdomain zone outright, so cert, DNS records
-    // and ALB all live same-account. The NS delegation is written into the
-    // parent zone (Management account) via an assumed delegation role.
-    const apiZone = new route53.PublicHostedZone(this, 'ApiZone', {
-      zoneName: API_DOMAIN,
-    });
-
-    const delegationRole = iam.Role.fromRoleArn(
-      this,
-      'DnsDelegationRole',
-      `arn:aws:iam::${ACCOUNTS.management}:role/CloudSentinelApiDnsDelegationRole`,
-    );
-
-    new route53.CrossAccountZoneDelegationRecord(this, 'ApiZoneDelegation', {
-      delegatedZone: apiZone,
-      parentHostedZoneId: PARENT_ZONE_ID,
-      delegationRole,
-    });
-
-    const cert = new acm.Certificate(this, 'ApiCertificate', {
-      domainName: API_DOMAIN,
-      validation: acm.CertificateValidation.fromDns(apiZone),
-    });
 
     const service = new ecsPatterns.ApplicationLoadBalancedFargateService(this, 'ApiService', {
       cluster,
@@ -96,7 +77,7 @@ export class ApiStack extends cdk.Stack {
       publicLoadBalancer: true,
       // TLS: HTTPS listener on 443 with the ACM cert, alias record in our zone,
       // and an HTTP:80 -> HTTPS:443 redirect.
-      certificate: cert,
+      certificate: apiCertificate,
       domainName: API_DOMAIN,
       domainZone: apiZone,
       protocol: elbv2.ApplicationProtocol.HTTPS,
