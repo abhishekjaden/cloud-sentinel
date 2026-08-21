@@ -78,6 +78,9 @@ export class ApiStack extends cdk.Stack {
       // Zero-downtime rolling deployment: never drop below the running count,
       // allow a second task to start and pass health checks before the old one
       // is stopped. The CDK default of 50% would briefly take the API offline.
+      // Fail fast and roll back if replacement tasks cannot start; without this
+      // a bad deployment can hang for up to three hours before ECS gives up.
+      circuitBreaker: { rollback: true },
       minHealthyPercent: 100,
       maxHealthyPercent: 200,
       // TLS: HTTPS listener on 443 with the ACM cert, alias record in our zone,
