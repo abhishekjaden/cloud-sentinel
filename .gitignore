@@ -169,3 +169,4 @@ router-test-event.json
 router-out.json
 backend/.venv-backend/
 backend/binary_model.json
+recording/
