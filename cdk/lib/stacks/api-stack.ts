@@ -75,6 +75,11 @@ export class ApiStack extends cdk.Stack {
         },
       },
       publicLoadBalancer: true,
+      // Zero-downtime rolling deployment: never drop below the running count,
+      // allow a second task to start and pass health checks before the old one
+      // is stopped. The CDK default of 50% would briefly take the API offline.
+      minHealthyPercent: 100,
+      maxHealthyPercent: 200,
       // TLS: HTTPS listener on 443 with the ACM cert, alias record in our zone,
       // and an HTTP:80 -> HTTPS:443 redirect.
       certificate: apiCertificate,
