@@ -31,14 +31,22 @@ jobs:
           cache: npm
           cache-dependency-path: cdk/package-lock.json
 
-      - name: Install dependencies
+      - name: Install CDK dependencies
         run: npm ci
+
+      # DashboardStack bundles frontend/dist as an S3 asset, so the SPA must be
+      # built before the CDK app can be synthesized.
+      - name: Build frontend for asset bundling
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
 
       - name: Type check
         run: npx tsc --noEmit
 
       - name: Synthesize all stacks
-        run: npx cdk synth --all --quiet
+        run: npx cdk synth --quiet
 
       - name: Authenticate to AWS
         uses: aws-actions/configure-aws-credentials@v4
