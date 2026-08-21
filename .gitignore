@@ -145,7 +145,6 @@ vite.config.ts.timestamp-*
 # CDK
 cdk/cdk.out/
 cdk/.env
-cdk.context.json
 
 # Python
 __pycache__/

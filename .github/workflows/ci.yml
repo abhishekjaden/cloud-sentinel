@@ -45,15 +45,15 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Synthesize all stacks
-        run: npx cdk synth --quiet
-
       - name: Authenticate to AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.CI_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: cloudsentinel-ci-${{ github.run_id }}
+
+      - name: Synthesize all stacks
+        run: npx cdk synth --quiet
 
       - name: Diff against deployed state
         run: npx cdk diff --all || true
