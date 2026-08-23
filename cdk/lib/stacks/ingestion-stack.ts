@@ -9,6 +9,7 @@ import { StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { KinesisEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from 'path';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 /**
  * IngestionStack — deploys to the Audit account (118821712739).
@@ -54,6 +55,20 @@ export class IngestionStack extends cdk.Stack {
     // avoids cross-stack coupling; table lives in DataStoresStack).
     const findingsTable = dynamodb.Table.fromTableName(this, 'FindingsTableRef', 'cloudsentinel-findings');
     findingsTable.grantWriteData(normalizer);
+
+    // fromTableName() carries no knowledge of the table's encryption key, so
+    // the KMS grant has to be made explicitly or every write fails.
+    normalizer.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'EncryptFindingsTable',
+      actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:GenerateDataKey', 'kms:DescribeKey'],
+      // Scoped to the findings key by alias rather than '*': Security Hub
+      // control KMS.2 flags wildcard decrypt permissions, and the ViaService
+      // condition alone does not satisfy it.
+      resources: [cdk.Fn.importValue('CloudSentinelFindingsKeyArn')],
+      conditions: {
+        StringEquals: { 'kms:ViaService': `dynamodb.${this.region}.amazonaws.com` },
+      },
+    }));
 
     // EventBridge rules -> Kinesis, one per finding source
     const sources = [

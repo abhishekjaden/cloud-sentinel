@@ -101,6 +101,17 @@ export class ApiStack extends cdk.Stack {
 
     // Task role: least-privilege reads for the resources the API queries.
     const taskRole = service.taskDefinition.taskRole;
+    // The findings table is encrypted with a customer-managed key, so reading
+    // it requires kms:Decrypt in addition to the DynamoDB actions.
+    taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'DecryptFindingsTable',
+      actions: ['kms:Decrypt', 'kms:DescribeKey'],
+      resources: [cdk.Fn.importValue('CloudSentinelFindingsKeyArn')],
+      conditions: {
+        StringEquals: { 'kms:ViaService': `dynamodb.${this.region}.amazonaws.com` },
+      },
+    }));
+
     taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       actions: [
         'dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem',
