@@ -45,6 +45,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Security posture tests
+        run: npx jest --ci
+
       - name: Authenticate to AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
