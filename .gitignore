@@ -169,3 +169,8 @@ router-out.json
 backend/.venv-backend/
 backend/binary_model.json
 recording/
+
+# pytest / coverage artifacts
+backend/coverage.xml
+backend/.coverage
+backend/.pytest_cache/

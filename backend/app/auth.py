@@ -54,6 +54,10 @@ def require_auth(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
     token = creds.credentials
     try:
         headers = jwt.get_unverified_header(token)
+    except JWTError as e:
+        raise _unauthorized(f"malformed token: {e}")
+
+    try:
         kid = headers.get("kid")
         key = next((k for k in _jwks()["keys"] if k["kid"] == kid), None)
         if key is None:
@@ -71,6 +75,10 @@ def require_auth(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
         )
     except JWTError as e:
         raise _unauthorized(f"invalid token: {e}")
+    except requests.RequestException as e:
+        # Fail closed: if the signing keys cannot be retrieved we deny access
+        # rather than returning a server error.
+        raise _unauthorized(f"unable to verify token: {e}")
 
     if claims.get("token_use") != "access":
         raise _unauthorized("wrong token type")
