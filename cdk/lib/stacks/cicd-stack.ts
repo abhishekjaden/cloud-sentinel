@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { ACCOUNTS } from '../config';
+import { suppressCdkManagedResources } from '../nag-suppressions';
 
 const GITHUB_OWNER = 'abhishekjaden';
 const GITHUB_REPO = 'cloud-sentinel';
@@ -88,5 +89,8 @@ export class CicdStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'CiRoleArn', { value: ciRole.roleArn });
     new cdk.CfnOutput(this, 'DeployRoleArn', { value: deployRole.roleArn });
+
+    suppressCdkManagedResources(this);
+
   }
 }

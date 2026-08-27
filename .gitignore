@@ -174,3 +174,5 @@ recording/
 backend/coverage.xml
 backend/.coverage
 backend/.pytest_cache/
+
+cdk/nag.txt

@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
+import { suppressCdkManagedResources, suppressMlDataLake } from '../nag-suppressions';
 
 /**
  * MLStack — deploys to the workload account (743181156000).
@@ -25,6 +26,7 @@ export class MLStack extends cdk.Stack {
     super(scope, id, props);
 
     this.dataLake = new s3.Bucket(this, 'DataLake', {
+      serverAccessLogsPrefix: 'access-logs/',
       bucketName: `cloudsentinel-ml-${this.account}`,
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -43,5 +45,9 @@ export class MLStack extends cdk.Stack {
     this.dataLake.grantReadWrite(sagemakerRole);
 
     new cdk.CfnOutput(this, 'DataLakeBucket', { value: this.dataLake.bucketName });
+
+    suppressCdkManagedResources(this);
+    suppressMlDataLake(this);
+
   }
 }

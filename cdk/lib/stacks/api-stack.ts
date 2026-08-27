@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -10,6 +11,7 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { ACCOUNTS } from '../config';
+import { suppressCdkManagedResources, suppressPublicIngress } from '../nag-suppressions';
 
 /**
  * ApiStack — deploys to the Audit account (118821712739).
@@ -42,11 +44,44 @@ export class ApiStack extends cdk.Stack {
     const vpc = new ec2.Vpc(this, 'ApiVpc', {
       maxAzs: 2,
       natGateways: 1,
+      // Network-level forensics: without flow logs there is no record of what
+      // talked to what inside the serving VPC.
+      flowLogs: {
+        ApiVpcFlowLog: {
+          trafficType: ec2.FlowLogTrafficType.ALL,
+          destination: ec2.FlowLogDestination.toCloudWatchLogs(),
+        },
+      },
     });
 
     const cluster = new ecs.Cluster(this, 'ApiCluster', {
       vpc,
       clusterName: 'cloudsentinel-api',
+      containerInsightsV2: ecs.ContainerInsights.ENABLED,
+    });
+
+    // Access logs answer "who called the API, when, and with what result" —
+    // the ALB is the only path to application data.
+    // S3 access logs for the ALB log bucket land here. A bucket must not log
+    // into itself: each write would generate a further write.
+    const logArchive = new s3.Bucket(this, 'LogArchive', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      lifecycleRules: [{ expiration: cdk.Duration.days(90) }],
+    });
+
+    const albLogs = new s3.Bucket(this, 'AlbAccessLogs', {
+      serverAccessLogsBucket: logArchive,
+      serverAccessLogsPrefix: 'alb-log-bucket/',
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      lifecycleRules: [{ expiration: cdk.Duration.days(90) }],
     });
 
     // Fargate service + ALB in one construct. Builds the image from backend/.
@@ -92,6 +127,8 @@ export class ApiStack extends cdk.Stack {
       redirectHTTP: true,
     });
 
+    service.loadBalancer.logAccessLogs(albLogs);
+
     // Health check hits /health (our FastAPI route).
     service.targetGroup.configureHealthCheck({
       path: '/health',
@@ -131,6 +168,9 @@ export class ApiStack extends cdk.Stack {
     }));
 
     new cdk.CfnOutput(this, 'ApiUrl', { value: `https://${API_DOMAIN}` });
+
+    suppressCdkManagedResources(this);
+    suppressPublicIngress(this);
     new cdk.CfnOutput(this, 'AlbDnsName', { value: service.loadBalancer.loadBalancerDnsName });
   }
 }

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib/core';
+import { Aspects } from 'aws-cdk-lib/core';
+import { AwsSolutionsChecks } from 'cdk-nag';
 import { ACCOUNTS, env } from '../lib/config';
 import { SecurityServicesStack } from '../lib/stacks/security-services-stack';
 import { WorkloadNetworkStack } from '../lib/stacks/workload-network-stack';
@@ -15,6 +17,11 @@ import { AuthStack } from '../lib/stacks/auth-stack';
 import { CicdStack } from '../lib/stacks/cicd-stack';
 
 const app = new cdk.App();
+
+// Policy-scan every synthesized template against the AWS Solutions
+// ruleset. Findings surface at synth time, so CI fails on any new
+// violation; accepted risks are suppressed individually with a reason.
+Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
 new SecurityServicesStack(app, 'CloudSentinel-SecurityServices', {
   env: env(ACCOUNTS.audit),

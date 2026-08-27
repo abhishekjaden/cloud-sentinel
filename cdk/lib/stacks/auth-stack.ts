@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { RemovalPolicy, Duration } from 'aws-cdk-lib/core';
+import { suppressCdkManagedResources, suppressCognitoTier } from '../nag-suppressions';
 
 /**
  * AuthStack — deploys to the Audit account (118821712739).
@@ -34,6 +35,10 @@ export class AuthStack extends cdk.Stack {
       standardAttributes: {
         email: { required: true, mutable: false },
       },
+      // The console can approve destructive remediation, so a stolen password
+      // must not be sufficient on its own.
+      mfa: cognito.Mfa.REQUIRED,
+      mfaSecondFactor: { otp: true, sms: false },
       passwordPolicy: {
         minLength: 12,
         requireLowercase: true,
@@ -81,5 +86,9 @@ export class AuthStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'JwksUrl', {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}/.well-known/jwks.json`,
     });
+
+    suppressCdkManagedResources(this);
+    suppressCognitoTier(this);
+
   }
 }

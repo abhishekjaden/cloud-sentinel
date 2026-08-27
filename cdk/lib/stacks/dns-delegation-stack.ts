@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { ACCOUNTS } from '../config';
+import { suppressCdkManagedResources, suppressDnsDelegation } from '../nag-suppressions';
 
 /**
  * DnsDelegationStack — deploys to the MANAGEMENT account (062345618950).
@@ -48,5 +49,9 @@ export class DnsDelegationStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'ParentZoneId', { value: parentZone.hostedZoneId });
+
+    suppressCdkManagedResources(this);
+    suppressDnsDelegation(this);
+
   }
 }

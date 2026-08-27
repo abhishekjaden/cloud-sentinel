@@ -4,6 +4,7 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { ACCOUNTS } from '../config';
+import { suppressCdkManagedResources } from '../nag-suppressions';
 
 const API_DOMAIN = 'api.cloudsentinel-soc.com';
 const PARENT_ZONE_ID = 'Z0387487U1PUV4VLJE46';
@@ -51,5 +52,8 @@ export class DnsStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'ApiZoneId', { value: this.apiZone.hostedZoneId });
     new cdk.CfnOutput(this, 'ApiCertArn', { value: this.apiCertificate.certificateArn });
+
+    suppressCdkManagedResources(this);
+
   }
 }

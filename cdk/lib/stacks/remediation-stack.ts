@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib/core';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
@@ -10,6 +11,7 @@ import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Duration } from 'aws-cdk-lib/core';
 import * as path from 'path';
+import { suppressCdkManagedResources } from '../nag-suppressions';
 
 /**
  * RemediationStack — deploys to the Audit account (118821712739).
@@ -33,6 +35,7 @@ export class RemediationStack extends cdk.Stack {
     const safeMode = this.node.tryGetContext('safeMode') !== 'false';
 
     const notifyTopic = new sns.Topic(this, 'RemediationTopic', {
+      enforceSSL: true,
       topicName: 'cloudsentinel-remediation-approvals',
       displayName: 'CloudSentinel Remediation Approvals & Notifications',
     });
@@ -122,7 +125,17 @@ export class RemediationStack extends cdk.Stack {
       .when(sfn.Condition.stringEquals('$.playbook', 's3_public'), s3Playbook)
       .otherwise(genericPlaybook);
 
+    // Every remediation decision — including who approved what and when — must
+    // leave an audit trail, so all execution events are logged.
+    const sfnLogs = new logs.LogGroup(this, 'RemediationLogs', {
+      logGroupName: '/aws/vendedlogs/states/cloudsentinel-remediation',
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     const stateMachine = new sfn.StateMachine(this, 'RemediationStateMachine', {
+      logs: { destination: sfnLogs, level: sfn.LogLevel.ALL, includeExecutionData: true },
+      tracingEnabled: true,
       stateMachineName: 'cloudsentinel-remediation',
       definitionBody: sfn.DefinitionBody.fromChainable(classify),
       timeout: Duration.hours(24), // allow time for human approval
@@ -158,5 +171,8 @@ export class RemediationStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'StateMachineArn', { value: stateMachine.stateMachineArn });
     new cdk.CfnOutput(this, 'NotifyTopicArn', { value: notifyTopic.topicArn });
     new cdk.CfnOutput(this, 'SafeMode', { value: String(safeMode) });
+
+    suppressCdkManagedResources(this);
+
   }
 }

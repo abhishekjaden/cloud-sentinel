@@ -6,6 +6,7 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
 import * as path from 'path';
+import { suppressCdkManagedResources, suppressCloudFrontOptional, suppressCloudFrontTls } from '../nag-suppressions';
 
 /**
  * DashboardStack — deploys to the Audit account (118821712739).
@@ -21,7 +22,19 @@ export class DashboardStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const siteBucket = new s3.Bucket(this, 'DashboardBucket', {
+    const dashLogs = new s3.Bucket(this, 'DashboardAccessLogs', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      lifecycleRules: [{ expiration: cdk.Duration.days(90) }],
+    });
+
+        const siteBucket = new s3.Bucket(this, 'DashboardBucket', {
+      enforceSSL: true,
+      serverAccessLogsBucket: dashLogs,
+      serverAccessLogsPrefix: 'dashboard/',
       bucketName: `cloudsentinel-dashboard-${this.account}`,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -30,6 +43,8 @@ export class DashboardStack extends cdk.Stack {
     });
 
     const distribution = new cloudfront.Distribution(this, 'DashboardCdn', {
+      // Refuse TLS 1.0/1.1 and SSLv3 for viewer connections.
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(siteBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -54,5 +69,10 @@ export class DashboardStack extends cdk.Stack {
       value: `https://${distribution.distributionDomainName}`,
     });
     new cdk.CfnOutput(this, 'DashboardBucketName', { value: siteBucket.bucketName });
+
+    suppressCdkManagedResources(this);
+    suppressCloudFrontOptional(this);
+    suppressCloudFrontTls(this);
+
   }
 }

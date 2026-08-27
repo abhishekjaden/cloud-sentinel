@@ -10,6 +10,7 @@ import { KinesisEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from 'path';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import { suppressCdkManagedResources, suppressStreamEncryption } from '../nag-suppressions';
 
 /**
  * IngestionStack — deploys to the Audit account (118821712739).
@@ -90,5 +91,9 @@ export class IngestionStack extends cdk.Stack {
     }
 
     new cdk.CfnOutput(this, 'StreamName', { value: stream.streamName });
+
+    suppressCdkManagedResources(this);
+    suppressStreamEncryption(this);
+
   }
 }

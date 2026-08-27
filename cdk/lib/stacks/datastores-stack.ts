@@ -5,6 +5,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
+import { suppressCdkManagedResources } from '../nag-suppressions';
 
 export class DataStoresStack extends cdk.Stack {
   public readonly findingsTable: dynamodb.Table;
@@ -46,7 +47,20 @@ export class DataStoresStack extends cdk.Stack {
     });
     // Serving-side model artifacts. Models trained in the workload account are
     // promoted here (audit account) so the API serves them same-account.
+    // Terminal bucket for S3 server access logs. It is not itself logged: a
+    // bucket cannot log into itself without each write generating another.
+    const accessLogs = new s3.Bucket(this, 'DataStoresAccessLogs', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      lifecycleRules: [{ expiration: cdk.Duration.days(90) }],
+    });
+
     this.modelsBucket = new s3.Bucket(this, 'ModelsBucket', {
+      serverAccessLogsBucket: accessLogs,
+      serverAccessLogsPrefix: 'models/',
       bucketName: `cloudsentinel-models-${this.account}`,
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -60,5 +74,8 @@ export class DataStoresStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'FindingsTableName', {
       value: this.findingsTable.tableName,
     });
+
+    suppressCdkManagedResources(this);
+
   }
 }
