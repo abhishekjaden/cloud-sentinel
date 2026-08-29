@@ -1,0 +1,8 @@
+# Vendored and generated code is not ours to fix.
+node_modules/
+.venv/
+.venv-backend/
+cdk.out/
+frontend/dist/
+**/__pycache__/
+*.min.js
