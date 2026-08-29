@@ -6,6 +6,8 @@ updates:
     directory: /cdk
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       cdk-dependencies:
         patterns: ['*']
@@ -14,6 +16,8 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       frontend-dependencies:
         patterns: ['*']
@@ -22,6 +26,8 @@ updates:
     directory: /backend
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       backend-dependencies:
         patterns: ['*']
@@ -30,3 +36,5 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7

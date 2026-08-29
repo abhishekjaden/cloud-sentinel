@@ -14,4 +14,8 @@ COPY app/ ./app/
 EXPOSE 8000
 
 # Uvicorn bound to 0.0.0.0 so the container is reachable.
+# Drop privileges: nothing in this service needs root.
+RUN useradd --system --uid 10001 --create-home appuser
+USER appuser
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

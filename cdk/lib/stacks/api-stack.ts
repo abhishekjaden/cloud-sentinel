@@ -107,6 +107,10 @@ export class ApiStack extends cdk.Stack {
           COGNITO_USER_POOL_ID: COGNITO_USER_POOL_ID,
           COGNITO_CLIENT_ID: COGNITO_CLIENT_ID,
           AUTH_ENABLED: 'true',
+          // Browser origins allowed to call this API. Restricting this stops a
+          // malicious site from issuing credentialed requests on behalf of a
+          // logged-in operator.
+          CORS_ORIGINS: 'https://d2tb90osqfrb0m.cloudfront.net',
         },
       },
       publicLoadBalancer: true,

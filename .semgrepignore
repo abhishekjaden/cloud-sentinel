@@ -6,3 +6,7 @@ cdk.out/
 frontend/dist/
 **/__pycache__/
 *.min.js
+
+# Test fixtures deliberately construct tokens signed with a throwaway secret in
+# order to assert that the API rejects them; they are not real credentials.
+backend/tests/test_auth.py

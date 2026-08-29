@@ -29,6 +29,10 @@ export class IngestionStack extends cdk.Stack {
     // Buffered ingestion stream
     const stream = new kinesis.Stream(this, 'FindingsStream', {
       streamName: 'cloudsentinel-findings',
+      // Provisioned, not on-demand. At roughly 950 records a day the on-demand
+      // base charge (~$26/month per stream) costs more than a single
+      // provisioned shard (~$11/month), which handles 1,000 records a second.
+      streamMode: kinesis.StreamMode.PROVISIONED,
       shardCount: 1,
       retentionPeriod: Duration.hours(24),
     });
