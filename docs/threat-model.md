@@ -79,9 +79,9 @@ The highest-consequence boundary in the system.
 
 | Threat | Vector | Mitigation | Residual |
 |---|---|---|---|
-| **S** | Someone other than the operator approves | Approval requires authentication; the pool enforces TOTP MFA and self-signup is disabled | The approval token arrives by email via SNS. **Anyone with access to that mailbox can approve without touching the platform.** This is the weakest link in the system. |
+| **S** | Someone other than the operator approves | The task token is written to a KMS-encrypted DynamoDB table and never leaves AWS. Resuming a workflow requires an authenticated `POST /approvals/{id}/decide`; the notification email carries no token and cannot approve anything. | An operator's session token remains usable until expiry if stolen. |
 | **T** | Altering the remediation definition | State machine defined in CDK and deployed through a reviewed pipeline | An audit-account administrator can edit the state machine directly in the console; there is no drift detection or alarm. |
-| **R** | Denying an approval decision | All execution events, including input, logged to CloudWatch | The log records that an approval occurred, not which human made it. **Non-repudiation is not achieved.** |
+| **R** | Denying an approval decision | The deciding principal's Cognito `sub` and a timestamp are written to the approvals record before the workflow resumes; spent tokens are removed and replay returns 409 | Attribution is to a Cognito identity, not to a verified human; a shared account would defeat it. |
 | **I** | Approval payload exposes finding detail | SNS topic requires TLS for publishers | Notification content reaches a mailbox outside AWS's trust boundary. |
 | **D** | Blocking legitimate remediation | Failed executions surface in the dashboard | An unapproved execution simply waits; nothing alerts on approvals pending beyond a threshold. |
 | **E** | Executor exceeds intended scope | Playbook Lambdas hold narrowly scoped permissions; `SAFE_MODE` allows exercising the flow without touching resources | Compromise of a playbook role grants exactly the destructive power the playbook was designed to have. |
@@ -99,25 +99,21 @@ The highest-consequence boundary in the system.
 
 ## 3. Residual risks, ranked
 
-1. **Approval by mailbox access.** Whoever controls the notification inbox can
-   authorise remediation without authenticating to the platform. The MFA on the
-   user pool does not protect this path. Fixing it means moving approval into
-   the authenticated dashboard rather than an emailed link.
-2. **No attribution of actions to individuals.** Logs establish that something
-   happened, not who did it. With one operator this is tolerable; with two it
-   would not be.
-3. **Single-account blast radius.** Audit-account administrator access reads
+1. **Single-account blast radius.** Audit-account administrator access reads
    every finding, edits the state machine, and disables the KMS key.
 4. **No alerting on the security controls themselves.** Nothing raises an alarm
    if ingestion stalls, an approval waits indefinitely, or the state machine is
    modified.
-5. **Unvalidated ingestion input.** The normalizer trusts whatever reaches it.
-6. **No WAF or rate limiting.** Accepted deliberately on cost grounds.
+3. **Unvalidated ingestion input.** The normalizer trusts whatever reaches it.
+4. **No WAF or rate limiting.** Accepted deliberately on cost grounds.
 
 ## 4. What this analysis changed
 
-Two items were fixed as a direct result of writing this model: CORS was
-restricted from `*` to the dashboard origin, and the API container was moved off
-root. The rest are recorded above rather than silently resolved, because a
+Three items were fixed as a direct result of writing this model. CORS was
+restricted from `*` to the dashboard origin; the API container was moved off
+root; and the SOAR approval gate was rebuilt so that the Step Functions task
+token is held server-side rather than emailed, which removed the system's
+highest-ranked residual risk and, in the same change, gave approvals a named
+principal. The rest are recorded above rather than silently resolved, because a
 threat model whose every threat is neatly mitigated is not describing a real
 system.
