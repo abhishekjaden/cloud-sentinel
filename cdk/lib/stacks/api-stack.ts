@@ -111,6 +111,7 @@ export class ApiStack extends cdk.Stack {
           // malicious site from issuing credentialed requests on behalf of a
           // logged-in operator.
           CORS_ORIGINS: 'https://d2tb90osqfrb0m.cloudfront.net',
+          APPROVALS_TABLE: 'cloudsentinel-approvals',
         },
       },
       publicLoadBalancer: true,
@@ -144,6 +145,24 @@ export class ApiStack extends cdk.Stack {
     const taskRole = service.taskDefinition.taskRole;
     // The findings table is encrypted with a customer-managed key, so reading
     // it requires kms:Decrypt in addition to the DynamoDB actions.
+    // Resuming a paused remediation is the whole point of the approvals route,
+    // so the task role may send task outcomes — but nothing else on the state
+    // machine.
+    taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'ResumeRemediationWorkflows',
+      actions: ['states:SendTaskSuccess', 'states:SendTaskFailure'],
+      resources: ['*'],
+    }));
+
+    taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'ReadWriteApprovals',
+      actions: ['dynamodb:GetItem', 'dynamodb:Query', 'dynamodb:UpdateItem'],
+      resources: [
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-approvals`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-approvals/index/*`,
+      ],
+    }));
+
     taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       sid: 'DecryptFindingsTable',
       actions: ['kms:Decrypt', 'kms:DescribeKey'],

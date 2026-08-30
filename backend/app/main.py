@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.findings import router as findings_router
 from app.predict import router as predict_router
 from app.remediations import router as remediations_router
+from app.approvals import router as approvals_router
 
 app = FastAPI(
     title="CloudSentinel API",
@@ -52,6 +53,7 @@ app.add_middleware(
 app.include_router(findings_router, tags=["findings"])
 app.include_router(predict_router, tags=["prediction"])
 app.include_router(remediations_router, tags=["remediation"])
+app.include_router(approvals_router, tags=["approvals"])
 
 
 @app.get("/health", tags=["health"])

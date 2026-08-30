@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib/core';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
@@ -65,14 +66,43 @@ export class RemediationStack extends cdk.Stack {
 
     // Reusable approval gate: pause, publish approval request with task token,
     // wait for a human to resume (SendTaskSuccess/Failure).
-    const approvalGate = (id: string) => new tasks.SnsPublish(this, id, {
-      topic: notifyTopic,
+    const approvalsTable = dynamodb.Table.fromTableName(
+      this, 'ApprovalsTableRef', 'cloudsentinel-approvals');
+
+    const approvalRecorder = new lambda.Function(this, 'ApprovalRecorder', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset('lambda/approval-recorder'),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        APPROVALS_TABLE: 'cloudsentinel-approvals',
+        NOTIFY_TOPIC_ARN: notifyTopic.topicArn,
+        DASHBOARD_URL: 'https://d2tb90osqfrb0m.cloudfront.net',
+      },
+    });
+    approvalsTable.grantWriteData(approvalRecorder);
+    notifyTopic.grantPublish(approvalRecorder);
+    approvalRecorder.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'EncryptApprovalsTable',
+      actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:GenerateDataKey', 'kms:DescribeKey'],
+      resources: [cdk.Fn.importValue('CloudSentinelFindingsKeyArn')],
+      conditions: {
+        StringEquals: { 'kms:ViaService': `dynamodb.${this.region}.amazonaws.com` },
+      },
+    }));
+
+    // The task token is handed to the recorder, which stores it. It is never
+    // published to SNS: an emailed token would make mailbox access equivalent
+    // to authority over production resources.
+    const approvalGate = (id: string) => new tasks.LambdaInvoke(this, id, {
+      lambdaFunction: approvalRecorder,
       integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
-      message: sfn.TaskInput.fromObject({
-        message: 'CloudSentinel remediation requires approval',
-        finding: sfn.JsonPath.stringAt('$.finding_id'),
-        playbook: sfn.JsonPath.stringAt('$.playbook'),
+      payload: sfn.TaskInput.fromObject({
         taskToken: sfn.JsonPath.taskToken,
+        finding_id: sfn.JsonPath.stringAt('$.finding_id'),
+        playbook: sfn.JsonPath.stringAt('$.playbook'),
+        params: sfn.JsonPath.objectAt('$.params'),
+        execution_arn: sfn.JsonPath.stringAt('$$.Execution.Id'),
       }),
       resultPath: '$.approval',
     });

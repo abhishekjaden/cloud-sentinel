@@ -10,6 +10,7 @@ import { suppressCdkManagedResources } from '../nag-suppressions';
 export class DataStoresStack extends cdk.Stack {
   public readonly findingsTable: dynamodb.Table;
   public readonly findingsKey: kms.Key;
+  public readonly approvalsTable: dynamodb.Table;
   public readonly modelsBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -45,6 +46,31 @@ export class DataStoresStack extends cdk.Stack {
       partitionKey: { name: 'severity_bucket', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'severity', type: dynamodb.AttributeType.NUMBER },
     });
+    // Pending remediation approvals. The Step Functions task token is held
+    // here rather than emailed out: possession of a mailbox must not be
+    // equivalent to authority to isolate an instance or revoke a credential.
+    this.approvalsTable = new dynamodb.Table(this, 'ApprovalsTable', {
+      tableName: 'cloudsentinel-approvals',
+      partitionKey: { name: 'approval_id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: this.findingsKey,
+      timeToLiveAttribute: 'expires_at',
+    });
+
+    this.approvalsTable.addGlobalSecondaryIndex({
+      indexName: 'status-index',
+      partitionKey: { name: 'status', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'created_at', type: dynamodb.AttributeType.STRING },
+    });
+
+    new cdk.CfnOutput(this, 'ApprovalsTableName', {
+      value: this.approvalsTable.tableName,
+      exportName: 'CloudSentinelApprovalsTable',
+    });
+
     // Serving-side model artifacts. Models trained in the workload account are
     // promoted here (audit account) so the API serves them same-account.
     // Terminal bucket for S3 server access logs. It is not itself logged: a
