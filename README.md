@@ -83,6 +83,11 @@ The graph shows `ClassifyFinding` routing a C&C/exfiltration finding down the `e
 
 ## Engineering decisions
 
+The system is threat-modelled in [`docs/threat-model.md`](docs/threat-model.md),
+a STRIDE analysis across six trust boundaries. It records mitigations where they
+exist and residual risks where they do not — including that SOAR approvals
+currently arrive by email, so mailbox access substitutes for authentication.
+
 Architecture decisions are recorded as ADRs in [`docs/adr/`](docs/adr/):
 
 - **[0001 — Fargate over EKS](docs/adr/0001-compute-fargate-over-eks.md):** right-sized compute; Kubernetes would be over-engineering for a single API service.
