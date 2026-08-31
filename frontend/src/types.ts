@@ -45,3 +45,27 @@ export interface PredictResponse {
   prediction: string;
   threshold: number;
 }
+
+export interface Approval {
+  approval_id: string;
+  status: string;
+  created_at: string;
+  finding_id: string;
+  playbook: string;
+  resource?: string;
+  execution_arn?: string;
+  decided_by?: string;
+  decided_at?: string;
+}
+
+export interface ApprovalsResponse {
+  count: number;
+  approvals: Approval[];
+}
+
+export interface DecisionResponse {
+  approval_id: string;
+  status: string;
+  decided_by: string;
+  decided_at: string;
+}

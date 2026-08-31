@@ -1,6 +1,7 @@
 import axios from "axios";
 import type {
   FindingsResponse, Stats, RemediationsResponse, PredictResponse,
+  ApprovalsResponse, DecisionResponse,
 } from "./types";
 import { loadApiBaseUrl } from "./config";
 import { getToken } from "./auth";
@@ -38,5 +39,25 @@ export async function getRemediations(limit = 20): Promise<RemediationsResponse>
 export async function predict(features: number[]): Promise<PredictResponse> {
   const c = await client();
   const { data } = await c.post<PredictResponse>("/predict", { features });
+  return data;
+}
+
+export async function getApprovals(status = "pending"): Promise<ApprovalsResponse> {
+  const c = await client();
+  const { data } = await c.get<ApprovalsResponse>("/approvals", { params: { status } });
+  return data;
+}
+
+/** Resume or abandon a staged remediation. The API attributes the decision to
+ *  the authenticated principal; the caller cannot supply an identity. */
+export async function decideApproval(
+  approvalId: string,
+  decision: "approve" | "reject",
+  note?: string,
+): Promise<DecisionResponse> {
+  const c = await client();
+  const { data } = await c.post<DecisionResponse>(
+    `/approvals/${approvalId}/decide`, { decision, note },
+  );
   return data;
 }

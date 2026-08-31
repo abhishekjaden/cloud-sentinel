@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { getStats, getFindings, getRemediations } from "./api";
-import type { Stats, Finding, RemediationsResponse } from "./types";
+import { getStats, getFindings, getRemediations, getApprovals } from "./api";
+import type { Stats, Finding, RemediationsResponse, Approval} from "./types";
 import { StatsOverview } from "./components/StatsOverview";
 import { FindingsTable } from "./components/FindingsTable";
 import { RemediationsPanel } from "./components/RemediationsPanel";
+import { ApprovalsPanel } from "./components/ApprovalsPanel";
 import { PredictPanel } from "./components/PredictPanel";
 import { isAuthenticated, login, logout, handleRedirect } from "./auth";
 import "./App.css";
@@ -12,6 +13,7 @@ export default function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [remediations, setRemediations] = useState<RemediationsResponse | null>(null);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authed, setAuthed] = useState(false);
@@ -20,10 +22,13 @@ export default function App() {
   async function loadAll() {
     try {
       setLoading(true);
-      const [s, f, r] = await Promise.all([getStats(), getFindings(50), getRemediations(20)]);
+      const [s, f, r, a] = await Promise.all([
+        getStats(), getFindings(50), getRemediations(20), getApprovals(),
+      ]);
       setStats(s);
       setFindings(f.findings);
       setRemediations(r);
+      setApprovals(a.approvals);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load data");
@@ -90,6 +95,16 @@ export default function App() {
       {error && <div className="error-banner">API error: {error}</div>}
 
       <main className="grid">
+        {approvals.length > 0 && (
+          <section className="panel span-2 panel-attention">
+            <h2>
+              Awaiting Approval
+              <span className="approval-badge">{approvals.length}</span>
+            </h2>
+            <ApprovalsPanel approvals={approvals} onDecided={loadAll} />
+          </section>
+        )}
+
         <section className="panel span-2">
           <h2>Overview</h2>
           {stats ? <StatsOverview stats={stats} /> : <p className="muted">Loading stats...</p>}

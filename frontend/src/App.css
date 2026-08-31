@@ -159,3 +159,64 @@ td { padding: 8px; border-bottom: 1px solid var(--border); }
   padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
 }
 .logout:hover { border-color: var(--crit); color: var(--crit); }
+
+/* ---- Pending approvals -------------------------------------------------- */
+/* This panel authorises destructive action against live resources, so it is
+   given visual weight above everything else on the dashboard. */
+.panel-attention {
+  border-color: #b8860b;
+  box-shadow: 0 0 0 1px rgba(184, 134, 11, 0.25);
+}
+.approval-badge {
+  margin-left: 0.6rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #b8860b;
+  color: #10131a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.approval-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.approval-card {
+  border: 1px solid #2a3140;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  background: #171b24;
+}
+.approval-head { display: flex; justify-content: space-between; align-items: baseline; }
+.approval-playbook { font-weight: 600; color: #e6e9ef; }
+.approval-age { font-size: 0.8rem; }
+.approval-body { display: flex; flex-direction: column; gap: 0.15rem; margin: 0.5rem 0 0.85rem; }
+.approval-finding { font-size: 0.82rem; color: #9aa4b5; word-break: break-all; }
+.approval-target { font-size: 0.82rem; color: #cbd3e0; }
+.approval-actions { display: flex; gap: 0.6rem; justify-content: flex-end; }
+.approval-actions button {
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #2a3140;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.approval-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-approve { background: #1c7293; color: #fff; border-color: #1c7293; }
+.btn-approve-confirm { background: #8b2635; color: #fff; border-color: #8b2635; font-weight: 600; }
+.btn-reject, .btn-cancel { background: transparent; color: #9aa4b5; }
+.approval-confirm {
+  border-top: 1px solid #2a3140;
+  padding-top: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.approval-warning { font-size: 0.82rem; color: #d9a441; }
+.approval-error {
+  background: rgba(139, 38, 53, 0.15);
+  border: 1px solid #8b2635;
+  color: #e88; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem;
+}
+.approval-decided {
+  background: rgba(28, 114, 147, 0.15);
+  border: 1px solid #1c7293;
+  color: #7fc7e0; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem;
+}
