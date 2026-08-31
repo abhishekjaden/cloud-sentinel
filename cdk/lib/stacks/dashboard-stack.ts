@@ -59,7 +59,16 @@ export class DashboardStack extends cdk.Stack {
 
     // Deploy the built dashboard (frontend/dist) to the bucket, invalidate CDN.
     new s3deploy.BucketDeployment(this, 'DeployDashboard', {
-      sources: [s3deploy.Source.asset(path.join(__dirname, '../../../frontend/dist'))],
+      sources: [
+        s3deploy.Source.asset(path.join(__dirname, '../../../frontend/dist')),
+        // Generated here rather than shipped from the build: frontend/dist
+        // carries a developer's local config.json, and deploying that would
+        // point the live dashboard at localhost. Writing it at deploy time
+        // means the artifact cannot be coupled to a local environment.
+        s3deploy.Source.jsonData('config.json', {
+          apiUrl: 'https://api.cloudsentinel-soc.com',
+        }),
+      ],
       destinationBucket: siteBucket,
       distribution,
       distributionPaths: ['/*'],
