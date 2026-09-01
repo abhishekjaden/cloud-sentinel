@@ -15,6 +15,7 @@ Usage:
 """
 import argparse
 import json
+import socket
 import sys
 from urllib.parse import urlparse
 
@@ -82,6 +83,19 @@ def main() -> int:
 
     # --- the API the dashboard was told to use ----------------------------
     print(f"\nAPI at {api_url}")
+
+    # The serving stack is deployed on demand and torn down between sessions.
+    # A hostname that does not resolve means it is simply absent, which is not
+    # the same as a deployed API that is failing — reporting them identically
+    # would train the reader to ignore a red result.
+    host = urlparse(api_url).hostname or ""
+    try:
+        socket.getaddrinfo(host, 443)
+    except socket.gaierror:
+        print(f"  SKIP  {host} does not resolve — the API stack is not deployed")
+        print("        (deploy CloudSentinel-Api and re-run to check it)")
+        return report()
+
     try:
         r = requests.get(f"{api_url}/health", timeout=TIMEOUT)
         check("health returns 200", r.status_code == 200, f"got {r.status_code}")
