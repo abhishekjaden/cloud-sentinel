@@ -28,5 +28,11 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
+      # The input is passed through the environment rather than interpolated
+      # into the command: ${{ }} substitution happens before the shell runs, so
+      # a crafted value would be executed as shell rather than read as an
+      # argument.
       - name: Run smoke test
-        run: python scripts/smoke_test.py --dashboard "${{ inputs.dashboard }}"
+        env:
+          DASHBOARD_URL: ${{ inputs.dashboard }}
+        run: python scripts/smoke_test.py --dashboard "$DASHBOARD_URL"
