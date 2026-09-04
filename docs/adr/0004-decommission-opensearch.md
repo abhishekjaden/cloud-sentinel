@@ -34,3 +34,15 @@ what every consumer actually queries.
   write. Recorded as a deliberate deferral, not an oversight.
 - The pipeline continues to ingest into DynamoDB unchanged; verified after the
   removal.
+
+## Addendum — 2026-09-03
+
+The same reasoning was applied to two further services. Amazon Detective and
+Amazon Macie were enabled during the initial organization build but neither is
+consumed by the ingestion pipeline, which reads GuardDuty, Security Hub and
+Inspector. Both were measured (approximately $1.40/month combined), disabled,
+and removed from `scripts/enable-org-security.sh` so that re-running the
+bootstrap does not restore them.
+
+A service that costs money and produces nothing the platform reads is not a
+capability; it is an unexplained line on an invoice.
