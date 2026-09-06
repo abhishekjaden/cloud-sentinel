@@ -1,0 +1,75 @@
+name: Deploy
+
+# Deployment follows a successful CI run rather than the push itself, so a
+# failing test suite blocks the deploy instead of racing it.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  DEPLOY_ROLE: arn:aws:iam::062345618950:role/CloudSentinelGitHubDeployRole
+
+  # The serving stack is deliberately excluded. It provisions a NAT gateway,
+  # load balancer and Fargate task, so deploying it on every merge would start
+  # billing continuously. It is brought up on demand and torn down after use.
+  STACKS: >-
+    CloudSentinel-Cicd
+    CloudSentinel-DataStores
+    CloudSentinel-Ingestion
+    CloudSentinel-Remediation
+    CloudSentinel-Auth
+    CloudSentinel-Dns
+    CloudSentinel-Dashboard
+
+jobs:
+  deploy:
+    name: Deploy persistent stacks
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    environment: production
+    defaults:
+      run:
+        working-directory: cdk
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cdk/package-lock.json
+
+      - name: Install CDK dependencies
+        run: npm ci
+
+      # DashboardStack bundles frontend/dist as an S3 asset, so the SPA must be
+      # built before the CDK app can be synthesized.
+      - name: Build frontend for asset bundling
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Authenticate to AWS
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ env.DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudsentinel-deploy-${{ github.run_id }}
+
+      # Recorded before the change is applied, so the log shows the intent and
+      # not merely the outcome.
+      - name: Diff against deployed state
+        run: npx cdk diff ${{ env.STACKS }} || true
+
+      - name: Deploy
+        run: npx cdk deploy ${{ env.STACKS }} --require-approval never --concurrency 3

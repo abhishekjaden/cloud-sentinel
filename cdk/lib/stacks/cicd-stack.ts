@@ -87,6 +87,18 @@ export class CicdStack extends cdk.Stack {
       ],
     }));
 
+    // The deploy workflow prints a diff before applying it, so the run log
+    // records what was about to change rather than only what changed.
+    deployRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ReadStackStateBeforeDeploying',
+      actions: [
+        'cloudformation:DescribeStacks',
+        'cloudformation:GetTemplate',
+        'cloudformation:ListStacks',
+      ],
+      resources: ['*'],
+    }));
+
     new cdk.CfnOutput(this, 'CiRoleArn', { value: ciRole.roleArn });
     new cdk.CfnOutput(this, 'DeployRoleArn', { value: deployRole.roleArn });
 
