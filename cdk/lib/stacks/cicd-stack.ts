@@ -68,11 +68,19 @@ export class CicdStack extends cdk.Stack {
       roleName: 'CloudSentinelGitHubDeployRole',
       description: 'Assumed by GitHub Actions on main to deploy CloudSentinel stacks',
       maxSessionDuration: cdk.Duration.hours(1),
+      // GitHub rewrites the sub claim when a job targets an environment, so a
+      // deployment job presents `environment:production` rather than the branch
+      // form. Both are accepted; neither is reachable from another repository,
+      // and the production environment is itself restricted to main.
       assumedBy: new iam.OpenIdConnectPrincipal(provider, {
         StringEquals: {
           'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-          'token.actions.githubusercontent.com:sub':
+        },
+        'ForAnyValue:StringEquals': {
+          'token.actions.githubusercontent.com:sub': [
             `repo:${GITHUB_OWNER}/${GITHUB_REPO}:ref:refs/heads/main`,
+            `repo:${GITHUB_OWNER}/${GITHUB_REPO}:environment:production`,
+          ],
         },
       }),
     });

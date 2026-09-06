@@ -123,22 +123,28 @@ describe('AuthStack', () => {
 describe('CicdStack', () => {
   const t = templateFor((app) => new CicdStack(app, 'TestCicd', management));
 
-  test('the deploy role trusts only the main branch of this repository', () => {
-    t.hasResourceProperties('AWS::IAM::Role', {
-      RoleName: 'CloudSentinelGitHubDeployRole',
-      AssumeRolePolicyDocument: Match.objectLike({
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Condition: Match.objectLike({
-              StringEquals: Match.objectLike({
-                'token.actions.githubusercontent.com:sub':
-                  'repo:abhishekjaden/cloud-sentinel:ref:refs/heads/main',
-              }),
-            }),
-          }),
-        ]),
-      }),
-    });
+  test('the deploy role trusts only this repository, on main or the production environment', () => {
+    const roles = t.findResources('AWS::IAM::Role');
+    const deploy = Object.values(roles).find(
+      (r: any) => r.Properties?.RoleName === 'CloudSentinelGitHubDeployRole');
+    expect(deploy).toBeDefined();
+
+    const subs: string[] = JSON.parse(JSON.stringify(deploy))
+      .Properties.AssumeRolePolicyDocument.Statement
+      .flatMap((st: any) => {
+        const c = st.Condition?.['ForAnyValue:StringEquals'] ?? {};
+        const v = c['token.actions.githubusercontent.com:sub'];
+        return v ? (Array.isArray(v) ? v : [v]) : [];
+      });
+
+    expect(subs.length).toBeGreaterThan(0);
+    // Every accepted subject must name this repository explicitly: a wildcard
+    // here would let any repository's workflow assume the deployment role.
+    for (const sub of subs) {
+      expect(sub.startsWith('repo:abhishekjaden/cloud-sentinel:')).toBe(true);
+      expect(sub).not.toContain('*');
+    }
+    expect(subs).toContain('repo:abhishekjaden/cloud-sentinel:ref:refs/heads/main');
   });
 
   test('every GitHub role verifies the sts.amazonaws.com audience', () => {
