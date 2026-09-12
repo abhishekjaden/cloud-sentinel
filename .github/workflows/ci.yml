@@ -82,6 +82,9 @@ jobs:
       - name: Lint
         run: npx eslint .
 
+      - name: Unit tests
+        run: npm test
+
       - name: Type check and build
         run: npm run build
 

@@ -32,11 +32,23 @@ export function getToken(): string | null {
   return sessionStorage.getItem(TOKEN_KEY);
 }
 
+/**
+ * JWT segments are base64url: '-' and '_' stand in for '+' and '/', and the
+ * padding is stripped. atob() accepts only standard base64, so decoding the
+ * payload directly throws whenever either character appears — which reports a
+ * perfectly valid session as logged out, intermittently.
+ */
+function decodeBase64Url(segment: string): string {
+  const b64 = segment.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+  return atob(padded);
+}
+
 export function isAuthenticated(): boolean {
   const t = getToken();
   if (!t) return false;
   try {
-    const payload = JSON.parse(atob(t.split(".")[1]));
+    const payload = JSON.parse(decodeBase64Url(t.split(".")[1]));
     return payload.exp * 1000 > Date.now();
   } catch {
     return false;
