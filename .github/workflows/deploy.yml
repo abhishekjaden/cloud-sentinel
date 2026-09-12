@@ -32,7 +32,16 @@ jobs:
   deploy:
     name: Deploy persistent stacks
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
+    # workflow_run executes with repository credentials, and the triggering run
+    # may have been a pull request from a fork. Checking out that SHA would run
+    # untrusted code — build and install scripts included — with access to the
+    # OIDC deployment role. Both conditions are required: the run must have
+    # succeeded, and it must have been a push to main of this repository.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     environment: production
     defaults:
       run:
