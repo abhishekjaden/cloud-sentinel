@@ -1,5 +1,10 @@
-# Dependabot keeps dependencies current and raises pull requests for known
-# advisories. Grouped so a week's updates arrive as one review rather than ten.
+# Dependabot raises pull requests only for known security advisories.
+#
+# Version-bump PRs were disabled after a batch of eight: three broke the build
+# on genuine incompatibilities and the rest sat red. A queue of failing PRs that
+# nobody reads is worse than none, because the advisory that matters is lost in
+# it. `open-pull-requests-limit: 0` disables version updates while leaving
+# security updates, which ignore this setting, switched on.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -8,6 +13,7 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    open-pull-requests-limit: 0
     groups:
       cdk-dependencies:
         patterns: ['*']
@@ -18,6 +24,7 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    open-pull-requests-limit: 0
     groups:
       frontend-dependencies:
         patterns: ['*']
@@ -28,6 +35,7 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    open-pull-requests-limit: 0
     groups:
       backend-dependencies:
         patterns: ['*']
@@ -38,3 +46,4 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    open-pull-requests-limit: 0
