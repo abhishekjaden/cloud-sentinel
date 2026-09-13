@@ -14,7 +14,7 @@ Built as a portfolio project to demonstrate cloud security engineering end to en
 | Stage | Capability |
 |-------|-----------|
 | **Detect** | Ingests findings from GuardDuty, Security Hub, and Inspector across all accounts, normalizing each source into one common schema. |
-| **Classify** | An XGBoost model scores network flows for intrusion (trained on CICIDS2017 — AUC 0.99997, F1 0.9978). |
+| **Classify** | Two XGBoost models score network flows: a binary intrusion detector (AUC 0.999963) and an eight-class attack-family classifier (macro-F1 0.9586). Both are evaluated on a held-out split and documented with their limitations in the model card. |
 | **Respond** | High-severity findings trigger a Step Functions SOAR workflow that routes each threat to the correct playbook and **pauses at a human approval gate** before any destructive action. |
 | **Observe** | A React SOC dashboard shows live severity/source charts, a filterable findings table, remediation status, and an interactive prediction tool. |
 | **Protect** | Cognito authentication with JWT validation enforced on **every** API route — the data cannot be reached by bypassing the UI. |
@@ -82,6 +82,12 @@ The graph shows `ClassifyFinding` routing a C&C/exfiltration finding down the `e
 ---
 
 ## Engineering decisions
+
+Both classifiers are documented in [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md), which
+reports test-split results per class with support counts and explains why the
+headline figures are inflated by documented feature leakage in CICIDS2017 — the
+Bot class, at 0.648 precision, is the one result the dataset does not make
+trivial.
 
 The system is threat-modelled in [`docs/threat-model.md`](docs/threat-model.md),
 a STRIDE analysis across six trust boundaries. It records mitigations where they
