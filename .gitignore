@@ -176,3 +176,8 @@ backend/.coverage
 backend/.pytest_cache/
 
 cdk/nag.txt
+
+# Model artefacts and data live in S3, not the repository
+ml/data/
+ml/models/model.tar.gz
+ml/models/*_model.json
