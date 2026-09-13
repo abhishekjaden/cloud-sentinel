@@ -5,6 +5,7 @@ Production path: runs train.py on a managed instance, reads features from S3,
 writes model artifacts to S3. Same train.py runs in-notebook as the interim
 while the ml.m5.2xlarge training quota is pending on this new account.
 """
+import boto3
 import sagemaker
 from sagemaker.xgboost.estimator import XGBoost
 
@@ -12,8 +13,14 @@ BUCKET = "cloudsentinel-ml-743181156000"
 FEATURES = f"s3://{BUCKET}/features/"
 OUTPUT = f"s3://{BUCKET}/models/"
 
-session = sagemaker.Session()
-role = sagemaker.get_execution_role()
+# get_execution_role() only resolves inside SageMaker Studio; when the job is
+# launched from a workstation the execution role has to be named explicitly.
+ROLE = ("arn:aws:iam::743181156000:role/service-role/"
+        "AmazonSageMaker-ExecutionRole-20260624T010157")
+
+boto_session = boto3.Session(profile_name="cs-workload", region_name="us-east-1")
+session = sagemaker.Session(boto_session=boto_session)
+role = ROLE
 print(f"role: {role}")
 
 estimator = XGBoost(

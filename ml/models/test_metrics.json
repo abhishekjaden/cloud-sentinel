@@ -1,0 +1,162 @@
+{
+  "split": "held-out test",
+  "dataset": "CICIDS2017",
+  "binary": {
+    "auc": 0.9999626310893669,
+    "f1": 0.9977,
+    "precision": 0.9959,
+    "recall": 0.9996,
+    "n_test": 424185,
+    "n_attack": 83484,
+    "n_benign": 340701
+  },
+  "multiclass": {
+    "macro_f1": 0.9586,
+    "weighted_f1": 0.999,
+    "accuracy": 0.999,
+    "classes": [
+      "BENIGN",
+      "Bot",
+      "BruteForce",
+      "DDoS",
+      "DoS",
+      "Infiltration",
+      "PortScan",
+      "WebAttack"
+    ],
+    "unseen_labels_in_test": [],
+    "per_class": {
+      "BENIGN": {
+        "precision": 0.9999,
+        "recall": 0.9988,
+        "f1": 0.9994,
+        "support": 340701
+      },
+      "Bot": {
+        "precision": 0.6485,
+        "recall": 0.9761,
+        "f1": 0.7793,
+        "support": 293
+      },
+      "BruteForce": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2075
+      },
+      "DDoS": {
+        "precision": 0.9996,
+        "recall": 0.9999,
+        "f1": 0.9997,
+        "support": 19204
+      },
+      "DoS": {
+        "precision": 0.9979,
+        "recall": 0.9998,
+        "f1": 0.9988,
+        "support": 37758
+      },
+      "Infiltration": {
+        "precision": 1.0,
+        "recall": 0.8333,
+        "f1": 0.9091,
+        "support": 6
+      },
+      "PortScan": {
+        "precision": 0.9934,
+        "recall": 0.9995,
+        "f1": 0.9964,
+        "support": 23821
+      },
+      "WebAttack": {
+        "precision": 0.9789,
+        "recall": 0.9939,
+        "f1": 0.9863,
+        "support": 327
+      }
+    },
+    "confusion_matrix": [
+      [
+        340306,
+        155,
+        0,
+        8,
+        71,
+        0,
+        157,
+        4
+      ],
+      [
+        7,
+        286,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        2075,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        2,
+        0,
+        0,
+        19202,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        5,
+        0,
+        0,
+        0,
+        37749,
+        0,
+        2,
+        2
+      ],
+      [
+        1,
+        0,
+        0,
+        0,
+        0,
+        5,
+        0,
+        0
+      ],
+      [
+        2,
+        0,
+        0,
+        0,
+        9,
+        0,
+        23809,
+        1
+      ],
+      [
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        325
+      ]
+    ]
+  },
+  "caveat": "Near-perfect separation on most classes is a documented property of CICIDS2017 rather than evidence of real-world detection accuracy. Engelen, Rimmer and Joosen (IEEE S&P Workshops, 2021) identify labelling errors and feature-generation artefacts in this dataset. Classes with fewer than 50 test samples are reported for completeness; their scores are not statistically meaningful."
+}
