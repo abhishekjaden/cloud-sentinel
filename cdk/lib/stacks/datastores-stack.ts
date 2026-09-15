@@ -11,6 +11,7 @@ export class DataStoresStack extends cdk.Stack {
   public readonly findingsTable: dynamodb.Table;
   public readonly findingsKey: kms.Key;
   public readonly approvalsTable: dynamodb.Table;
+  public readonly incidentsTable: dynamodb.Table;
   public readonly modelsBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -69,6 +70,29 @@ export class DataStoresStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApprovalsTableName', {
       value: this.approvalsTable.tableName,
       exportName: 'CloudSentinelApprovalsTable',
+    });
+
+    // Correlated incidents. A finding is one observation; an incident is the
+    // attack those observations describe. Held separately because the lifecycle
+    // differs: findings are immutable records, incidents are opened and closed.
+    this.incidentsTable = new dynamodb.Table(this, 'IncidentsTable', {
+      tableName: 'cloudsentinel-incidents',
+      partitionKey: { name: 'incident_id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: this.findingsKey,
+    });
+
+    this.incidentsTable.addGlobalSecondaryIndex({
+      indexName: 'status-index',
+      partitionKey: { name: 'status', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'last_seen', type: dynamodb.AttributeType.STRING },
+    });
+
+    new cdk.CfnOutput(this, 'IncidentsTableName', {
+      value: this.incidentsTable.tableName,
     });
 
     // Serving-side model artifacts. Models trained in the workload account are

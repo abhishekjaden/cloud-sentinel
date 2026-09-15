@@ -94,6 +94,44 @@ export class IngestionStack extends cdk.Stack {
       });
     }
 
+    // Correlation runs on a schedule rather than per record: grouping requires
+    // seeing findings together, which a stream handler processing one record at
+    // a time cannot do.
+    const correlator = new lambda.Function(this, 'Correlator', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset('lambda/correlator'),
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      environment: {
+        FINDINGS_TABLE: 'cloudsentinel-findings',
+        INCIDENTS_TABLE: 'cloudsentinel-incidents',
+        CORRELATION_WINDOW_MINUTES: '30',
+        // A year. The findings under correlation are security events, which are
+        // sparse — a week's window would have excluded every one of them.
+        CORRELATION_LOOKBACK_HOURS: '8760',
+      },
+    });
+
+    const incidentsTable = dynamodb.Table.fromTableName(
+      this, 'IncidentsTableRef', 'cloudsentinel-incidents');
+    findingsTable.grantReadData(correlator);
+    incidentsTable.grantWriteData(correlator);
+    correlator.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'UseFindingsKeyForCorrelation',
+      actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:GenerateDataKey', 'kms:DescribeKey'],
+      resources: [cdk.Fn.importValue('CloudSentinelFindingsKeyArn')],
+      conditions: {
+        StringEquals: { 'kms:ViaService': `dynamodb.${this.region}.amazonaws.com` },
+      },
+    }));
+
+    new events.Rule(this, 'CorrelationSchedule', {
+      ruleName: 'cloudsentinel-correlation',
+      schedule: events.Schedule.rate(cdk.Duration.minutes(15)),
+      targets: [new targets.LambdaFunction(correlator)],
+    });
+
     new cdk.CfnOutput(this, 'StreamName', { value: stream.streamName });
 
     suppressCdkManagedResources(this);
