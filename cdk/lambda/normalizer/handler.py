@@ -9,11 +9,16 @@ DynamoDB item keys:
   pk = "<source>#<account_id>"
   sk = "<created_at>#<finding_id>"
   severity_bucket = CRITICAL|HIGH|MEDIUM|LOW|INFO  (for severity GSI)
+
+created_at is ISO 8601 for every source. sk sorts by time only because of that,
+so a source that sends another format is converted here, not downstream.
 """
 import base64
 import json
 import logging
 import os
+from datetime import datetime, timezone
+
 import boto3
 
 logger = logging.getLogger()
@@ -43,12 +48,65 @@ def _severity_to_score(source, raw):
             return round(float(raw) / 8.9 * 100)
         except (TypeError, ValueError):
             return 0
-    if source in ("securityhub", "inspector"):
+    if source == "securityhub":
         try:
             return int(raw)
         except (TypeError, ValueError):
             return 0
     return 0
+
+
+# Inspector's severity words, used only when a finding carries no
+# inspectorScore. Each lands in the middle of the matching bucket.
+_INSPECTOR_LABEL_SCORE = {
+    "CRITICAL": 95, "HIGH": 80, "MEDIUM": 55, "LOW": 20,
+    "INFORMATIONAL": 0, "UNTRIAGED": 0,
+}
+
+
+def _inspector_score(detail):
+    """Severity for an Inspector finding, on the same 0–100 scale as the others.
+
+    Inspector sends severity as a word ("HIGH") alongside a 0–10 inspectorScore.
+    The word used to be passed to int(), which failed, so every Inspector
+    finding was stored as severity 0 and bucketed INFO. The score scaled by ten
+    falls into the same bands the buckets use — CVSS 7.0 is HIGH either way — so
+    it is preferred, with the word as the fallback.
+    """
+    try:
+        return max(0, min(100, round(float(detail.get("inspectorScore")) * 10)))
+    except (TypeError, ValueError, OverflowError):
+        return _INSPECTOR_LABEL_SCORE.get(str(detail.get("severity") or "").upper(), 0)
+
+
+# Inspector timestamps look like "Wed Sep 04 16:59:44.356 UTC 2024". The zone is
+# matched literally: %Z would also accept the host's local zone name, and a
+# non-UTC time read as UTC is wrong by the offset without any error.
+_INSPECTOR_TIME_FORMATS = ("%a %b %d %H:%M:%S.%f UTC %Y", "%a %b %d %H:%M:%S UTC %Y")
+
+
+def _inspector_time(value, fallback):
+    """An Inspector timestamp as ISO 8601 UTC, or the fallback if unreadable.
+
+    Stored as sent, "Wed Sep 04 ..." sorts above every ISO timestamp, which
+    pinned Inspector findings to the top of the newest-first findings list
+    whatever their age, and the correlator could not parse it at all.
+    """
+    if not value:
+        return fallback
+    text = str(value).strip()
+    try:
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return text  # already ISO 8601; stored as sent, like the other sources
+    except ValueError:
+        pass
+    for fmt in _INSPECTOR_TIME_FORMATS:
+        try:
+            parsed = datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        return parsed.strftime("%Y-%m-%dT%H:%M:%S.") + f"{parsed.microsecond // 1000:03d}Z"
+    return fallback
 
 
 def _normalize(event):
@@ -89,12 +147,12 @@ def _normalize(event):
             "source": "inspector",
             "account_id": event.get("account"),
             "region": event.get("region"),
-            "severity": _severity_to_score("inspector", detail.get("severity")),
+            "severity": _inspector_score(detail),
             "raw_severity_label": detail.get("severity"),
             "title": detail.get("title"),
             "finding_type": detail.get("type"),
             "resource": json.dumps(detail.get("resources", []))[:1024],
-            "created_at": detail.get("firstObservedAt") or event.get("time"),
+            "created_at": _inspector_time(detail.get("firstObservedAt"), event.get("time")),
         }
     return {
         "finding_id": event.get("id"),

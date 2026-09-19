@@ -9,11 +9,13 @@ three is how analysts end up triaging the same event repeatedly.
 This groups threat findings that share a resource and fall within a time window,
 and records each group as an incident with its attack stages ordered.
 
-Scope: GuardDuty and Inspector only. Security Hub findings describe
-configuration posture — a bucket that permits public access, a password policy
-that is too weak. Those are weaknesses, not events; correlating them by resource
-would produce a single meaningless group containing every compliance check
-against the account.
+Scope: GuardDuty only. Security Hub findings describe configuration posture — a
+bucket that permits public access, a password policy that is too weak — and
+Inspector findings describe vulnerable packages. Both are weaknesses, not
+events: correlating them by resource would group every CVE in an image, all
+observed by one scan in the same second, into an "attack" with no stages.
+Inspector was listed here originally, but its timestamps could not be parsed,
+so it was excluded in practice; it is now excluded by design.
 
 Idempotency: the correlator runs on a schedule over a lookback window, so it
 sees the same findings on every run. An incident's identity is therefore
@@ -41,8 +43,8 @@ INCIDENTS_TABLE = os.environ.get("INCIDENTS_TABLE", "cloudsentinel-incidents")
 WINDOW_MINUTES = int(os.environ.get("CORRELATION_WINDOW_MINUTES", "30"))
 LOOKBACK_HOURS = int(os.environ.get("CORRELATION_LOOKBACK_HOURS", "168"))
 
-# Sources whose findings describe events rather than configuration state.
-THREAT_SOURCES = ("guardduty", "inspector")
+# Sources whose findings describe events rather than a standing weakness.
+THREAT_SOURCES = ("guardduty",)
 
 _ddb = boto3.resource("dynamodb")
 _findings = _ddb.Table(FINDINGS_TABLE)

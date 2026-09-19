@@ -59,15 +59,13 @@ def test_guardduty_high_severity_reaches_critical_bucket(normalizer):
     assert normalizer._severity_bucket(score) == "CRITICAL"
 
 
-@pytest.mark.parametrize("source", ["securityhub", "inspector"])
-def test_normalized_sources_pass_score_through(normalizer, source):
-    assert normalizer._severity_to_score(source, 69) == 69
+def test_securityhub_normalized_score_passes_through(normalizer):
+    assert normalizer._severity_to_score("securityhub", 69) == 69
 
 
 @pytest.mark.parametrize("source,raw", [
     ("guardduty", None), ("guardduty", "not-a-number"),
     ("securityhub", None), ("securityhub", "abc"),
-    ("inspector", None),
     ("unknown-source", 50),
 ])
 def test_malformed_severity_degrades_to_zero(normalizer, source, raw):
@@ -121,24 +119,94 @@ def test_securityhub_event_is_normalized(normalizer):
     assert out["raw_severity_label"] == "HIGH"
 
 
+# ---------------------------------------------------------------- inspector
+# Field values follow the example event in AWS's Amazon Inspector EventBridge
+# documentation. An earlier version of this test used a numeric severity that
+# Inspector never sends, which is how every Inspector finding came to be stored
+# as INFO while the suite passed.
+INSPECTOR_EVENT = {
+    "source": "aws.inspector2",
+    "account": "777788889999",
+    "region": "us-east-1",
+    "time": "2024-09-04T17:00:37Z",
+    "detail": {
+        "findingArn": "arn:aws:inspector2:us-east-1:777788889999:finding/abc",
+        "severity": "MEDIUM",
+        "inspectorScore": 4.8,
+        "title": "CVE-2024-0001 - openssl",
+        "type": "PACKAGE_VULNERABILITY",
+        "resources": [{"type": "AWS_EC2_INSTANCE", "id": "i-0abc"}],
+        "firstObservedAt": "Wed Sep 04 16:59:44.356 UTC 2024",
+    },
+}
+
+
 def test_inspector_event_is_normalized(normalizer):
-    event = {
-        "source": "aws.inspector2",
-        "account": "777788889999",
-        "region": "us-east-1",
-        "time": "2026-01-01T00:00:00Z",
-        "detail": {
-            "findingArn": "arn:aws:inspector2:...:finding/abc",
-            "severity": 40,
-            "title": "CVE-2026-0001 in openssl",
-            "type": "PACKAGE_VULNERABILITY",
-            "resources": [{"type": "AWS_EC2_INSTANCE"}],
-            "firstObservedAt": "2026-01-01T00:00:00Z",
-        },
-    }
-    out = normalizer._normalize(event)
+    out = normalizer._normalize(INSPECTOR_EVENT)
     assert out["source"] == "inspector"
-    assert out["severity"] == 40
+    assert out["finding_id"] == "arn:aws:inspector2:us-east-1:777788889999:finding/abc"
+    assert out["severity"] == 48
+    assert normalizer._severity_bucket(out["severity"]) == "MEDIUM"
+    assert out["raw_severity_label"] == "MEDIUM"
+    assert out["created_at"] == "2024-09-04T16:59:44.356Z"
+
+
+def test_inspector_high_finding_is_not_stored_as_info(normalizer):
+    """The regression: the word "HIGH" went through int(), failed, and became 0."""
+    event = {**INSPECTOR_EVENT,
+             "detail": {**INSPECTOR_EVENT["detail"], "severity": "HIGH", "inspectorScore": 7.4}}
+    assert normalizer._severity_bucket(normalizer._normalize(event)["severity"]) == "HIGH"
+
+
+@pytest.mark.parametrize("score,bucket", [
+    (10.0, "CRITICAL"), (9.0, "CRITICAL"), (8.9, "HIGH"), (7.0, "HIGH"),
+    (6.9, "MEDIUM"), (4.0, "MEDIUM"), (3.9, "LOW"), (0.1, "LOW"), (0.0, "INFO"),
+])
+def test_inspector_score_bands_match_the_buckets(normalizer, score, bucket):
+    """Scaled by ten, CVSS bands land exactly on the bucket boundaries."""
+    got = normalizer._inspector_score({"inspectorScore": score})
+    assert normalizer._severity_bucket(got) == bucket
+
+
+@pytest.mark.parametrize("detail,bucket", [
+    ({"severity": "CRITICAL"}, "CRITICAL"),
+    ({"severity": "HIGH"}, "HIGH"),
+    ({"severity": "high"}, "HIGH"),
+    ({"severity": "MEDIUM"}, "MEDIUM"),
+    ({"severity": "LOW"}, "LOW"),
+    ({"severity": "INFORMATIONAL"}, "INFO"),
+    ({"severity": "UNTRIAGED"}, "INFO"),
+    ({}, "INFO"),
+    ({"severity": "HIGH", "inspectorScore": "n/a"}, "HIGH"),
+    ({"severity": "HIGH", "inspectorScore": float("nan")}, "HIGH"),
+    ({"severity": "HIGH", "inspectorScore": float("inf")}, "HIGH"),
+])
+def test_inspector_label_is_the_fallback_when_there_is_no_usable_score(normalizer, detail, bucket):
+    assert normalizer._severity_bucket(normalizer._inspector_score(detail)) == bucket
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("Wed Sep 04 16:59:44.356 UTC 2024", "2024-09-04T16:59:44.356Z"),
+    ("Wed Sep 04 16:59:44 UTC 2024", "2024-09-04T16:59:44.000Z"),
+    ("2026-09-17T03:57:09Z", "2026-09-17T03:57:09Z"),       # ISO passes through
+    ("2026-09-17T03:57:09.123+00:00", "2026-09-17T03:57:09.123+00:00"),
+])
+def test_inspector_time_is_stored_as_iso(normalizer, raw, expected):
+    assert normalizer._inspector_time(raw, "fallback") == expected
+
+
+@pytest.mark.parametrize("raw", [None, "", "not a date", "Wed Sep 04 16:59:44 IST 2024"])
+def test_unreadable_inspector_time_falls_back_to_event_time(normalizer, raw):
+    assert normalizer._inspector_time(raw, "2024-09-04T17:00:37Z") == "2024-09-04T17:00:37Z"
+
+
+def test_inspector_findings_sort_by_time_among_the_other_sources(normalizer):
+    """sk begins with created_at and the findings list orders by sk. Stored as
+    sent, "Wed Sep 04 ... 2024" sorted above a 2026 GuardDuty finding."""
+    inspector = normalizer._inspector_time("Wed Sep 04 16:59:44.356 UTC 2024", None)
+    guardduty = "2026-09-17T03:57:09.000Z"
+    newest_first = sorted([f"{inspector}#insp", f"{guardduty}#gd"], reverse=True)
+    assert newest_first[0].endswith("#gd")
 
 
 def test_unknown_source_does_not_raise(normalizer):

@@ -178,6 +178,23 @@ def test_every_attribute_name_is_a_placeholder(correlator):
         assert clause.startswith("#"), clause
 
 
+# ---------------------------------------------------------------------- scope
+def test_only_guardduty_findings_are_correlated(correlator):
+    """Security Hub posture checks and Inspector CVEs are standing weaknesses,
+    not attack events. Grouping an image's CVEs by resource would present one
+    vulnerability scan as a multi-finding "attack"."""
+    requested = []
+
+    def scan(**kwargs):
+        requested.append(kwargs.get("ExpressionAttributeValues", {}).get(":p"))
+        return {"Items": []}
+
+    correlator._findings.scan.side_effect = scan
+    correlator.handler({}, None)
+
+    assert requested == ["guardduty#"]
+
+
 # ----------------------------------------------------------------- clustering
 def test_attacks_separated_by_more_than_the_window_are_separate_incidents(correlator):
     _serve(correlator, [_finding(300, "Recon:EC2/PortProbeUnprotectedPort"),
