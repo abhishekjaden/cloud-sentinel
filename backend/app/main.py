@@ -3,6 +3,7 @@ CloudSentinel API — FastAPI backend.
 
 Surfaces the live security platform through a REST API:
   /findings      normalized security findings (DynamoDB)
+  /incidents     findings correlated into attacks, stages in kill-chain order
   /stats         dashboard summary aggregates
   /predict       binary intrusion-detection inference (XGBoost model from S3)
   /remediations  recent SOAR remediation executions (Step Functions)
@@ -16,6 +17,7 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.findings import router as findings_router
+from app.incidents import router as incidents_router
 from app.predict import router as predict_router
 from app.remediations import router as remediations_router
 from app.approvals import router as approvals_router
@@ -51,6 +53,7 @@ app.add_middleware(
 )
 
 app.include_router(findings_router, tags=["findings"])
+app.include_router(incidents_router, tags=["incidents"])
 app.include_router(predict_router, tags=["prediction"])
 app.include_router(remediations_router, tags=["remediation"])
 app.include_router(approvals_router, tags=["approvals"])

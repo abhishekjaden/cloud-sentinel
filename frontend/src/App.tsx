@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { getStats, getFindings, getRemediations, getApprovals } from "./api";
-import type { Stats, Finding, RemediationsResponse, Approval} from "./types";
+import { getStats, getFindings, getRemediations, getApprovals, getIncidents } from "./api";
+import type { Stats, Finding, RemediationsResponse, Approval, IncidentsResponse } from "./types";
 import { StatsOverview } from "./components/StatsOverview";
 import { FindingsTable } from "./components/FindingsTable";
+import { IncidentsPanel } from "./components/IncidentsPanel";
 import { RemediationsPanel } from "./components/RemediationsPanel";
 import { ApprovalsPanel } from "./components/ApprovalsPanel";
 import { PredictPanel } from "./components/PredictPanel";
@@ -14,12 +15,22 @@ export default function App() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [remediations, setRemediations] = useState<RemediationsResponse | null>(null);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [incidents, setIncidents] = useState<IncidentsResponse | null>(null);
+  const [incidentsError, setIncidentsError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authed, setAuthed] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
 
   async function loadAll() {
+    // Incidents load apart from the rest: Promise.all rejects on any one
+    // failure, and a missing or failing /incidents route must not take down
+    // panels that work. Kept inline so loadAll references only state setters
+    // and imports, which is what lets the effects below omit it as a dependency.
+    void getIncidents()
+      .then((r) => { setIncidents(r); setIncidentsError(null); })
+      .catch((e) => setIncidentsError(
+        e instanceof Error ? e.message : "Failed to load incidents"));
     try {
       setLoading(true);
       const [s, f, r, a] = await Promise.all([
@@ -108,6 +119,11 @@ export default function App() {
         <section className="panel span-2">
           <h2>Overview</h2>
           {stats ? <StatsOverview stats={stats} /> : <p className="muted">Loading stats...</p>}
+        </section>
+
+        <section className="panel span-2">
+          <h2>Correlated Incidents</h2>
+          <IncidentsPanel data={incidents} error={incidentsError} />
         </section>
 
         <section className="panel span-2">

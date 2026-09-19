@@ -27,6 +27,31 @@ export interface Stats {
   by_source: Record<string, number>;
 }
 
+/** Findings correlated into one attack: same resource, close together in time. */
+export interface Incident {
+  incident_id: string;
+  account_id: string;
+  resource: string;
+  first_seen: string;
+  last_seen: string;
+  duration_seconds: number;
+  finding_count: number;
+  max_severity: number;
+  /** Kill-chain order, earliest stage first. */
+  attack_stages: string[];
+  multi_stage: boolean;
+  finding_types: string[];
+  status: string;
+  /** Built from GuardDuty sample findings rather than live traffic. */
+  sample: boolean;
+}
+
+export interface IncidentsResponse {
+  count: number;
+  multi_stage: number;
+  incidents: Incident[];
+}
+
 export interface RemediationExecution {
   name: string;
   status: string;

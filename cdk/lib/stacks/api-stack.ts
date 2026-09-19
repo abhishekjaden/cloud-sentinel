@@ -20,6 +20,7 @@ import { suppressCdkManagedResources, suppressPublicIngress } from '../nag-suppr
  * Load Balancer. Serves findings, ML predictions, and remediation status to
  * the SOC dashboard. Reads existing resources same-account:
  *   - DynamoDB cloudsentinel-findings
+ *   - DynamoDB cloudsentinel-incidents (read-only)
  *   - S3 cloudsentinel-models-<acct> (binary model)
  *   - Step Functions cloudsentinel-remediation
  *
@@ -112,6 +113,7 @@ export class ApiStack extends cdk.Stack {
           // logged-in operator.
           CORS_ORIGINS: 'https://d2tb90osqfrb0m.cloudfront.net',
           APPROVALS_TABLE: 'cloudsentinel-approvals',
+          INCIDENTS_TABLE: 'cloudsentinel-incidents',
         },
       },
       publicLoadBalancer: true,
@@ -163,6 +165,19 @@ export class ApiStack extends cdk.Stack {
       ],
     }));
 
+    // Correlated incidents are read-only to the API: the correlator writes them,
+    // the dashboard displays them. The one index the API queries is named
+    // rather than matched by index/* — there is no other index it needs.
+    taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'ReadIncidents',
+      actions: ['dynamodb:Query', 'dynamodb:Scan'],
+      resources: [
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-incidents`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-incidents/index/status-index`,
+      ],
+    }));
+
+    // The incidents table shares this key, so this grant also covers reading it.
     taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       sid: 'DecryptFindingsTable',
       actions: ['kms:Decrypt', 'kms:DescribeKey'],

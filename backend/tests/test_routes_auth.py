@@ -11,6 +11,7 @@ DATA_ROUTES = [
     ("get", "/findings"),
     ("get", "/findings/guardduty%23111122223333"),
     ("get", "/stats"),
+    ("get", "/incidents"),
     ("get", "/remediations"),
 ]
 

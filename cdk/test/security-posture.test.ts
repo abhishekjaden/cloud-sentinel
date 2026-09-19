@@ -12,6 +12,8 @@ import { DataStoresStack } from '../lib/stacks/datastores-stack';
 import { DashboardStack } from '../lib/stacks/dashboard-stack';
 import { AuthStack } from '../lib/stacks/auth-stack';
 import { CicdStack } from '../lib/stacks/cicd-stack';
+import { DnsStack } from '../lib/stacks/dns-stack';
+import { ApiStack } from '../lib/stacks/api-stack';
 
 const audit = { env: env(ACCOUNTS.audit) };
 const management = { env: env(ACCOUNTS.management) };
@@ -154,6 +156,35 @@ describe('CicdStack', () => {
     expect(github.length).toBe(2);
     for (const role of github) {
       expect(JSON.stringify(role)).toContain('sts.amazonaws.com');
+    }
+  });
+});
+
+describe('ApiStack', () => {
+  const t = templateFor((app) => {
+    const dns = new DnsStack(app, 'TestDns', audit);
+    return new ApiStack(app, 'TestApi', {
+      ...audit, apiZone: dns.apiZone, apiCertificate: dns.apiCertificate,
+    });
+  });
+
+  test('the API can read correlated incidents but never write them', () => {
+    // The correlator owns the incidents table. If the internet-facing API could
+    // write to it, a compromised API task could rewrite or erase the record of
+    // an attack in progress. A wildcard resource counts, since it covers the
+    // table as much as naming it does.
+    const statements = Object.values(t.findResources('AWS::IAM::Policy'))
+      .flatMap((p: any) => p.Properties.PolicyDocument.Statement);
+    const reaching = statements.filter((st: any) => {
+      const r = JSON.stringify(st.Resource);
+      return r.includes('cloudsentinel-incidents') || r === '"*"';
+    });
+    const actions = reaching.flatMap((st: any) => ([] as string[]).concat(st.Action));
+
+    expect(actions).toEqual(expect.arrayContaining(['dynamodb:Query', 'dynamodb:Scan']));
+    for (const write of ['dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
+      'dynamodb:BatchWriteItem', 'dynamodb:*', '*']) {
+      expect(actions).not.toContain(write);
     }
   });
 });

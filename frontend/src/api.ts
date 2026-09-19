@@ -1,7 +1,7 @@
 import axios from "axios";
 import type {
   FindingsResponse, Stats, RemediationsResponse, PredictResponse,
-  ApprovalsResponse, DecisionResponse,
+  ApprovalsResponse, DecisionResponse, IncidentsResponse,
 } from "./types";
 import { loadApiBaseUrl } from "./config";
 import { getToken } from "./auth";
@@ -27,6 +27,12 @@ export async function getFindings(limit = 50, severityBucket?: string): Promise<
   const params: Record<string, string | number> = { limit };
   if (severityBucket) params.severity_bucket = severityBucket;
   const { data } = await c.get<FindingsResponse>("/findings", { params });
+  return data;
+}
+
+export async function getIncidents(limit = 50): Promise<IncidentsResponse> {
+  const c = await client();
+  const { data } = await c.get<IncidentsResponse>("/incidents", { params: { limit } });
   return data;
 }
 

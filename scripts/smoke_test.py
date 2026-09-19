@@ -107,7 +107,7 @@ def main() -> int:
 
     # --- the security boundary, verified from outside ---------------------
     print("\nAuthorization")
-    for path in ("/stats", "/findings", "/remediations", "/approvals"):
+    for path in ("/stats", "/findings", "/incidents", "/remediations", "/approvals"):
         try:
             r = requests.get(f"{api_url}{path}", timeout=TIMEOUT)
             check(f"{path} rejects unauthenticated callers",
