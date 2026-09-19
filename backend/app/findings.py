@@ -16,6 +16,24 @@ _dynamodb = boto3.resource("dynamodb", region_name=REGION)
 _table = _dynamodb.Table(TABLE_NAME)
 
 
+def _scan_all(**kwargs):
+    """Every item a scan matches, following pagination to the end.
+
+    DynamoDB returns at most 1 MB per scan call, and findings are partitioned
+    by source — pk is "<source>#<account>" — so one call reads roughly one
+    source's partition and stops. Reading a single page, /stats reported 981
+    findings, every one from Security Hub, while the same table held the
+    GuardDuty findings the correlator was grouping into incidents.
+    """
+    items = []
+    while True:
+        resp = _table.scan(**kwargs)
+        items.extend(resp.get("Items", []))
+        if "LastEvaluatedKey" not in resp:
+            return items
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+
+
 @router.get("/findings", dependencies=[Depends(require_auth)])
 def list_findings(
     limit: int = Query(50, ge=1, le=200),
@@ -30,9 +48,15 @@ def list_findings(
                 ScanIndexForward=False,
                 Limit=limit,
             )
+            items = resp.get("Items", [])
         else:
-            resp = _table.scan(Limit=limit)
-        items = resp.get("Items", [])
+            # A scan returns items in partition order, not time order, and a
+            # page-limited scan returns only the first source. Recency across
+            # every source needs the whole table; sk begins with created_at.
+            # This reads the full table per request, which is acceptable at the
+            # current size; a recency index is the fix once it is not.
+            items = sorted(_scan_all(), key=lambda i: i.get("sk", ""),
+                           reverse=True)[:limit]
         return {"count": len(items), "findings": items}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"findings query failed: {e}")
@@ -57,11 +81,10 @@ def get_finding(pk: str):
 def stats():
     """Dashboard summary: counts by severity bucket and finding source/type."""
     try:
-        resp = _table.scan(
+        items = _scan_all(
             ProjectionExpression="severity_bucket, severity, #s",
             ExpressionAttributeNames={"#s": "source"},
         )
-        items = resp.get("Items", [])
         by_bucket = Counter(i.get("severity_bucket", "UNKNOWN") for i in items)
         by_source = Counter(i.get("source", "unknown") for i in items)
         return {
