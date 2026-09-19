@@ -13,7 +13,7 @@ import { describe, test, expect, afterEach } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { IncidentsPanel } from "../components/IncidentsPanel";
-import { formatDuration, severityBucket, stageLabel } from "../incidents";
+import { describeSpan, formatDuration, severityBucket, stageLabel } from "../incidents";
 import type { Incident, IncidentsResponse } from "../types";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -41,6 +41,21 @@ describe("formatDuration", () => {
   test("a value that is not a duration renders as a dash, not NaN", () => {
     expect(formatDuration(Number.NaN)).toBe("—");
     expect(formatDuration(-5)).toBe("—");
+  });
+});
+
+describe("describeSpan", () => {
+  test("a single finding claims no span", () => {
+    expect(describeSpan(1, 0)).toBe("1 finding");
+  });
+
+  test("findings raised in the same instant do not read as '0s'", () => {
+    // Seen live: a sample batch's two findings shared a timestamp.
+    expect(describeSpan(2, 0)).toBe("2 findings within a second");
+  });
+
+  test("a real span is stated", () => {
+    expect(describeSpan(3, 37)).toBe("3 findings over 37s");
   });
 });
 

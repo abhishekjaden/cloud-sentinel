@@ -28,6 +28,17 @@ export function formatDuration(seconds: number): string {
   return h % 24 ? `${d}d ${h % 24}h` : `${d}d`;
 }
 
+/**
+ * How many findings an incident holds and how long they spanned. The correlator
+ * stores whole seconds, so findings raised in the same instant — typical of a
+ * sample batch — have a span of 0, which reads as broken if printed as "0s".
+ */
+export function describeSpan(count: number, seconds: number): string {
+  if (count === 1) return "1 finding";
+  if (seconds < 1) return `${count} findings within a second`;
+  return `${count} findings over ${formatDuration(seconds)}`;
+}
+
 /** Kill-chain stage as an analyst reads it: "command-and-control" → "command and control". */
 export function stageLabel(stage: string): string {
   return stage.replace(/-/g, " ");

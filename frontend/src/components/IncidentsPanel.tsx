@@ -1,5 +1,5 @@
 import type { IncidentsResponse } from "../types";
-import { formatDuration, severityBucket, stageLabel } from "../incidents";
+import { describeSpan, severityBucket, stageLabel } from "../incidents";
 
 /**
  * Correlated incidents: several findings against one resource, close together
@@ -63,9 +63,7 @@ export function IncidentsPanel({ data, error }: {
                   ))}
                 </ol>
                 <div className="incident-meta">
-                  {i.finding_count === 1
-                    ? "1 finding"
-                    : `${i.finding_count} findings over ${formatDuration(i.duration_seconds)}`}
+                  {describeSpan(i.finding_count, i.duration_seconds)}
                   {" · first seen "}
                   {new Date(i.first_seen).toLocaleString()}
                 </div>
