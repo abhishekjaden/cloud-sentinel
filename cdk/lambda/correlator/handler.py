@@ -14,12 +14,19 @@ configuration posture — a bucket that permits public access, a password policy
 that is too weak. Those are weaknesses, not events; correlating them by resource
 would produce a single meaningless group containing every compliance check
 against the account.
+
+Idempotency: the correlator runs on a schedule over a lookback window, so it
+sees the same findings on every run. An incident's identity is therefore
+derived from what it is — the account, the resource, and when the attack began
+— and each run updates the existing record rather than adding another. The
+incident's status belongs to the analyst once it exists and is never
+overwritten by a later run.
 """
+import hashlib
 import json
 import logging
 import os
 import re
-import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -171,6 +178,19 @@ def _cluster(findings):
     return clusters
 
 
+def _incident_id(account, resource, first_seen):
+    """Stable identity for an incident: the same attack always maps to the same ID.
+
+    A random ID made every scheduled run insert a fresh copy of every incident
+    it had already recorded — four incidents became several hundred rows within
+    two days. Keying on the start of the attack means a cluster that grows as
+    new findings arrive keeps its identity, because new findings extend the end
+    of the window, not the beginning.
+    """
+    key = f"{account}|{resource}|{first_seen.isoformat()}"
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
+
+
 def _build_incident(account, resource, entries):
     findings = [item for _, item in entries]
     stages = {_stage(f.get("finding_type")) for f in findings}
@@ -180,7 +200,7 @@ def _build_incident(account, resource, entries):
     first, last = entries[0][0], entries[-1][0]
 
     return {
-        "incident_id": str(uuid.uuid4()),
+        "incident_id": _incident_id(account, resource, first),
         "account_id": account,
         "resource": resource,
         "first_seen": first.isoformat(),
@@ -196,9 +216,49 @@ def _build_incident(account, resource, entries):
         "finding_types": sorted({f.get("finding_type", "?") for f in findings}),
         "finding_ids": [f.get("finding_id") for f in findings][:50],
         "sources": sorted({f.get("source", "?") for f in findings}),
-        "status": "open",
         "correlated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# Attributes the analyst owns once the incident exists. A scheduled run sets
+# them only when the record is first created, so closing an incident sticks.
+_SET_ONCE = {"status": "open"}
+
+
+def _upsert(incident):
+    """Write an incident, updating it in place if this attack was seen before.
+
+    A put_item would replace the whole record, resetting a closed incident to
+    open every fifteen minutes. update_item refreshes the computed fields —
+    the cluster may have grown — while if_not_exists leaves analyst-owned
+    attributes as the analyst set them.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    set_once = {**_SET_ONCE, "created_at": now}
+    # Excluding set-once names here as well keeps a later edit that adds one of
+    # them to _build_incident from producing two SETs on the same attribute,
+    # which DynamoDB rejects outright.
+    computed = {k: v for k, v in incident.items()
+                if k != "incident_id" and k not in set_once}
+
+    names, values, clauses = {}, {}, []
+    # Every attribute name goes through a placeholder: several of these
+    # (status, resource) collide with DynamoDB reserved words.
+    for i, (name, value) in enumerate(computed.items()):
+        names[f"#c{i}"] = name
+        values[f":c{i}"] = value
+        clauses.append(f"#c{i} = :c{i}")
+    for i, (name, initial) in enumerate(set_once.items()):
+        names[f"#o{i}"] = name
+        values[f":o{i}"] = initial
+        clauses.append(f"#o{i} = if_not_exists(#o{i}, :o{i})")
+
+    _incidents.update_item(
+        Key={"incident_id": incident["incident_id"]},
+        UpdateExpression="SET " + ", ".join(clauses),
+        ExpressionAttributeNames=names,
+        ExpressionAttributeValues=values,
+    )
 
 
 def handler(event, context):
@@ -213,7 +273,7 @@ def handler(event, context):
     multi_stage = 0
     for account, resource, entries in clusters:
         incident = _build_incident(account, resource, entries)
-        _incidents.put_item(Item=incident)
+        _upsert(incident)
         written += 1
         if incident["multi_stage"]:
             multi_stage += 1
