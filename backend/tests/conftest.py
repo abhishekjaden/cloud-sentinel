@@ -45,6 +45,8 @@ def app_module(fake_table, fake_sfn):
 
     resource = mock.MagicMock()
     resource.return_value.Table.return_value = fake_table
+    # Batch reads (triage notes) find nothing unless a test says otherwise.
+    resource.return_value.batch_get_item.return_value = {"Responses": {}}
 
     with mock.patch("boto3.resource", resource), \
          mock.patch("boto3.client", return_value=fake_sfn):

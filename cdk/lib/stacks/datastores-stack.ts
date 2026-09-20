@@ -6,12 +6,14 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
 import { suppressCdkManagedResources } from '../nag-suppressions';
+import { TRIAGE_TABLE_NAME } from '../names';
 
 export class DataStoresStack extends cdk.Stack {
   public readonly findingsTable: dynamodb.Table;
   public readonly findingsKey: kms.Key;
   public readonly approvalsTable: dynamodb.Table;
   public readonly incidentsTable: dynamodb.Table;
+  public readonly triageTable: dynamodb.Table;
   public readonly modelsBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -93,6 +95,20 @@ export class DataStoresStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'IncidentsTableName', {
       value: this.incidentsTable.tableName,
+    });
+
+    // Advisory triage notes, one per incident, written only by the triage
+    // function. Kept apart from the incidents table so the one writer whose
+    // output comes from a language model holds no permission on the record of
+    // the attack itself.
+    this.triageTable = new dynamodb.Table(this, 'TriageTable', {
+      tableName: TRIAGE_TABLE_NAME,
+      partitionKey: { name: 'incident_id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: this.findingsKey,
     });
 
     // Serving-side model artifacts. Models trained in the workload account are

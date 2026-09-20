@@ -16,6 +16,7 @@ Built as a portfolio project to demonstrate cloud security engineering end to en
 | **Detect** | Ingests findings from GuardDuty, Security Hub, and Inspector across all accounts, normalizing each source into one common schema. |
 | **Classify** | Two XGBoost models score network flows: a binary intrusion detector (AUC 0.999963) and an eight-class attack-family classifier (macro-F1 0.9586). Both are evaluated on a held-out split and documented with their limitations in the model card. |
 | **Respond** | High-severity findings trigger a Step Functions SOAR workflow that routes each threat to the correct playbook and **pauses at a human approval gate** before any destructive action. |
+| **Triage** | A language model on Amazon Bedrock drafts an advisory note for each correlated incident — what likely happened and what to check next — contained so that no answer it gives, however steered, can cause an action. |
 | **Observe** | A React SOC dashboard shows live severity/source charts, a filterable findings table, remediation status, and an interactive prediction tool. |
 | **Protect** | Cognito authentication with JWT validation enforced on **every** API route — the data cannot be reached by bypassing the UI. |
 
@@ -61,6 +62,7 @@ ML (Workload)
 | Storage | DynamoDB (severity GSI), S3 |
 | ML | SageMaker Studio, XGBoost, pandas / NumPy, CICIDS2017 |
 | SOAR | Step Functions (approval gates via task tokens), SNS, Lambda |
+| AI triage | Amazon Bedrock (Claude Haiku 4.5, US cross-Region inference, forced tool use) |
 | API | FastAPI, Pydantic, Uvicorn, Docker, ECS Fargate, ALB, ECR |
 | Auth | Cognito (hosted UI, PKCE), python-jose (JWT/JWKS verification) |
 | Frontend | React, TypeScript, Vite, Recharts, axios |
@@ -100,6 +102,7 @@ Architecture decisions are recorded as ADRs in [`docs/adr/`](docs/adr/):
 - **[0002 — CDK for durable infra, scripts for one-time org calls](docs/adr/0002-org-security-cdk-vs-cli.md):** honest separation rather than a brittle all-CDK facade.
 - **[0003 — SageMaker domain bootstrapped via console](docs/adr/0003-sagemaker-domain-console-bootstrap.md):** the domain is environment setup; the pipeline is the asset and lives in code.
 - **[0004 — Decommission OpenSearch](docs/adr/0004-decommission-opensearch.md):** it had no producers or consumers while costing ~$25/month, so it was measured and removed.
+- **[0005 — Language-model triage is advisory and contained](docs/adr/0005-advisory-llm-triage.md):** the model reads attacker-controlled text, so it may draft a note but can never cause or prevent an action.
 
 Other decisions worth naming:
 
@@ -108,6 +111,7 @@ Other decisions worth naming:
 - **Auth enforced at the API, not just the UI.** Frontend-only auth is theater — unauthenticated requests to the data routes return 401.
 - **Cross-account DNS delegation, fully IaC.** The management account owns the apex zone; the audit account owns a delegated `api.` subdomain, so its cert, records, and ALB are all same-account. The persistent DNS/cert stack is separated from the ephemeral compute stack so the latter tears down cleanly every time.
 - **Runtime configuration.** The dashboard fetches its API URL at startup, so the built artifact isn't coupled to a backend URL.
+- **A model that reads attacker text gets no authority.** Incident triage by a language model is advisory and contained ([ADR 0005](docs/adr/0005-advisory-llm-triage.md)): the function can write nothing but its own notes and holds no permission that acts, finding text reaches the model escaped as untrusted data, answers must fit one validated schema, and seven evaluation cases — three of them prompt-injection attempts — define what a correct note looks like.
 - **Objectives, not just logs.** Seven service level objectives in [`docs/slos.md`](docs/slos.md) each have an alarm and a written response: findings stored, stored promptly, correlation running, remediation steps succeeding, approvals decided, API availability and latency. Every function and the SOAR workflow record X-Ray traces, so a remediation is one trace from the router to each playbook step.
 
 ---

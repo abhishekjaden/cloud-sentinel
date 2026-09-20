@@ -16,6 +16,7 @@ import { DnsStack } from '../lib/stacks/dns-stack';
 import { AuthStack } from '../lib/stacks/auth-stack';
 import { CicdStack } from '../lib/stacks/cicd-stack';
 import { ObservabilityStack } from '../lib/stacks/observability-stack';
+import { TriageStack } from '../lib/stacks/triage-stack';
 
 const app = new cdk.App();
 
@@ -34,7 +35,7 @@ new WorkloadNetworkStack(app, 'CloudSentinel-WorkloadNetwork', {
   description: 'CloudSentinel: workload VPC with Flow Logs',
 });
 
-new DataStoresStack(app, 'CloudSentinel-DataStores', {
+const dataStores = new DataStoresStack(app, 'CloudSentinel-DataStores', {
   env: env(ACCOUNTS.audit),
   description: 'CloudSentinel: DynamoDB for normalized findings (Audit account)',
 });
@@ -84,4 +85,11 @@ new ObservabilityStack(app, 'CloudSentinel-Observability', {
   env: env(ACCOUNTS.audit),
   description: 'CloudSentinel: service level objectives — alarms, alarm topic and SLO dashboard (Audit account)',
 });
+const triage = new TriageStack(app, 'CloudSentinel-Triage', {
+  env: env(ACCOUNTS.audit),
+  description: 'CloudSentinel: advisory incident triage with a Bedrock model (Audit account)',
+});
+// The triage function finds its table by name, so nothing orders the two
+// stacks unless this does: its first scheduled run must not precede the table.
+triage.addDependency(dataStores);
 app.synth();

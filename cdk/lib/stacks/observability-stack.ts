@@ -291,6 +291,25 @@ export class ObservabilityStack extends cdk.Stack {
           }),
         ],
         [
+          new cloudwatch.GraphWidget({
+            title: 'Advisory triage — no objective: a note helps an analyst but protects nothing',
+            width: 24, height: 5,
+            left: [
+              published('IncidentsTriaged', 'triage', 'notes written', Duration.minutes(15)),
+              published('TriageRejected', 'triage', 'answers rejected', Duration.minutes(15)),
+              published('TriageFailed', 'triage', 'model errors', Duration.minutes(15)),
+              published('TriageThrottled', 'triage', 'runs throttled', Duration.minutes(15)),
+            ],
+            right: [new cloudwatch.Metric({
+              namespace: METRIC_NAMESPACE, metricName: 'IncidentsAwaitingTriage',
+              dimensionsMap: { Component: 'triage' }, statistic: 'Maximum',
+              period: Duration.minutes(15), label: 'incidents awaiting a note',
+            })],
+            leftYAxis: { min: 0, showUnits: false },
+            rightYAxis: { min: 0, showUnits: false },
+          }),
+        ],
+        [
           new cloudwatch.TextWidget({
             width: 24, height: 3,
             markdown: [

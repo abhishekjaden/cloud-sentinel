@@ -34,6 +34,7 @@ AWS's own control plane, and the security of the operator's endpoint device.
 | B4 | Workload account → Audit account | Promotion of the trained model |
 | B5 | Operator → Step Functions | **Approval decisions authorising destructive actions** |
 | B6 | GitHub Actions → AWS | OIDC-federated deployment |
+| B7 | Incidents → language model (Bedrock) | Attacker-influenced finding text in; advisory triage notes out |
 
 B5 is the boundary that distinguishes this system from a passive dashboard: a
 human decision on one side causes irreversible change on the other.
@@ -94,6 +95,22 @@ The highest-consequence boundary in the system.
 | **T** | Malicious code reaching the pipeline | All actions pinned to commit SHAs; Semgrep, gitleaks and Dependabot run on every push | A single maintainer means no second reviewer; anything merged to `main` is trusted. |
 | **I** | Secrets leaking through build logs | No long-lived AWS credentials exist; gitleaks scans full history and found none | Build logs are public on a public repository. |
 | **E** | CI role escalating to deploy | Separate roles: CI is read-only and assumable from any branch; deploy is restricted to `main` | The deploy role can assume CDK roles in all four accounts — necessarily broad. |
+
+### B7 — Incidents → language model (Bedrock)
+
+The triage function sends each incident and its findings to a model and stores
+the note it writes ([ADR 0005](adr/0005-advisory-llm-triage.md)). Finding
+fields — resolved domain names, API callers' user agents, bucket and user
+names — are chosen by whoever caused the finding.
+
+| Threat | Vector | Mitigation | Residual |
+|---|---|---|---|
+| **S** | A forged model response | Calls go to Bedrock over TLS, authenticated with the function's IAM role | None known. |
+| **T** | Prompt injection through finding fields steers the note | Data escaped inside tags the prompt declares untrusted; one forced tool schema, validated field by field; unknown fields dropped; attempts flagged on the dashboard | A steered note can still read plausibly. It cannot change anything, but it can mislead an analyst who trusts it. |
+| **R** | No record of which model wrote a note | Each note stores its model ID, prompt version and time | None known. |
+| **I** | Finding data sent to a model | Stays within AWS; a US inference profile keeps processing in US Regions; the platform does not enable Bedrock invocation logging, so prompts are not stored | Account IDs and resource names are sent. |
+| **D** | Exhausting the model quota or budget | Re-triage only when an incident changes; five incidents a run; a throttled run stops | A flood of incidents delays notes; it does not raise cost beyond the cap. |
+| **E** | Model output gaining authority | The function cannot write incidents or findings, or touch Step Functions or SNS; the note is shown as advisory plain text beside the computed severity | None known: no path from a note to an action exists. |
 
 ---
 

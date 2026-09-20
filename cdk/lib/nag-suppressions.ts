@@ -154,3 +154,19 @@ export function suppressDnsDelegation(stack: Stack): void {
     },
   ], true);
 }
+
+/** Suppressions for the model-backed triage function. */
+export function suppressModelInvocation(stack: Stack, foundationModel: string): void {
+  NagSuppressions.addStackSuppressions(stack, [
+    {
+      id: 'AwsSolutions-IAM5',
+      reason:
+        'Cross-Region inference serves each request from whichever Region in the ' +
+        "profile's geography has capacity, so the foundation model's ARN needs a " +
+        'Region wildcard. The statement names one model and is conditioned on ' +
+        'bedrock:InferenceProfileArn, so the model can be reached only through the ' +
+        'one inference profile the function is also granted.',
+      appliesTo: [`Resource::arn:aws:bedrock:*::foundation-model/${foundationModel}`],
+    },
+  ], true);
+}

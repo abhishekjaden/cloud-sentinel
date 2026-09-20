@@ -14,7 +14,7 @@ import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import { ACCOUNTS } from '../config';
-import { ALARM_TOPIC_NAME } from '../names';
+import { ALARM_TOPIC_NAME, TRIAGE_TABLE_NAME } from '../names';
 import { suppressCdkManagedResources, suppressPublicIngress } from '../nag-suppressions';
 
 /**
@@ -118,6 +118,7 @@ export class ApiStack extends cdk.Stack {
           CORS_ORIGINS: 'https://d2tb90osqfrb0m.cloudfront.net',
           APPROVALS_TABLE: 'cloudsentinel-approvals',
           INCIDENTS_TABLE: 'cloudsentinel-incidents',
+          TRIAGE_TABLE: TRIAGE_TABLE_NAME,
         },
       },
       publicLoadBalancer: true,
@@ -181,7 +182,16 @@ export class ApiStack extends cdk.Stack {
       ],
     }));
 
-    // The incidents table shares this key, so this grant also covers reading it.
+    // Triage notes are shown beside each incident. The API reads them and
+    // nothing else: the triage function is their only writer.
+    taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'ReadTriageNotes',
+      actions: ['dynamodb:BatchGetItem'],
+      resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/${TRIAGE_TABLE_NAME}`],
+    }));
+
+    // The incidents and triage tables share this key, so this grant also
+    // covers reading them.
     taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       sid: 'DecryptFindingsTable',
       actions: ['kms:Decrypt', 'kms:DescribeKey'],

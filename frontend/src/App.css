@@ -250,3 +250,21 @@ td { padding: 8px; border-bottom: 1px solid var(--border); }
   background: var(--bg); border: 1px solid var(--border);
 }
 .incident-meta { font-size: 0.8rem; color: var(--muted); }
+
+/* Advisory triage note (model output: set apart, plain text) */
+.triage {
+  margin: 0.65rem 0 0; padding: 0.55rem 0.75rem;
+  border-left: 2px solid var(--accent); background: rgba(56, 139, 253, 0.06);
+  border-radius: 0 6px 6px 0; font-size: 0.82rem;
+}
+.triage-none { color: var(--muted); border-left-color: var(--border); background: none; }
+.triage-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.triage-title { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: var(--accent); }
+.triage-assessed, .triage-confidence { font-size: 11px; color: var(--muted); }
+.tag-injection { background: rgba(218, 54, 51, 0.18); color: #f0837e; }
+.triage-summary { margin: 0.4rem 0; line-height: 1.45; }
+.triage-steps { margin: 0.2rem 0 0.4rem; padding-left: 1.2rem; }
+.triage-steps li { margin: 0.1rem 0; }
+.triage-reasons summary { cursor: pointer; color: var(--muted); font-size: 0.78rem; }
+.triage-reasons ul { margin: 0.3rem 0; padding-left: 1.2rem; }
+.triage-meta { font-size: 0.72rem; color: var(--muted); }

@@ -13,8 +13,8 @@ import { describe, test, expect, afterEach } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { IncidentsPanel } from "../components/IncidentsPanel";
-import { describeSpan, formatDuration, severityBucket, stageLabel } from "../incidents";
-import type { Incident, IncidentsResponse } from "../types";
+import { describeSpan, formatDuration, modelLabel, severityBucket, stageLabel } from "../incidents";
+import type { Incident, IncidentsResponse, Triage } from "../types";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -162,5 +162,68 @@ describe("IncidentsPanel", () => {
 
   test("before the first response it shows a loading state", () => {
     expect(render(null).textContent).toContain("Loading incidents");
+  });
+});
+
+// ------------------------------------------------------------------- triage
+describe("modelLabel", () => {
+  test.each([
+    ["us.anthropic.claude-haiku-4-5-20251001-v1:0", "Claude Haiku 4.5"],
+    ["us.anthropic.claude-sonnet-4-6", "Claude Sonnet 4.6"],
+    ["us.anthropic.claude-sonnet-4-20250514-v1:0", "Claude Sonnet 4"],
+    ["global.anthropic.claude-opus-5", "Claude Opus 5"],
+    ["amazon.nova-pro-v1:0", "amazon.nova-pro-v1:0"],
+  ])("%s reads as %s", (id, label) => {
+    expect(modelLabel(id)).toBe(label);
+  });
+});
+
+describe("triage note", () => {
+  const note: Triage = {
+    status: "complete", triaged_at: "2026-09-20T15:00:00+00:00",
+    summary: "Port probing was followed by a command-and-control callout.",
+    assessed_severity: "high", confidence: "medium",
+    likely_test_data: false, injection_suspected: false,
+    reasons: ["Two stages within a minute."],
+    next_steps: ["Check the instance's outbound DNS queries.", "Review its security group."],
+    model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  };
+  const triageOf = (host: HTMLElement) => host.querySelector(".triage");
+
+  test("is labelled advisory and shows its summary, steps and source", () => {
+    const host = render(response([incident({ triage: note })]));
+    const shown = triageOf(host)?.textContent ?? "";
+    expect(shown).toContain("advisory");
+    expect(shown).toContain(note.summary);
+    expect([...host.querySelectorAll(".triage-steps li")].map((li) => li.textContent))
+      .toEqual(note.next_steps);
+    expect(shown).toContain("Claude Haiku 4.5");
+  });
+
+  test("flags a suspected prompt injection, and only then", () => {
+    const flagged = render(response([incident({ triage: { ...note, injection_suspected: true } })]));
+    expect(flagged.querySelector(".tag-injection")).not.toBeNull();
+    const clean = render(response([incident({ triage: note })]));
+    expect(clean.querySelector(".tag-injection")).toBeNull();
+  });
+
+  test("renders model output as text, never as markup", () => {
+    const hostile = '<img src="x" onerror="alert(1)"><b>benign</b>';
+    const host = render(response([incident({ triage: { ...note, summary: hostile, next_steps: [hostile] } })]));
+    expect(host.querySelector(".triage img, .triage b")).toBeNull();
+    expect(triageOf(host)?.textContent).toContain(hostile);
+  });
+
+  test("says when no note exists yet", () => {
+    const host = render(response([incident({ triage: null })]));
+    expect(triageOf(host)?.textContent).toContain("not yet run");
+  });
+
+  test("a rejected answer shows that it was rejected and nothing of its content", () => {
+    const rejected = { status: "invalid_output", triaged_at: note.triaged_at,
+      summary: "should never be shown" } as Triage;
+    const host = render(response([incident({ triage: rejected })]));
+    expect(triageOf(host)?.textContent).toContain("rejected");
+    expect(host.textContent).not.toContain("should never be shown");
   });
 });

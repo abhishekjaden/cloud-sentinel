@@ -1,5 +1,57 @@
-import type { IncidentsResponse } from "../types";
-import { describeSpan, severityBucket, stageLabel } from "../incidents";
+import type { IncidentsResponse, Triage } from "../types";
+import { describeSpan, modelLabel, severityBucket, stageLabel } from "../incidents";
+
+/**
+ * The model's triage note for one incident. Labelled advisory, because it is:
+ * the computed severity and stages above it are the record, and nothing acts
+ * on this. Rendered as plain text throughout — the note is model output
+ * derived from attacker-influenced findings.
+ */
+function TriageNote({ note }: { note: Triage | null | undefined }) {
+  if (!note) {
+    return <p className="triage triage-none">AI triage: not yet run.</p>;
+  }
+  if (note.status !== "complete") {
+    return (
+      <p className="triage triage-none">
+        AI triage: the model's answer was rejected; it is retried when the incident changes.
+      </p>
+    );
+  }
+  return (
+    <section className="triage" aria-label="Advisory triage by a language model">
+      <div className="triage-head">
+        <span className="triage-title">AI triage · advisory</span>
+        {note.assessed_severity && (
+          <span className="triage-assessed">assessed {note.assessed_severity}</span>
+        )}
+        {note.confidence && <span className="triage-confidence">{note.confidence} confidence</span>}
+        {note.injection_suspected && (
+          <span className="incident-tag tag-injection"
+            title="The findings contain text addressed to an AI system, itself a sign of an attacker. Read this note with extra care.">
+            POSSIBLE PROMPT INJECTION
+          </span>
+        )}
+        {note.likely_test_data && <span className="incident-tag tag-sample">LOOKS LIKE TEST DATA</span>}
+      </div>
+      <p className="triage-summary">{note.summary}</p>
+      {note.next_steps && note.next_steps.length > 0 && (
+        <ol className="triage-steps" aria-label="Suggested next steps">
+          {note.next_steps.map((step, n) => <li key={n}>{step}</li>)}
+        </ol>
+      )}
+      {note.reasons && note.reasons.length > 0 && (
+        <details className="triage-reasons">
+          <summary>Why</summary>
+          <ul>{note.reasons.map((reason, n) => <li key={n}>{reason}</li>)}</ul>
+        </details>
+      )}
+      <div className="triage-meta">
+        {modelLabel(note.model_id)} · {new Date(note.triaged_at).toLocaleString()}
+      </div>
+    </section>
+  );
+}
 
 /**
  * Correlated incidents: several findings against one resource, close together
@@ -67,6 +119,7 @@ export function IncidentsPanel({ data, error }: {
                   {" · first seen "}
                   {new Date(i.first_seen).toLocaleString()}
                 </div>
+                <TriageNote note={i.triage} />
               </li>
             );
           })}

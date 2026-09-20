@@ -44,6 +44,26 @@ export interface Incident {
   status: string;
   /** Built from GuardDuty sample findings rather than live traffic. */
   sample: boolean;
+  /** Advisory note from the triage model; null until one has been written. */
+  triage?: Triage | null;
+}
+
+/**
+ * A triage note written by a language model. Advisory: nothing in the
+ * platform acts on it. A note the model got wrong in shape is reported only as
+ * rejected, with no content.
+ */
+export interface Triage {
+  status: "complete" | "invalid_output";
+  triaged_at: string;
+  summary?: string;
+  assessed_severity?: "critical" | "high" | "medium" | "low" | "informational";
+  confidence?: "high" | "medium" | "low";
+  likely_test_data?: boolean;
+  injection_suspected?: boolean;
+  reasons?: string[];
+  next_steps?: string[];
+  model_id?: string;
 }
 
 export interface IncidentsResponse {

@@ -117,3 +117,97 @@ def test_empty_table(auth_client, fake_table):
 def test_backend_failure_is_a_500(auth_client, fake_table):
     fake_table.scan.side_effect = RuntimeError("dynamo unavailable")
     assert auth_client.get("/incidents").status_code == 500
+
+
+# ------------------------------------------------------------------ triage
+# Notes come from a language model, so the API passes on only the fields the
+# triage function validated, and treats the whole feature as optional: a note
+# that cannot be read must never cost the analyst the incidents themselves.
+NOTE = {
+    "incident_id": "a", "status": "complete", "fingerprint": "f" * 64,
+    "summary": "Recon followed by initial access on i-0abc.",
+    "assessed_severity": "high", "confidence": "medium",
+    "likely_test_data": False, "injection_suspected": False,
+    "reasons": ["Two stages within minutes."], "next_steps": ["Review SSH logs."],
+    "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "prompt_version": "2026-09-20.1", "triaged_at": "2026-09-20T15:00:00+00:00",
+    "input_tokens": Decimal("900"), "output_tokens": Decimal("120"),
+}
+
+
+def _dynamodb(app_module):
+    """The DynamoDB resource the incidents route holds, as stubbed by conftest."""
+    import app.incidents
+    return app.incidents._dynamodb
+
+
+def test_each_incident_carries_its_triage_note(auth_client, app_module, fake_table):
+    fake_table.scan.return_value = {"Items": [REAL, SAMPLE_EC2]}
+    _dynamodb(app_module).batch_get_item.return_value = {
+        "Responses": {"cloudsentinel-triage": [NOTE]}}
+
+    incidents = _by_id(auth_client.get("/incidents").json())
+
+    assert incidents["a"]["triage"]["summary"] == NOTE["summary"]
+    assert incidents["a"]["triage"]["next_steps"] == ["Review SSH logs."]
+    assert incidents["b"]["triage"] is None
+
+
+def test_only_the_notes_display_fields_leave_the_server(auth_client, app_module, fake_table):
+    fake_table.scan.return_value = {"Items": [REAL]}
+    _dynamodb(app_module).batch_get_item.return_value = {
+        "Responses": {"cloudsentinel-triage": [NOTE]}}
+
+    note = auth_client.get("/incidents").json()["incidents"][0]["triage"]
+
+    assert set(note) == {"status", "summary", "assessed_severity", "confidence",
+                         "likely_test_data", "injection_suspected", "reasons",
+                         "next_steps", "model_id", "triaged_at"}
+
+
+def test_a_rejected_note_shows_only_that_it_was_rejected(auth_client, app_module, fake_table):
+    fake_table.scan.return_value = {"Items": [REAL]}
+    _dynamodb(app_module).batch_get_item.return_value = {"Responses": {"cloudsentinel-triage": [
+        {"incident_id": "a", "status": "invalid_output", "triaged_at": "2026-09-20T15:00:00+00:00",
+         "summary": "should never be shown"}]}}
+
+    note = auth_client.get("/incidents").json()["incidents"][0]["triage"]
+
+    assert note == {"status": "invalid_output", "triaged_at": "2026-09-20T15:00:00+00:00"}
+
+
+def test_incidents_are_served_when_notes_cannot_be_read(auth_client, app_module, fake_table):
+    fake_table.scan.return_value = {"Items": [REAL, SAMPLE_EC2]}
+    _dynamodb(app_module).batch_get_item.side_effect = RuntimeError("AccessDenied")
+
+    response = auth_client.get("/incidents")
+
+    assert response.status_code == 200
+    assert [i["triage"] for i in response.json()["incidents"]] == [None, None]
+
+
+def test_notes_are_requested_a_hundred_keys_at_a_time(auth_client, app_module, fake_table):
+    many = [_incident(f"i{n:03}", "i-0abc", f"2026-09-10T00:00:{n % 60:02}+00:00", ["impact"])
+            for n in range(150)]
+    fake_table.scan.return_value = {"Items": many}
+    batch = _dynamodb(app_module).batch_get_item
+    batch.return_value = {"Responses": {}}
+
+    auth_client.get("/incidents?limit=150")
+
+    sizes = [len(c.kwargs["RequestItems"]["cloudsentinel-triage"]["Keys"])
+             for c in batch.call_args_list]
+    assert sizes == [100, 50]
+
+
+def test_unprocessed_keys_are_retried_then_given_up_on(auth_client, app_module, fake_table):
+    fake_table.scan.return_value = {"Items": [REAL]}
+    stuck = {"cloudsentinel-triage": {"Keys": [{"incident_id": "a"}]}}
+    batch = _dynamodb(app_module).batch_get_item
+    batch.return_value = {"Responses": {}, "UnprocessedKeys": stuck}
+
+    response = auth_client.get("/incidents")
+
+    assert response.status_code == 200
+    assert batch.call_count == 3
+    assert response.json()["incidents"][0]["triage"] is None

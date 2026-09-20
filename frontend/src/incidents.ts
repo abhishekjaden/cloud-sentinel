@@ -43,3 +43,16 @@ export function describeSpan(count: number, seconds: number): string {
 export function stageLabel(stage: string): string {
   return stage.replace(/-/g, " ");
 }
+
+/**
+ * A Bedrock model ID as a reader would say it:
+ * "us.anthropic.claude-haiku-4-5-20251001-v1:0" -> "Claude Haiku 4.5".
+ * An ID in another form is shown as given rather than guessed at.
+ */
+export function modelLabel(id: string | undefined): string {
+  if (!id) return "unknown model";
+  const m = /claude-(haiku|sonnet|opus|fable)-(\d+)(?:-(\d{1,2}))?(?:-|$)/.exec(id);
+  if (!m) return id;
+  const family = m[1][0].toUpperCase() + m[1].slice(1);
+  return `Claude ${family} ${m[3] ? `${m[2]}.${m[3]}` : m[2]}`;
+}

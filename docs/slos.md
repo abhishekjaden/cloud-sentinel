@@ -169,12 +169,20 @@ of their own. Recording those needs the X-Ray SDK packaged with each function,
 and the functions currently ship as plain source directories. The API on
 Fargate is not traced.
 
+## Advisory triage
+
+The triage function ([ADR 0005](adr/0005-advisory-llm-triage.md)) has no
+objective: a note helps an analyst but protects nothing, and nothing depends on
+it. Its runs — notes written, answers rejected, model errors, throttled runs and
+incidents still waiting — are graphed on the last row of the SLO dashboard, which
+is where a model quota problem shows.
+
 ## Cost
 
 | Item | Count | Free each month |
 |---|---|---|
 | Alarm metrics (a metric-math alarm is billed per metric it reads) | 12, plus 4 while the API is up | 10 |
-| Custom metrics (published by the handlers) | 3 | 10 |
+| Custom metrics (published by the handlers, 5 of them by triage) | 8 | 10 |
 | Dashboards | 2 | 3 |
 | X-Ray traces | a few thousand to tens of thousands | 100,000 |
 
