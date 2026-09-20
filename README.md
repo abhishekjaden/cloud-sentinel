@@ -65,7 +65,7 @@ ML (Workload)
 | Auth | Cognito (hosted UI, PKCE), python-jose (JWT/JWKS verification) |
 | Frontend | React, TypeScript, Vite, Recharts, axios |
 | Hosting / DNS / TLS | S3 + CloudFront (OAC), Route 53, ACM |
-| Ops | CloudWatch, AWS Budgets, least-privilege IAM |
+| Ops | CloudWatch (alarms, SLO dashboards, Embedded Metric Format), X-Ray, AWS Budgets, least-privilege IAM |
 
 ---
 
@@ -108,6 +108,7 @@ Other decisions worth naming:
 - **Auth enforced at the API, not just the UI.** Frontend-only auth is theater — unauthenticated requests to the data routes return 401.
 - **Cross-account DNS delegation, fully IaC.** The management account owns the apex zone; the audit account owns a delegated `api.` subdomain, so its cert, records, and ALB are all same-account. The persistent DNS/cert stack is separated from the ephemeral compute stack so the latter tears down cleanly every time.
 - **Runtime configuration.** The dashboard fetches its API URL at startup, so the built artifact isn't coupled to a backend URL.
+- **Objectives, not just logs.** Seven service level objectives in [`docs/slos.md`](docs/slos.md) each have an alarm and a written response: findings stored, stored promptly, correlation running, remediation steps succeeding, approvals decided, API availability and latency. Every function and the SOAR workflow record X-Ray traces, so a remediation is one trace from the router to each playbook step.
 
 ---
 

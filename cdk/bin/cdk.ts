@@ -15,6 +15,7 @@ import { DnsDelegationStack } from '../lib/stacks/dns-delegation-stack';
 import { DnsStack } from '../lib/stacks/dns-stack';
 import { AuthStack } from '../lib/stacks/auth-stack';
 import { CicdStack } from '../lib/stacks/cicd-stack';
+import { ObservabilityStack } from '../lib/stacks/observability-stack';
 
 const app = new cdk.App();
 
@@ -78,5 +79,9 @@ new AuthStack(app, 'CloudSentinel-Auth', {
 new CicdStack(app, 'CloudSentinel-Cicd', {
   env: env(ACCOUNTS.management),
   description: 'CloudSentinel: GitHub OIDC provider + CI/deploy roles (Management account)',
+});
+new ObservabilityStack(app, 'CloudSentinel-Observability', {
+  env: env(ACCOUNTS.audit),
+  description: 'CloudSentinel: service level objectives — alarms, alarm topic and SLO dashboard (Audit account)',
 });
 app.synth();

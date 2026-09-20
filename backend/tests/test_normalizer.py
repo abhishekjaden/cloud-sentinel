@@ -222,3 +222,61 @@ def test_securityhub_event_with_no_findings_does_not_raise(normalizer):
     out = normalizer._normalize({"source": "aws.securityhub", "detail": {"findings": []}})
     assert out["source"] == "securityhub"
     assert out["severity"] == 0
+
+
+# ------------------------------------------------------------------ metrics
+# The findings-stored alarm in the observability stack reads these counts. A
+# failed record is caught so the rest of its batch still goes through, which
+# also keeps it out of Lambda's own Errors metric; without these counts a lost
+# finding would leave no trace in any metric.
+def _batch(*payloads):
+    return {"Records": [{"kinesis": {"data": base64.b64encode(p).decode()}} for p in payloads]}
+
+
+def _metric_lines(capsys):
+    """Embedded Metric Format records the handler printed."""
+    return [json.loads(line) for line in capsys.readouterr().out.splitlines()
+            if line.startswith("{") and '"_aws"' in line]
+
+
+def test_a_batch_reports_how_many_records_it_received_and_lost(normalizer, capsys):
+    good = json.dumps(INSPECTOR_EVENT).encode()
+    with mock.patch.object(normalizer, "_table") as table:
+        # one record that cannot be parsed, one that DynamoDB refuses
+        table.put_item.side_effect = [None, RuntimeError("throttled"), None]
+        result = normalizer.handler(_batch(good, b"not json", good, good), None)
+
+    assert result == {"processed": 2}
+    (line,) = _metric_lines(capsys)
+    assert line["RecordsReceived"] == 4
+    assert line["RecordsFailed"] == 2
+
+
+def test_a_clean_batch_reports_no_failures(normalizer, capsys):
+    """Zero is published rather than omitted, so the stored-share graph has a
+    denominator for every batch."""
+    with mock.patch.object(normalizer, "_table"):
+        normalizer.handler(_batch(json.dumps(INSPECTOR_EVENT).encode()), None)
+
+    (line,) = _metric_lines(capsys)
+    assert (line["RecordsReceived"], line["RecordsFailed"]) == (1, 0)
+
+
+def test_the_metrics_line_is_embedded_metric_format(normalizer, capsys):
+    """CloudWatch drops a malformed EMF line without reporting an error, and the
+    alarm reading the metric then never fires. Namespace, dimension and names
+    are the ones the observability stack's alarm is built on."""
+    with mock.patch.object(normalizer, "_table"):
+        normalizer.handler(_batch(json.dumps(INSPECTOR_EVENT).encode()), None)
+
+    (line,) = _metric_lines(capsys)
+    (spec,) = line["_aws"]["CloudWatchMetrics"]
+    assert spec["Namespace"] == "CloudSentinel"
+    assert spec["Dimensions"] == [["Component"]]
+    assert line["Component"] == "normalizer"
+    declared = {m["Name"] for m in spec["Metrics"]}
+    assert declared == {"RecordsReceived", "RecordsFailed"}
+    for name in declared:
+        assert isinstance(line[name], int)
+    assert all(m["Unit"] == "Count" for m in spec["Metrics"])
+    assert isinstance(line["_aws"]["Timestamp"], int)

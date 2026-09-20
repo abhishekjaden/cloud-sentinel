@@ -12,11 +12,18 @@ DynamoDB item keys:
 
 created_at is ISO 8601 for every source. sk sorts by time only because of that,
 so a source that sends another format is converted here, not downstream.
+
+Each batch also reports how many records it received and how many failed, as
+CloudWatch metrics. A record that fails is caught so the rest of its batch still
+goes through, which also keeps the failure out of Lambda's own Errors metric:
+the invocation succeeds either way. These counts are what make a lost finding
+visible, and the findings-stored alarm watches them (docs/slos.md).
 """
 import base64
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 
 import boto3
@@ -26,6 +33,10 @@ logger.setLevel(logging.INFO)
 
 _TABLE_NAME = os.environ.get("FINDINGS_TABLE", "cloudsentinel-findings")
 _table = boto3.resource("dynamodb").Table(_TABLE_NAME)
+
+# Pinned on both sides: the observability stack's alarms read these names.
+_METRIC_NAMESPACE = "CloudSentinel"
+_COMPONENT = "normalizer"
 
 
 def _severity_bucket(score):
@@ -181,9 +192,32 @@ def _persist(finding):
     _table.put_item(Item=item)
 
 
+def _metrics_line(**counts):
+    """One record in CloudWatch Embedded Metric Format.
+
+    EMF is a log line that CloudWatch turns into metrics as it arrives, so it
+    needs no SDK and no extra API call. CloudWatch drops a malformed line
+    without an error anywhere, which would silence the alarm that watches it,
+    so the tests pin this shape.
+    """
+    return json.dumps({
+        "_aws": {
+            "Timestamp": int(time.time() * 1000),
+            "CloudWatchMetrics": [{
+                "Namespace": _METRIC_NAMESPACE,
+                "Dimensions": [["Component"]],
+                "Metrics": [{"Name": name, "Unit": "Count"} for name in counts],
+            }],
+        },
+        "Component": _COMPONENT,
+        **counts,
+    })
+
+
 def handler(event, context):
+    records = event.get("Records", [])
     processed = 0
-    for record in event.get("Records", []):
+    for record in records:
         try:
             payload = base64.b64decode(record["kinesis"]["data"])
             raw_event = json.loads(payload)
@@ -193,4 +227,8 @@ def handler(event, context):
             processed += 1
         except Exception as exc:  # noqa: BLE001
             logger.error("Failed to process record: %s", exc)
+    # Printed rather than logged: Lambda's log handler prefixes each line with a
+    # level and request ID, and CloudWatch reads EMF only from a line that is
+    # JSON from its first character.
+    print(_metrics_line(RecordsReceived=len(records), RecordsFailed=len(records) - processed))
     return {"processed": processed}

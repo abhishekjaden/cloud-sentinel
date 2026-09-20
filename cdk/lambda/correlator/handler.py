@@ -23,12 +23,18 @@ derived from what it is — the account, the resource, and when the attack began
 — and each run updates the existing record rather than adding another. The
 incident's status belongs to the analyst once it exists and is never
 overwritten by a later run.
+
+Liveness: a run that finishes publishes one CloudWatch metric as its last act.
+The incidents-current alarm treats silence as failure, so a run that crashes,
+times out or never starts is noticed without anything having to report it
+(docs/slos.md).
 """
 import hashlib
 import json
 import logging
 import os
 import re
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -49,6 +55,10 @@ THREAT_SOURCES = ("guardduty",)
 _ddb = boto3.resource("dynamodb")
 _findings = _ddb.Table(FINDINGS_TABLE)
 _incidents = _ddb.Table(INCIDENTS_TABLE)
+
+# Pinned on both sides: the observability stack's alarm reads these names.
+_METRIC_NAMESPACE = "CloudSentinel"
+_COMPONENT = "correlator"
 
 # GuardDuty finding types are `ThreatPurpose:ResourceType/ThreatFamily`. The
 # threat purpose maps onto a rough kill-chain stage.
@@ -263,6 +273,24 @@ def _upsert(incident):
     )
 
 
+def _metrics_line(**counts):
+    """One record in CloudWatch Embedded Metric Format: a log line CloudWatch
+    turns into metrics as it arrives. A malformed line is dropped silently, so
+    the tests pin this shape."""
+    return json.dumps({
+        "_aws": {
+            "Timestamp": int(time.time() * 1000),
+            "CloudWatchMetrics": [{
+                "Namespace": _METRIC_NAMESPACE,
+                "Dimensions": [["Component"]],
+                "Metrics": [{"Name": name, "Unit": "Count"} for name in counts],
+            }],
+        },
+        "Component": _COMPONENT,
+        **counts,
+    })
+
+
 def handler(event, context):
     cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)
     findings = _recent_threat_findings(cutoff)
@@ -289,4 +317,8 @@ def handler(event, context):
     summary = {"incidents": written, "multi_stage": multi_stage,
                "findings_correlated": len(findings)}
     logger.info("CORRELATION_COMPLETE %s", json.dumps(summary))
+    # Last, so that only a run that wrote every incident counts as completed.
+    # Printed rather than logged: CloudWatch reads EMF only from a line that is
+    # JSON from its first character, and the log handler adds a prefix.
+    print(_metrics_line(CorrelationRunsCompleted=1))
     return summary

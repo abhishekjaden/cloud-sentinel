@@ -13,6 +13,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { Duration } from 'aws-cdk-lib/core';
 import * as path from 'path';
 import { suppressCdkManagedResources } from '../nag-suppressions';
+import { FUNCTION_NAMES, REMEDIATION_RULE_NAME, STATE_MACHINE_NAME } from '../names';
 
 /**
  * RemediationStack — deploys to the Audit account (118821712739).
@@ -41,7 +42,13 @@ export class RemediationStack extends cdk.Stack {
       displayName: 'CloudSentinel Remediation Approvals & Notifications',
     });
 
+    // Every function here is named and traced. The names let the observability
+    // stack's alarms find them (see names.ts); with tracing on, a remediation
+    // appears in X-Ray as one trace from the router through the state machine
+    // to each playbook step.
     const executor = new lambda.Function(this, 'RemediationExecutor', {
+      functionName: FUNCTION_NAMES.executor,
+      tracing: lambda.Tracing.ACTIVE,
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'handler.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../lambda/remediation')),
@@ -70,6 +77,8 @@ export class RemediationStack extends cdk.Stack {
       this, 'ApprovalsTableRef', 'cloudsentinel-approvals');
 
     const approvalRecorder = new lambda.Function(this, 'ApprovalRecorder', {
+      functionName: FUNCTION_NAMES.approvalRecorder,
+      tracing: lambda.Tracing.ACTIVE,
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'handler.handler',
       code: lambda.Code.fromAsset('lambda/approval-recorder'),
@@ -166,13 +175,19 @@ export class RemediationStack extends cdk.Stack {
     const stateMachine = new sfn.StateMachine(this, 'RemediationStateMachine', {
       logs: { destination: sfnLogs, level: sfn.LogLevel.ALL, includeExecutionData: true },
       tracingEnabled: true,
-      stateMachineName: 'cloudsentinel-remediation',
+      stateMachineName: STATE_MACHINE_NAME,
       definitionBody: sfn.DefinitionBody.fromChainable(classify),
       timeout: Duration.hours(24), // allow time for human approval
     });
+    // Nothing is routed to a function until its log group exists: CDK creates
+    // the group after the function, and an invocation in between would have
+    // Lambda create it first, failing the deployment on the taken name.
+    stateMachine.node.addDependency(executor.logGroup, approvalRecorder.logGroup);
 
     // Router Lambda: EventBridge -> maps finding to playbook -> starts state machine.
     const router = new lambda.Function(this, 'RemediationRouter', {
+      functionName: FUNCTION_NAMES.router,
+      tracing: lambda.Tracing.ACTIVE,
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'handler.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../lambda/router')),
@@ -187,8 +202,8 @@ export class RemediationStack extends cdk.Stack {
     stateMachine.grantStartExecution(router);
 
     // EventBridge rule: high-severity GuardDuty findings -> router.
-    new events.Rule(this, 'HighSevFindingRule', {
-      ruleName: 'cloudsentinel-highsev-remediation',
+    const highSevRule = new events.Rule(this, 'HighSevFindingRule', {
+      ruleName: REMEDIATION_RULE_NAME,
       description: 'Route high-severity GuardDuty findings to the remediation router',
       eventPattern: {
         source: ['aws.guardduty'],
@@ -197,6 +212,7 @@ export class RemediationStack extends cdk.Stack {
       },
       targets: [new targets.LambdaFunction(router)],
     });
+    highSevRule.node.addDependency(router.logGroup);
 
     new cdk.CfnOutput(this, 'StateMachineArn', { value: stateMachine.stateMachineArn });
     new cdk.CfnOutput(this, 'NotifyTopicArn', { value: notifyTopic.topicArn });

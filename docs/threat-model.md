@@ -70,7 +70,7 @@ human decision on one side causes irreversible change on the other.
 | **T** | Altering findings in flight | Kinesis encrypted at rest; TLS in transit; DynamoDB uses a customer-managed key | The normalizer trusts its input entirely — no schema validation or signature check. |
 | **R** | No record of what was ingested | Normalizer logs every normalized finding to CloudWatch | Retention is CloudWatch's default; no immutable archive. |
 | **I** | Reading the findings store | Customer-managed KMS key; `kms:Decrypt` scoped by `kms:ViaService` to DynamoDB only | Anyone with the audit account's admin role reads everything. Single-account blast radius. |
-| **D** | Flooding the stream | Provisioned shard sustains 1,000 records/second against an observed ~950/day | A sustained flood would throttle ingestion; no alarm on iterator age or write throttles. |
+| **D** | Flooding the stream | Provisioned shard sustains 1,000 records/second against an observed ~950/day. Throttled writes are graphed; the `findings-fresh` alarm fires when findings wait over five minutes, and `findings-stored` when one is dropped ([SLOs](slos.md)) | A sustained flood would still throttle ingestion. The alarms report it; nothing prevents it. |
 | **E** | Normalizer role misuse | Role limited to Kinesis read, DynamoDB write, and KMS use through DynamoDB | None known. |
 
 ### B5 — Operator → Step Functions (approval)
@@ -83,7 +83,7 @@ The highest-consequence boundary in the system.
 | **T** | Altering the remediation definition | State machine defined in CDK and deployed through a reviewed pipeline | An audit-account administrator can edit the state machine directly in the console; there is no drift detection or alarm. |
 | **R** | Denying an approval decision | The deciding principal's Cognito `sub` and a timestamp are written to the approvals record before the workflow resumes; spent tokens are removed and replay returns 409 | Attribution is to a Cognito identity, not to a verified human; a shared account would defeat it. |
 | **I** | Approval payload exposes finding detail | SNS topic requires TLS for publishers | Notification content reaches a mailbox outside AWS's trust boundary. |
-| **D** | Blocking legitimate remediation | Failed executions surface in the dashboard | An unapproved execution simply waits; nothing alerts on approvals pending beyond a threshold. |
+| **D** | Blocking legitimate remediation | Failed executions surface in the dashboard; the `approvals-decided` alarm fires when an approval expires undecided, and `remediation-runs` when a step errors ([SLOs](slos.md)) | An unapproved execution waits up to 24 hours before anything alerts on it. |
 | **E** | Executor exceeds intended scope | Playbook Lambdas hold narrowly scoped permissions; `SAFE_MODE` allows exercising the flow without touching resources | Compromise of a playbook role grants exactly the destructive power the playbook was designed to have. |
 
 ### B6 — GitHub Actions → AWS
@@ -101,9 +101,10 @@ The highest-consequence boundary in the system.
 
 1. **Single-account blast radius.** Audit-account administrator access reads
    every finding, edits the state machine, and disables the KMS key.
-4. **No alerting on the security controls themselves.** Nothing raises an alarm
-   if ingestion stalls, an approval waits indefinitely, or the state machine is
-   modified.
+2. **Partial alerting on the security controls themselves.** Alarms now fire if
+   ingestion drops or delays findings, correlation stops, a remediation step
+   fails or an approval expires ([SLOs](slos.md)). Nothing yet alarms when the
+   state machine, an EventBridge rule or the KMS key is changed or disabled.
 3. **Unvalidated ingestion input.** The normalizer trusts whatever reaches it.
 4. **No WAF or rate limiting.** Accepted deliberately on cost grounds.
 

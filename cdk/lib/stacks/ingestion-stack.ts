@@ -11,6 +11,7 @@ import * as path from 'path';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { suppressCdkManagedResources, suppressStreamEncryption } from '../nag-suppressions';
+import { FINDINGS_STREAM_NAME, FUNCTION_NAMES, INGESTION_RULE_NAMES } from '../names';
 
 /**
  * IngestionStack — deploys to the Audit account (118821712739).
@@ -28,7 +29,7 @@ export class IngestionStack extends cdk.Stack {
 
     // Buffered ingestion stream
     const stream = new kinesis.Stream(this, 'FindingsStream', {
-      streamName: 'cloudsentinel-findings',
+      streamName: FINDINGS_STREAM_NAME,
       // Provisioned, not on-demand. At roughly 950 records a day the on-demand
       // base charge (~$26/month per stream) costs more than a single
       // provisioned shard (~$11/month), which handles 1,000 records a second.
@@ -39,6 +40,11 @@ export class IngestionStack extends cdk.Stack {
 
     // Normalizer Lambda
     const normalizer = new lambda.Function(this, 'Normalizer', {
+      // Named so the observability stack's alarms can find it without a
+      // cross-stack reference (see names.ts), and so it reads as itself in the
+      // X-Ray trace map rather than as a generated identifier.
+      functionName: FUNCTION_NAMES.normalizer,
+      tracing: lambda.Tracing.ACTIVE,
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'handler.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../lambda/normalizer')),
@@ -55,6 +61,15 @@ export class IngestionStack extends cdk.Stack {
       maxBatchingWindow: Duration.seconds(10),
       retryAttempts: 2,
     }));
+
+    // Nothing is routed to a function until its log group exists. CDK creates
+    // each function's log group after the function; if the function were
+    // invoked in between, Lambda would create the group itself and the
+    // deployment would then fail on the taken name. That window opens whenever
+    // a function is replaced — renaming them for the alarms replaced them all.
+    for (const mapping of normalizer.node.children) {
+      if (mapping instanceof lambda.EventSourceMapping) mapping.node.addDependency(normalizer.logGroup);
+    }
 
     // Grant the normalizer write access to the findings table (by name,
     // avoids cross-stack coupling; table lives in DataStoresStack).
@@ -80,11 +95,11 @@ export class IngestionStack extends cdk.Stack {
       { id: 'GuardDuty', source: 'aws.guardduty', detailType: 'GuardDuty Finding' },
       { id: 'SecurityHub', source: 'aws.securityhub', detailType: 'Security Hub Findings - Imported' },
       { id: 'Inspector', source: 'aws.inspector2', detailType: 'Inspector2 Finding' },
-    ];
+    ] as const;
 
     for (const s of sources) {
       new events.Rule(this, `${s.id}Rule`, {
-        ruleName: `cloudsentinel-${s.id.toLowerCase()}-findings`,
+        ruleName: INGESTION_RULE_NAMES[s.id],
         description: `Route ${s.id} findings to the ingestion stream`,
         eventPattern: {
           source: [s.source],
@@ -98,6 +113,8 @@ export class IngestionStack extends cdk.Stack {
     // seeing findings together, which a stream handler processing one record at
     // a time cannot do.
     const correlator = new lambda.Function(this, 'Correlator', {
+      functionName: FUNCTION_NAMES.correlator,
+      tracing: lambda.Tracing.ACTIVE,
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'handler.handler',
       code: lambda.Code.fromAsset('lambda/correlator'),
@@ -126,11 +143,12 @@ export class IngestionStack extends cdk.Stack {
       },
     }));
 
-    new events.Rule(this, 'CorrelationSchedule', {
+    const schedule = new events.Rule(this, 'CorrelationSchedule', {
       ruleName: 'cloudsentinel-correlation',
       schedule: events.Schedule.rate(cdk.Duration.minutes(15)),
       targets: [new targets.LambdaFunction(correlator)],
     });
+    schedule.node.addDependency(correlator.logGroup); // see the normalizer's event source
 
     new cdk.CfnOutput(this, 'StreamName', { value: stream.streamName });
 

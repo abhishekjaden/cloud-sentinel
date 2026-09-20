@@ -22,7 +22,9 @@ export function suppressCdkManagedResources(stack: Stack): void {
       id: 'AwsSolutions-IAM5',
       reason:
         'Wildcards here originate from CDK-generated roles (asset deployment, ' +
-        'custom resource providers) or are constrained by condition keys — the ' +
+        'custom resource providers), are required by X-Ray — whose ' +
+        'PutTraceSegments and PutTelemetryRecords actions do not support ' +
+        'resource-level permissions — or are constrained by condition keys: the ' +
         'KMS grants are scoped by kms:ViaService to DynamoDB only, so the role ' +
         'cannot use the key against any other service.',
     },

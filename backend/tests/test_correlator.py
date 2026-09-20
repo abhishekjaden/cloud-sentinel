@@ -218,3 +218,43 @@ def test_stages_are_ordered_along_the_kill_chain_not_by_arrival(correlator):
     stages = values[":" + ref[1:]]
 
     assert stages == ["reconnaissance", "command-and-control", "impact"]
+
+
+# ------------------------------------------------------------------- liveness
+# The incidents-current alarm treats silence as failure: a run publishes one
+# count as its last act, and 45 minutes without one raises the alarm.
+def _metric_lines(capsys):
+    return [json.loads(line) for line in capsys.readouterr().out.splitlines()
+            if line.startswith("{") and '"_aws"' in line]
+
+
+def test_a_completed_run_publishes_its_heartbeat(correlator, capsys):
+    _serve(correlator, [_finding(10, "Recon:EC2/PortProbeUnprotectedPort")])
+    correlator.handler({}, None)
+
+    (line,) = _metric_lines(capsys)
+    (spec,) = line["_aws"]["CloudWatchMetrics"]
+    assert spec["Namespace"] == "CloudSentinel"
+    assert spec["Dimensions"] == [["Component"]]
+    assert spec["Metrics"] == [{"Name": "CorrelationRunsCompleted", "Unit": "Count"}]
+    assert line["Component"] == "correlator"
+    assert line["CorrelationRunsCompleted"] == 1
+
+
+def test_a_run_with_nothing_to_correlate_still_counts_as_completed(correlator, capsys):
+    """No findings is a normal quiet period, not a stalled correlator."""
+    _serve(correlator, [])
+    correlator.handler({}, None)
+
+    (line,) = _metric_lines(capsys)
+    assert line["CorrelationRunsCompleted"] == 1
+
+
+def test_a_run_that_fails_publishes_nothing(correlator, capsys):
+    """A heartbeat from a run that failed part-way would hide the failure."""
+    _serve(correlator, [_finding(10, "Recon:EC2/PortProbeUnprotectedPort")])
+    correlator._incidents.update_item.side_effect = RuntimeError("throttled")
+
+    with pytest.raises(RuntimeError):
+        correlator.handler({}, None)
+    assert _metric_lines(capsys) == []
