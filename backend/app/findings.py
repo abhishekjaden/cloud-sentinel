@@ -1,6 +1,19 @@
-"""Findings routes — read normalized findings from DynamoDB."""
+"""
+Findings routes — read normalized findings from DynamoDB.
+
+Nothing here scans. A scan reads every item in the table on every request, and
+returns them in partition order rather than in time order, so the newest-first
+list had to read the whole table and sort it in memory — a cost that grew with
+the table for a page of fifty.
+
+Both routes are served from indexes instead, which works because the normalizer
+writes a closed set of values: every finding's `source` is one of SOURCES and
+its `severity_bucket` one of BUCKETS. Querying each partition therefore covers
+the table, with no source or bucket left out. `test_normalizer.py` pins that
+the normalizer cannot produce anything else, because the day it can, a finding
+written under a value not listed here stops being counted or shown.
+"""
 import os
-from collections import Counter
 from fastapi import APIRouter, HTTPException, Query, Depends
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -15,23 +28,52 @@ REGION = os.environ.get("AWS_REGION", "us-east-1")
 _dynamodb = boto3.resource("dynamodb", region_name=REGION)
 _table = _dynamodb.Table(TABLE_NAME)
 
+#: Findings by source, in time order. See the datastores stack.
+TIME_INDEX = "source-time-index"
+SEVERITY_INDEX = "severity-index"
 
-def _scan_all(**kwargs):
-    """Every item a scan matches, following pagination to the end.
+#: Every value the normalizer writes to `source`.
+SOURCES = ("guardduty", "securityhub", "inspector", "unknown")
+#: Every value the normalizer writes to `severity_bucket`.
+BUCKETS = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 
-    DynamoDB returns at most 1 MB per scan call, and findings are partitioned
-    by source — pk is "<source>#<account>" — so one call reads roughly one
-    source's partition and stops. Reading a single page, /stats reported 981
-    findings, every one from Security Hub, while the same table held the
-    GuardDuty findings the correlator was grouping into incidents.
+
+def _count(**kwargs):
+    """How many items a query matches, without transferring any of them.
+
+    DynamoDB has no aggregate, so counting still reads every item counted — the
+    saving is that none of them cross the wire or land in this process. A count
+    is paginated like any other query: a single call returns the count for the
+    first megabyte examined, which is the bug this route had when it summed a
+    single page of a scan and called it the table's total.
     """
-    items = []
+    total = 0
     while True:
-        resp = _table.scan(**kwargs)
-        items.extend(resp.get("Items", []))
+        resp = _table.query(Select="COUNT", **kwargs)
+        total += resp.get("Count", 0)
         if "LastEvaluatedKey" not in resp:
-            return items
+            return total
         kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+
+
+def _newest(limit):
+    """The newest findings across every source, newest first.
+
+    One query per source, each returning that source's newest `limit` in index
+    order. The global newest `limit` can only come from those: a finding left
+    out of its own source's newest `limit` has `limit` newer findings ahead of
+    it in that source alone.
+    """
+    merged = []
+    for source in SOURCES:
+        resp = _table.query(
+            IndexName=TIME_INDEX,
+            KeyConditionExpression=Key("source").eq(source),
+            ScanIndexForward=False,
+            Limit=limit,
+        )
+        merged.extend(resp.get("Items", []))
+    return sorted(merged, key=lambda i: i.get("sk", ""), reverse=True)[:limit]
 
 
 @router.get("/findings", dependencies=[Depends(require_auth)])
@@ -43,20 +85,14 @@ def list_findings(
     try:
         if severity_bucket:
             resp = _table.query(
-                IndexName="severity-index",
+                IndexName=SEVERITY_INDEX,
                 KeyConditionExpression=Key("severity_bucket").eq(severity_bucket),
                 ScanIndexForward=False,
                 Limit=limit,
             )
             items = resp.get("Items", [])
         else:
-            # A scan returns items in partition order, not time order, and a
-            # page-limited scan returns only the first source. Recency across
-            # every source needs the whole table; sk begins with created_at.
-            # This reads the full table per request, which is acceptable at the
-            # current size; a recency index is the fix once it is not.
-            items = sorted(_scan_all(), key=lambda i: i.get("sk", ""),
-                           reverse=True)[:limit]
+            items = _newest(limit)
         return {"count": len(items), "findings": items}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"findings query failed: {e}")
@@ -79,18 +115,30 @@ def get_finding(pk: str):
 
 @router.get("/stats", dependencies=[Depends(require_auth)])
 def stats():
-    """Dashboard summary: counts by severity bucket and finding source/type."""
+    """Dashboard summary: counts by severity bucket and finding source.
+
+    Counted a partition at a time rather than by reading the table and
+    tallying it here, so the work this process does no longer grows with the
+    number of findings. The total comes from the severity buckets, which
+    every finding has exactly one of.
+    """
     try:
-        items = _scan_all(
-            ProjectionExpression="severity_bucket, severity, #s",
-            ExpressionAttributeNames={"#s": "source"},
-        )
-        by_bucket = Counter(i.get("severity_bucket", "UNKNOWN") for i in items)
-        by_source = Counter(i.get("source", "unknown") for i in items)
+        by_bucket = {
+            bucket: _count(IndexName=SEVERITY_INDEX,
+                           KeyConditionExpression=Key("severity_bucket").eq(bucket))
+            for bucket in BUCKETS
+        }
+        by_source = {
+            source: _count(IndexName=TIME_INDEX,
+                           KeyConditionExpression=Key("source").eq(source))
+            for source in SOURCES
+        }
         return {
-            "total": len(items),
-            "by_severity_bucket": dict(by_bucket),
-            "by_source": dict(by_source),
+            "total": sum(by_bucket.values()),
+            # Reported as the old tally did: a bucket or source with nothing in
+            # it is absent, not zero.
+            "by_severity_bucket": {k: n for k, n in by_bucket.items() if n},
+            "by_source": {k: n for k, n in by_source.items() if n},
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"stats failed: {e}")

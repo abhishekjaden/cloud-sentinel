@@ -38,6 +38,23 @@ describe('DataStoresStack', () => {
     });
   });
 
+  test('the findings table carries the indexes the API reads it through', () => {
+    // The API holds no dynamodb:Scan on this table, so an index missing or
+    // renamed here is not a slower dashboard but an empty one.
+    const [findings] = Object.values(t.findResources('AWS::DynamoDB::Table'))
+      .map((r: any) => r.Properties).filter((p: any) => p.TableName === 'cloudsentinel-findings');
+    const keys = Object.fromEntries((findings.GlobalSecondaryIndexes ?? [])
+      .map((i: any) => [i.IndexName, i.KeySchema.map((k: any) => `${k.KeyType}:${k.AttributeName}`)]));
+
+    expect(keys).toEqual({
+      'severity-index': ['HASH:severity_bucket', 'RANGE:severity'],
+      // sk, not created_at: an item that arrives without a created_at has the
+      // attribute dropped, and an item missing a sort key is left out of the
+      // index entirely rather than sorted oddly within it.
+      'source-time-index': ['HASH:source', 'RANGE:sk'],
+    });
+  });
+
   test('every S3 bucket blocks all public access', () => {
     const buckets = t.findResources('AWS::S3::Bucket');
     expect(Object.keys(buckets).length).toBeGreaterThan(0);
@@ -186,5 +203,23 @@ describe('ApiStack', () => {
       'dynamodb:BatchWriteItem', 'dynamodb:*', '*']) {
       expect(actions).not.toContain(write);
     }
+  });
+
+  test('the API reads findings by key or by a named index, and cannot scan them', () => {
+    // The routes stopped scanning so that a request would not cost the whole
+    // table; keeping the permission would let the cost come back unnoticed, and
+    // hand a compromised task the cheapest possible way to read every finding.
+    const statements = Object.values(t.findResources('AWS::IAM::Policy'))
+      .flatMap((p: any) => p.Properties.PolicyDocument.Statement)
+      .filter((st: any) => JSON.stringify(st.Resource).includes('cloudsentinel-findings'));
+
+    expect(statements.length).toBe(1);
+    const [findings] = statements as any[];
+    expect(findings.Action).toEqual(['dynamodb:Query', 'dynamodb:GetItem']);
+    expect(findings.Resource).toEqual([
+      expect.stringMatching(/table\/cloudsentinel-findings$/),
+      expect.stringMatching(/index\/severity-index$/),
+      expect.stringMatching(/index\/source-time-index$/),
+    ]);
   });
 });

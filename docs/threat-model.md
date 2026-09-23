@@ -60,7 +60,7 @@ human decision on one side causes irreversible change on the other.
 | **T** | Request tampering in transit | HTTPS end to end; ALB redirects HTTP; TLS 1.2 floor on CloudFront | None material. |
 | **R** | Operator denies making a request | ALB access logs record every request | Logs identify the source, not the authenticated principal. **An action cannot currently be attributed to a named operator.** |
 | **I** | Cross-origin data theft | CORS restricted to the dashboard origin — previously `*`, which would have let any site issue credentialed requests | None material for browsers that honour CORS. |
-| **D** | Expensive queries | `limit` bounded 1–200 and asserted by tests; severity filter uses the GSI rather than a scan | A determined caller can still issue many small requests; no per-principal throttling. |
+| **D** | Expensive queries | `limit` bounded 1–200 and asserted by tests; every findings route reads an index or a key, and the task role holds no `dynamodb:Scan` on that table, so no request costs the whole table | A determined caller can still issue many small requests; no per-principal throttling. `/incidents` still reads the incidents table in full. |
 | **E** | Reaching data without a token | Authorization enforced at the API, not the UI; every data route asserted to return 401 unauthenticated | None known. |
 
 ### B3 — Findings ingestion

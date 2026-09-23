@@ -201,13 +201,17 @@ export class ApiStack extends cdk.Stack {
       },
     }));
 
+    // Findings are read through two indexes and by key, and never scanned, so
+    // the role holds neither dynamodb:Scan nor index/*: the two indexes the
+    // routes query are named, and an index added later has to be granted
+    // deliberately rather than inherited.
     taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
-      actions: [
-        'dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem',
-      ],
+      sid: 'ReadFindings',
+      actions: ['dynamodb:Query', 'dynamodb:GetItem'],
       resources: [
         `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-findings`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-findings/index/*`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-findings/index/severity-index`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-findings/index/source-time-index`,
       ],
     }));
     taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
@@ -265,8 +269,9 @@ export class ApiStack extends cdk.Stack {
       new cloudwatch.Alarm(this, 'SloApiLatency', {
         alarmName: 'cloudsentinel-slo-api-latency',
         alarmDescription:
-          'The slowest 5% of API requests have taken over 2 seconds for 15 minutes. GET ' +
-          '/findings scans the whole findings table on every request and is the first suspect.',
+          'The slowest 5% of API requests have taken over 2 seconds for 15 minutes. Every ' +
+          'route now reads an index or a key, so the work per request no longer grows with ' +
+          'the table; check the task logs and the ALB target metrics.',
         metric: p95,
         threshold: 2,
         comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,

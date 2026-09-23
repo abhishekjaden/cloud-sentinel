@@ -16,23 +16,28 @@ SAMPLE_ITEMS = [
 ]
 
 
-# ------------------------------------------------------------------ /findings
-def test_findings_returns_count_and_items(auth_client, fake_table):
-    fake_table.scan.return_value = {"Items": SAMPLE_ITEMS}
-    body = auth_client.get("/findings").json()
-    assert body["count"] == 2
-    assert {f["finding_id"] for f in body["findings"]} == {"f1", "f2"}
+# ------------------------------------------------------------- query helpers
+def _matched(kwargs):
+    """The value a query's key condition matches on."""
+    return kwargs["KeyConditionExpression"].get_expression()["values"][1]
 
 
-def _paged(*pages):
-    """Scan responses split across pages, as DynamoDB returns them past 1 MB."""
-    out = []
-    for i, items in enumerate(pages):
-        page = {"Items": items}
-        if i < len(pages) - 1:
-            page["LastEvaluatedKey"] = {"pk": f"page-{i}", "sk": "x"}
-        out.append(page)
-    return out
+def _answers(by_key, paged=False):
+    """A stand-in for Table.query that answers each partition separately.
+
+    With `paged`, every partition's items come back one per page, which is how
+    DynamoDB returns a partition larger than a megabyte — and the shape that
+    caught /stats summing a single page and calling it the table's total.
+    """
+    def answer(**kwargs):
+        items = by_key.get(_matched(kwargs), [])
+        start = kwargs.get("ExclusiveStartKey", {}).get("n", 0) if paged else 0
+        page = items[start:start + 1] if paged else items
+        resp = {"Count": len(page)} if kwargs.get("Select") == "COUNT" else {"Items": page}
+        if paged and start + 1 < len(items):
+            resp["LastEvaluatedKey"] = {"n": start + 1}
+        return resp
+    return answer
 
 
 def _item(source, created, fid, bucket="HIGH"):
@@ -41,27 +46,62 @@ def _item(source, created, fid, bucket="HIGH"):
             "severity": Decimal("70"), "created_at": created}
 
 
-def test_findings_reads_every_page_and_returns_most_recent_first(auth_client, fake_table):
-    """Findings are partitioned by source, so the first scan page is one source.
-    The newest finding sits on the second page and must still come first."""
-    fake_table.scan.side_effect = _paged(
-        [_item("securityhub", "2026-08-01T00:00:00Z", "sh1"),
-         _item("securityhub", "2026-08-02T00:00:00Z", "sh2")],
-        [_item("guardduty", "2026-09-17T03:57:09Z", "gd1")],
-    )
+# ------------------------------------------------------------------ /findings
+def test_findings_returns_count_and_items(auth_client, fake_table):
+    fake_table.query.side_effect = _answers({
+        "guardduty": [SAMPLE_ITEMS[0]], "securityhub": [SAMPLE_ITEMS[1]],
+    })
+    body = auth_client.get("/findings").json()
+    assert body["count"] == 2
+    assert {f["finding_id"] for f in body["findings"]} == {"f1", "f2"}
+
+
+def test_findings_asks_the_time_index_for_every_source_and_never_scans(auth_client, fake_table):
+    """A source left out of the queries is a source missing from the dashboard,
+    silently — its findings are in the table and in nobody's list."""
+    from app.findings import SOURCES
+
+    fake_table.query.side_effect = _answers({})
+    auth_client.get("/findings")
+
+    calls = fake_table.query.call_args_list
+    assert {_matched(c.kwargs) for c in calls} == set(SOURCES)
+    for call in calls:
+        assert call.kwargs["IndexName"] == "source-time-index"
+        assert call.kwargs["ScanIndexForward"] is False
+    fake_table.scan.assert_not_called()
+
+
+def test_findings_merges_the_sources_into_one_newest_first_list(auth_client, fake_table):
+    """Each query returns one source in time order; the newest overall can be in
+    any of them. The newest here belongs to the source queried last, so simply
+    concatenating the answers would bury it — which is what the dashboard would
+    do with it every time findings from an older source came back first."""
+    fake_table.query.side_effect = _answers({
+        "guardduty": [_item("guardduty", "2026-08-02T00:00:00Z", "gd2"),
+                      _item("guardduty", "2026-08-01T00:00:00Z", "gd1")],
+        "securityhub": [_item("securityhub", "2026-09-17T03:57:09Z", "sh1")],
+    })
     body = auth_client.get("/findings").json()
 
-    assert [f["finding_id"] for f in body["findings"]] == ["gd1", "sh2", "sh1"]
-    assert fake_table.scan.call_count == 2
+    assert [f["finding_id"] for f in body["findings"]] == ["sh1", "gd2", "gd1"]
 
 
-def test_findings_limit_applies_after_ordering(auth_client, fake_table):
-    fake_table.scan.side_effect = _paged(
-        [_item("securityhub", "2026-08-01T00:00:00Z", "old")],
-        [_item("guardduty", "2026-09-17T00:00:00Z", "new")],
-    )
+def test_findings_limit_applies_after_merging(auth_client, fake_table):
+    fake_table.query.side_effect = _answers({
+        "securityhub": [_item("securityhub", "2026-08-01T00:00:00Z", "old")],
+        "guardduty": [_item("guardduty", "2026-09-17T00:00:00Z", "new")],
+    })
     body = auth_client.get("/findings?limit=1").json()
     assert [f["finding_id"] for f in body["findings"]] == ["new"]
+
+
+def test_findings_asks_each_source_for_a_whole_page(auth_client, fake_table):
+    """Splitting the limit between the sources would be cheaper and wrong: the
+    newest fifty findings can all belong to one source."""
+    fake_table.query.side_effect = _answers({})
+    auth_client.get("/findings?limit=50")
+    assert {c.kwargs["Limit"] for c in fake_table.query.call_args_list} == {50}
 
 
 def test_findings_severity_filter_uses_the_gsi(auth_client, fake_table):
@@ -76,14 +116,14 @@ def test_findings_severity_filter_uses_the_gsi(auth_client, fake_table):
 
 def test_findings_limit_is_bounded(auth_client, fake_table):
     """An unbounded limit would let one request pull the entire table."""
-    fake_table.scan.return_value = {"Items": []}
+    fake_table.query.side_effect = _answers({})
     assert auth_client.get("/findings?limit=500").status_code == 422
     assert auth_client.get("/findings?limit=0").status_code == 422
     assert auth_client.get("/findings?limit=200").status_code == 200
 
 
 def test_findings_surfaces_backend_failure_as_500(auth_client, fake_table):
-    fake_table.scan.side_effect = RuntimeError("dynamo unavailable")
+    fake_table.query.side_effect = RuntimeError("dynamo unavailable")
     assert auth_client.get("/findings").status_code == 500
 
 
@@ -94,41 +134,72 @@ def test_missing_finding_returns_404(auth_client, fake_table):
 
 # --------------------------------------------------------------------- /stats
 def test_stats_aggregates_by_bucket_and_source(auth_client, fake_table):
-    fake_table.scan.return_value = {"Items": SAMPLE_ITEMS}
+    fake_table.query.side_effect = _answers({
+        "CRITICAL": [SAMPLE_ITEMS[0]], "MEDIUM": [SAMPLE_ITEMS[1]],
+        "guardduty": [SAMPLE_ITEMS[0]], "securityhub": [SAMPLE_ITEMS[1]],
+    })
     body = auth_client.get("/stats").json()
     assert body["total"] == 2
     assert body["by_severity_bucket"] == {"CRITICAL": 1, "MEDIUM": 1}
     assert body["by_source"] == {"guardduty": 1, "securityhub": 1}
 
 
-def test_stats_counts_every_page_of_the_table(auth_client, fake_table):
-    """The regression: one scan call returned only the first 1 MB, so the
-    dashboard reported a single page as the table's total."""
-    fake_table.scan.side_effect = _paged(
-        [_item("securityhub", "2026-08-01T00:00:00Z", "sh1", "MEDIUM"),
-         _item("securityhub", "2026-08-02T00:00:00Z", "sh2", "MEDIUM")],
-        [_item("guardduty", "2026-09-17T00:00:00Z", "gd1", "CRITICAL")],
-    )
+def test_stats_counts_without_reading_the_findings(auth_client, fake_table):
+    """Counting is what this route needs; the findings themselves are the part
+    that grew with the table until a summary moved a megabyte to produce two
+    numbers."""
+    fake_table.query.side_effect = _answers({"HIGH": [SAMPLE_ITEMS[0]]})
+    auth_client.get("/stats")
+
+    assert fake_table.query.call_args_list
+    for call in fake_table.query.call_args_list:
+        assert call.kwargs["Select"] == "COUNT"
+    fake_table.scan.assert_not_called()
+
+
+def test_stats_counts_every_page_of_a_partition(auth_client, fake_table):
+    """The regression this route had twice over: a count is paginated like any
+    other query, and the first page is not the answer."""
+    fake_table.query.side_effect = _answers({
+        "MEDIUM": [_item("securityhub", "2026-08-0%d" % i, f"sh{i}", "MEDIUM") for i in (1, 2)],
+        "CRITICAL": [_item("guardduty", "2026-09-17", "gd1", "CRITICAL")],
+        "securityhub": [_item("securityhub", "2026-08-0%d" % i, f"sh{i}") for i in (1, 2)],
+        "guardduty": [_item("guardduty", "2026-09-17", "gd1")],
+    }, paged=True)
     body = auth_client.get("/stats").json()
 
     assert body["total"] == 3
+    assert body["by_severity_bucket"] == {"CRITICAL": 1, "MEDIUM": 2}
     assert body["by_source"] == {"securityhub": 2, "guardduty": 1}
-    second_call = fake_table.scan.call_args_list[1].kwargs
-    assert second_call["ExclusiveStartKey"] == {"pk": "page-0", "sk": "x"}
 
 
-def test_stats_handles_items_missing_fields(auth_client, fake_table):
-    """Malformed rows must not break the dashboard's summary."""
-    fake_table.scan.return_value = {"Items": [{"pk": "x"}]}
+def test_stats_counts_every_bucket_and_source_the_normalizer_can_write(auth_client, fake_table):
+    from app.findings import BUCKETS, SOURCES
+
+    fake_table.query.side_effect = _answers({})
+    auth_client.get("/stats")
+    assert {_matched(c.kwargs) for c in fake_table.query.call_args_list} == {*BUCKETS, *SOURCES}
+
+
+def test_stats_reports_nothing_for_an_empty_bucket_or_source(auth_client, fake_table):
+    """The dashboard reads absence as zero and draws no slice for it; a table of
+    five zeroes and one number would be new behaviour, not a summary."""
+    fake_table.query.side_effect = _answers({"CRITICAL": [SAMPLE_ITEMS[0]],
+                                             "guardduty": [SAMPLE_ITEMS[0]]})
     body = auth_client.get("/stats").json()
-    assert body["by_severity_bucket"] == {"UNKNOWN": 1}
-    assert body["by_source"] == {"unknown": 1}
+    assert body == {"total": 1, "by_severity_bucket": {"CRITICAL": 1},
+                    "by_source": {"guardduty": 1}}
 
 
 def test_stats_on_empty_table(auth_client, fake_table):
-    fake_table.scan.return_value = {"Items": []}
+    fake_table.query.side_effect = _answers({})
     body = auth_client.get("/stats").json()
     assert body == {"total": 0, "by_severity_bucket": {}, "by_source": {}}
+
+
+def test_stats_surfaces_backend_failure_as_500(auth_client, fake_table):
+    fake_table.query.side_effect = RuntimeError("dynamo unavailable")
+    assert auth_client.get("/stats").status_code == 500
 
 
 # -------------------------------------------------------------------- /predict

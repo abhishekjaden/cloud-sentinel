@@ -49,6 +49,24 @@ export class DataStoresStack extends cdk.Stack {
       partitionKey: { name: 'severity_bucket', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'severity', type: dynamodb.AttributeType.NUMBER },
     });
+
+    // Newest findings, without reading the whole table. The base table's
+    // partition key is "<source>#<account>", so a query on it is per account
+    // as well as per source, and a scan returns items in partition order
+    // rather than in time order — which is why /findings read the entire table
+    // and sorted it in memory. This index partitions on the source alone, so
+    // four queries cover every finding, each already in time order.
+    //
+    // Both attributes are already on every item, so the index backfills
+    // itself and no existing finding has to be rewritten. The sort key is sk
+    // ("<created_at>#<finding_id>") rather than created_at: created_at is
+    // dropped from an item that arrives without one, and an item missing the
+    // index's sort key is silently left out of the index.
+    this.findingsTable.addGlobalSecondaryIndex({
+      indexName: 'source-time-index',
+      partitionKey: { name: 'source', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+    });
     // Pending remediation approvals. The Step Functions task token is held
     // here rather than emailed out: possession of a mailbox must not be
     // equivalent to authority to isolate an instance or revoke a credential.

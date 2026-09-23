@@ -171,9 +171,16 @@ def _normalize(event):
             "resource": json.dumps(detail.get("resources", []))[:1024],
             "created_at": _inspector_time(detail.get("firstObservedAt"), event.get("time")),
         }
+    # Anything else is stored under "unknown" rather than under its own source
+    # name, with the name it came with kept beside it. The findings routes
+    # query one partition per source and count the same way, so a source they
+    # have never heard of would be neither listed nor counted — invisible in
+    # the one place it most needs to be seen. This keeps the set of sources
+    # closed at four, which is what makes those queries cover the table.
     return {
         "finding_id": event.get("id"),
-        "source": src or "unknown",
+        "source": "unknown",
+        "raw_source": src or None,
         "account_id": event.get("account"),
         "region": event.get("region"),
         "severity": 0,

@@ -64,12 +64,12 @@ across the four-account organization.
 
 **Strengths**
 - Compute is right-sized deliberately (ADR 0001): ECS Fargate rather than EKS, avoiding Kubernetes overhead for a single API service.
-- DynamoDB access is index-driven — a severity GSI supports the dashboard's severity queries without table scans on the hot path.
+- DynamoDB access on the findings path is entirely index-driven: a severity GSI for the severity filter and a source/time GSI for the newest-first listing, which is merged from one bounded query per source rather than read from the table and sorted in memory. `/stats` counts a partition at a time, so a summary transfers nothing. The API task role holds no `dynamodb:Scan` on the findings table, which is what keeps it that way.
 - The dashboard is a static SPA served from CloudFront, so global read latency is low and the origin bucket stays private behind Origin Access Control.
 - The ML model is a gradient-boosted tree (fast inference, small footprint) rather than a heavyweight network, matching the tabular-flow problem.
 
 **Gaps / remediation**
-- Some dashboard/API queries use `Scan` where a `Query` against an index would be cheaper at scale; the findings table listing is the main candidate to refactor.
+- Two paths still read a whole table: `/incidents` scans the incidents table, and the correlator scans the findings table on every run. Both are aggregates over everything — the correlator has to see findings together to group them — so an index would change how they read rather than how much, and the correlator's run time is graphed against its timeout for when that stops being true.
 - The frontend bundle is above the 500 kB warning threshold (Recharts is heavy); code-splitting would improve first-load performance.
 - No load testing has been completed to establish p95/p99 latency under concurrency (planned).
 
@@ -110,7 +110,7 @@ across the four-account organization.
 | Operational Excellence | Strong IaC + ADRs; missing CI/CD and automated tests |
 | Security | Strong multi-account isolation, enforced auth, human-gated remediation; single-user, MFA not enforced |
 | Reliability | Managed-service backbone; single-task/single-shard/single-region for demo |
-| Performance Efficiency | Right-sized, index-driven; some Scans and a heavy frontend bundle to refactor |
+| Performance Efficiency | Right-sized; findings served entirely from indexes; two whole-table aggregates and a heavy frontend bundle remain |
 | Cost Optimization | Actively measured and controlled; NAT is the main cost, teardown is manual |
 | Sustainability | On-demand and right-sized; region not carbon-optimized |
 

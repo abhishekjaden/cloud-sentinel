@@ -178,9 +178,10 @@ is serving; check the `cloudsentinel-api` service's events and the task logs.
 
 **Alarm.** p95 over 2 seconds in three consecutive 5-minute windows.
 
-**Caveat.** This target has not yet been checked against real traffic. `GET
-/findings` scans the whole findings table on every request, which makes it the
-first suspect; revisit the target once that route queries an index instead.
+**Caveat.** This target has not yet been checked against real traffic. No route
+scans any more — `/findings` merges one indexed query per source and `/stats`
+counts a partition at a time — so the work per request no longer grows with the
+table, and the target should hold as it fills.
 
 ## Tracing
 

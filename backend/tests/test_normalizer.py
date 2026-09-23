@@ -213,7 +213,8 @@ def test_unknown_source_does_not_raise(normalizer):
     """An unrecognized source must degrade gracefully rather than poison the
     batch — one bad record should never stop the others being processed."""
     out = normalizer._normalize({"source": "aws.somethingelse", "detail": {}})
-    assert out["source"] == "aws.somethingelse"
+    assert out["source"] == "unknown"
+    assert out["raw_source"] == "aws.somethingelse"   # kept, just not partitioned by
     assert out["severity"] == 0
     assert out["title"] == "unrecognized finding source"
 
@@ -222,6 +223,38 @@ def test_securityhub_event_with_no_findings_does_not_raise(normalizer):
     out = normalizer._normalize({"source": "aws.securityhub", "detail": {"findings": []}})
     assert out["source"] == "securityhub"
     assert out["severity"] == 0
+
+
+# ---------------------------------------------------------- what the routes see
+# /findings and /stats query one partition per source and per severity bucket
+# instead of reading the table. That covers every finding only while the
+# normalizer writes nothing outside those two sets: a finding stored under a
+# value the routes do not ask for is in the table, correct, and in no answer
+# the dashboard ever shows. These are the two halves of that contract.
+@pytest.fixture(scope="module")
+def routes():
+    with mock.patch("boto3.resource"):
+        import app.findings
+        return importlib.reload(app.findings)
+
+
+def test_every_source_the_normalizer_writes_is_one_the_routes_query(normalizer, routes):
+    written = {normalizer._normalize(event)["source"] for event in (
+        {"source": "aws.guardduty", "detail": {}},
+        {"source": "aws.securityhub", "detail": {"findings": [{}]}},
+        {"source": "aws.inspector2", "detail": {}},
+        {"source": "aws.macie", "detail": {}},   # a service nothing routes yet
+        {"source": "", "detail": {}},
+        {},                                      # not an EventBridge event at all
+    )}
+    # Equality both ways: every source is asked for, and none of the four the
+    # routes ask for is a partition that can never exist.
+    assert written == set(routes.SOURCES)
+
+
+def test_every_bucket_the_normalizer_writes_is_one_the_routes_count(normalizer, routes):
+    produced = {normalizer._severity_bucket(score) for score in range(-20, 121)}
+    assert produced == set(routes.BUCKETS)
 
 
 # --------------------------------------------------------- failures and loss
