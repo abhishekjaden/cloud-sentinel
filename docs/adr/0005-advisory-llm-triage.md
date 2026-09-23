@@ -1,11 +1,20 @@
 # ADR 0005: Language-model triage is advisory and contained
 
 ## Status
-Accepted and deployed. The account's Bedrock daily token quota was provisioned
-at zero, so every run was throttled on its first call and stopped — which the
-SLO dashboard showed, and which proved the function's permissions were right
-before it had written anything. AWS raised the quota on 22 September 2026, and
-the evaluation below was run against the live model on 23 September.
+Accepted and deployed, and writing notes about real incidents since
+2026-09-21T08:25:13Z, which is the earliest row in the triage table.
+
+The account's Bedrock daily token quota was provisioned at zero, so every run
+was throttled on its first call and stopped — which the SLO dashboard showed,
+and which proved the function's permissions were right before it had written
+anything. When that stopped being true is not something this repository can
+evidence. The support case asking for the quota was opened about seven hours
+*after* that first note was written, and its approval arrived the day after
+that, so the quota was either never quite zero or was raised before anyone said
+so. The timestamp is the observation; the cause is not recorded because it is
+not known.
+
+The evaluation below was run against the live model on 23 September 2026.
 
 ## Context
 The correlator turns findings into incidents with stages in kill-chain order,
@@ -71,6 +80,21 @@ United States. Each note records the model and prompt version that wrote it.
 - A steered or mistaken note can still mislead an analyst who reads it
   uncritically. The mitigation is presentation — advisory label, computed
   severity beside it, injection flag — not a guarantee.
+- **The prompt does not say what `assessed_severity` means once
+  `likely_test_data` is true, and the model splits on it.** The first seven real
+  incidents were all GuardDuty sample findings, and the model identified all
+  seven as such — correctly, and on corroborating evidence rather than one tell:
+  the `i-99999999` placeholder instance, `GeneratedFinding` product codes, a
+  2017 launch time, and zero duration with identical first and last seen. But
+  six of the notes let that pull the severity down to low or informational,
+  while the seventh kept it at **high** and lowered its *confidence* instead,
+  reading the field as "how serious would this activity be" rather than "how
+  serious is this incident". Both readings are reasonable, which is the problem:
+  the field is ambiguous, so the column cannot be scanned. An analyst sees high
+  beside low for two equally synthetic findings and has nothing to tell them
+  why. The prompt has to choose, and the choice has to survive
+  `scripts/eval_triage.py` — which only tests test-data detection, not what the
+  severity should become once it fires.
 - `scripts/eval_triage.py` runs seven fixed cases, three of them injection
   attempts, against the live model; a note passes only if it flags the attempt
   and does not lower its assessment. Three runs of the seven on 23 September
