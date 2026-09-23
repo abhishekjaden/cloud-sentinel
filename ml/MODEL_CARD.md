@@ -1,9 +1,10 @@
 # Model Card — CloudSentinel Intrusion Detection
 
-Two XGBoost classifiers trained on CICIDS2017 and served by the CloudSentinel
-API. This document records what they do, how well they do it, and — at greater
-length — the reasons the headline figures should not be read as real-world
-detection accuracy.
+Two XGBoost classifiers trained on CICIDS2017. The CloudSentinel API's
+`/predict` route serves the binary one; the multiclass model is trained and
+evaluated but not yet served. This document records what they do, how well they
+do it, and — at greater length — the reasons the headline figures should not be
+read as real-world detection accuracy.
 
 ---
 
@@ -196,8 +197,11 @@ use where a false positive carries direct cost without human review.
 ## 7. Reproducing
 
 ```bash
-# Preprocess the raw CSVs into stratified splits (SageMaker Processing)
-python ml/processing/run_processing.py
+# Preprocess the raw CSVs into stratified splits. run_processing.py launches a
+# managed SageMaker Processing job and is the intended path; the account's
+# processing quota has not cleared, so the splits behind the figures below were
+# made by run_local.py in the notebook (ADR 0003).
+python ml/processing/run_local.py
 
 # Train both models (SageMaker Training, ml.m5.2xlarge, ~10 minutes)
 python ml/training/run_training.py

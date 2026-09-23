@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
-import { suppressCdkManagedResources } from '../nag-suppressions';
+import { suppressLambdaBaseline } from '../nag-suppressions';
 
 /**
  * SecurityFoundationStack
@@ -13,7 +13,7 @@ export class SecurityFoundationStack extends cdk.Stack {
     super(scope, id, props);
     // Day 2: security services + delegated admin
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
 
   }
 }

@@ -9,31 +9,57 @@ import { NagSuppressions } from 'cdk-nag';
 import { Stack } from 'aws-cdk-lib/core';
 import { IConstruct } from 'constructs';
 
-/** Suppressions that apply to constructs the CDK itself generates. */
-export function suppressCdkManagedResources(stack: Stack): void {
+/**
+ * The three findings every stack with a Lambda function raises, accepted once
+ * for the same reasons everywhere.
+ *
+ * Most of what these cover is this project's own code, not machinery the CDK
+ * generates — the wildcard that lets the remediation executor act on the
+ * account is here, and so is the runtime every handler runs on.
+ */
+export function suppressLambdaBaseline(stack: Stack): void {
   NagSuppressions.addStackSuppressions(stack, [
     {
       id: 'AwsSolutions-IAM4',
       reason:
-        'AWSLambdaBasicExecutionRole is an AWS-managed policy granting only ' +
-        'CloudWatch Logs write access. Hand-rolling an equivalent inline policy ' +
-        'would add maintenance burden without reducing privilege.',
+        'The flagged roles are Lambda execution roles — this project\'s own ' +
+        'functions as well as the bucket-deployment handler CDK generates. The ' +
+        'managed policy on each is AWSLambdaBasicExecutionRole, which grants ' +
+        'CreateLogGroup, CreateLogStream and PutLogEvents and nothing else. An ' +
+        'inline equivalent would grant the same access and would have to be ' +
+        'maintained against AWS\'s changes, so it would add work without ' +
+        'narrowing privilege.',
     },
     {
       id: 'AwsSolutions-IAM5',
       reason:
-        'Wildcards here originate from CDK-generated roles (asset deployment, ' +
-        'custom resource providers), are required by X-Ray — whose ' +
-        'PutTraceSegments and PutTelemetryRecords actions do not support ' +
-        'resource-level permissions — or are constrained by condition keys: the ' +
-        'KMS grants are scoped by kms:ViaService to DynamoDB only, so the role ' +
-        'cannot use the key against any other service.',
+        'The wildcards fall into four groups. (1) Actions AWS does not scope to ' +
+        'a resource: X-Ray\'s PutTraceSegments, PutTelemetryRecords, ' +
+        'GetSamplingRules and GetSamplingTargets; the logs:*LogDelivery and ' +
+        'logs:PutResourcePolicy calls Step Functions makes to configure its own ' +
+        'logging; ecr:GetAuthorizationToken, which precedes any image pull; ' +
+        'states:SendTaskSuccess and SendTaskFailure, which name a task token ' +
+        'rather than a state machine; and cloudformation:DescribeStacks, ' +
+        'GetTemplate and ListStacks, which the CI roles use to read what a ' +
+        'deploy would change. (2) The remediation executor\'s five playbook ' +
+        'actions on Resource: * — an accepted risk rather than an inapplicable ' +
+        'rule, recorded at the statement itself in remediation-stack.ts. (3) ' +
+        'Suffixes below a named resource: a function ARN with :* to cover its ' +
+        'versions, a bucket ARN with /* to cover its objects, and index/* on the ' +
+        'approvals table, which the API queries by more than one index. (4) ' +
+        'Action-level suffixes the CDK grant helpers emit, such as s3:GetObject* ' +
+        'and s3:List*, scoped to a single bucket; spelling each one out would ' +
+        'drift from the helper without changing effective access.',
     },
     {
       id: 'AwsSolutions-L1',
       reason:
-        'The flagged functions are CDK-provided custom resource handlers whose ' +
-        'runtime is pinned by the framework, not by application code.',
+        'The functions run Python 3.12, which is current and supported. The rule ' +
+        'flags any runtime that is not the newest the installed CDK library ' +
+        'knows of, which is Python 3.14 — a version the handlers have not been ' +
+        'tested on. Moving them is a deliberate, tested step rather than one ' +
+        'taken to clear a linter. The bucket-deployment handler among them is ' +
+        'CDK\'s, and its runtime is the framework\'s to choose, not ours.',
     },
   ], true);
 }

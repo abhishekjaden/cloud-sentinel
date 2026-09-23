@@ -14,7 +14,7 @@ Built as a portfolio project to demonstrate cloud security engineering end to en
 | Stage | Capability |
 |-------|-----------|
 | **Detect** | Ingests findings from GuardDuty, Security Hub, and Inspector across all accounts, normalizing each source into one common schema. |
-| **Classify** | Two XGBoost models score network flows: a binary intrusion detector (AUC 0.999963) and an eight-class attack-family classifier (macro-F1 0.9586). Both are evaluated on a held-out split and documented with their limitations in the model card. |
+| **Classify** | Two XGBoost models are trained on network flows: a binary intrusion detector (AUC 0.999963) and an eight-class attack-family classifier (macro-F1 0.9586). Both are evaluated on a held-out split and documented with their limitations in the model card; the API serves the binary verdict. |
 | **Respond** | High-severity findings trigger a Step Functions SOAR workflow that routes each threat to the correct playbook and **pauses at a human approval gate** before any destructive action. |
 | **Triage** | A language model on Amazon Bedrock drafts an advisory note for each correlated incident — what likely happened and what to check next — contained so that no answer it gives, however steered, can cause an action. |
 | **Observe** | A React SOC dashboard shows live severity/source charts, a filterable findings table, remediation status, and an interactive prediction tool. |
@@ -58,8 +58,8 @@ ML (Workload)
 | Infrastructure as Code | AWS CDK (TypeScript), CloudFormation |
 | Multi-account | Organizations, Control Tower, IAM Identity Center |
 | Security services | GuardDuty, Security Hub, Inspector, AWS Config |
-| Ingestion | EventBridge, Kinesis Data Streams, Lambda (Python) |
-| Storage | DynamoDB (severity GSI), S3 |
+| Ingestion | EventBridge, Kinesis Data Streams, Lambda (Python, partial batch failures with an SQS failure destination) |
+| Storage | DynamoDB (severity and source/time GSIs, customer-managed KMS key), S3 |
 | ML | SageMaker Studio, XGBoost, pandas / NumPy, CICIDS2017 |
 | SOAR | Step Functions (approval gates via task tokens), SNS, Lambda |
 | AI triage | Amazon Bedrock (Claude Haiku 4.5, US cross-Region inference, forced tool use) |
@@ -92,9 +92,11 @@ Bot class, at 0.648 precision, is the one result the dataset does not make
 trivial.
 
 The system is threat-modelled in [`docs/threat-model.md`](docs/threat-model.md),
-a STRIDE analysis across six trust boundaries. It records mitigations where they
-exist and residual risks where they do not — including that SOAR approvals
-currently arrive by email, so mailbox access substitutes for authentication.
+a STRIDE analysis across seven trust boundaries. It records mitigations where
+they exist and residual risks where they do not — that audit-account
+administrator access reads every finding and can disable the KMS key, that
+nothing yet alarms when the state machine or an EventBridge rule is changed, and
+that the normalizer trusts whatever reaches it.
 
 Architecture decisions are recorded as ADRs in [`docs/adr/`](docs/adr/):
 
@@ -113,6 +115,7 @@ Other decisions worth naming:
 - **Runtime configuration.** The dashboard fetches its API URL at startup, so the built artifact isn't coupled to a backend URL.
 - **A model that reads attacker text gets no authority.** Incident triage by a language model is advisory and contained ([ADR 0005](docs/adr/0005-advisory-llm-triage.md)): the function can write nothing but its own notes and holds no permission that acts, finding text reaches the model escaped as untrusted data, answers must fit one validated schema, and seven evaluation cases — three of them prompt-injection attempts — define what a correct note looks like.
 - **Objectives, not just logs.** Seven service level objectives in [`docs/slos.md`](docs/slos.md) each have an alarm and a written response: findings stored, stored promptly, correlation running, remediation steps succeeding, approvals decided, API availability and latency. Every function and the SOAR workflow record X-Ray traces, so a remediation is one trace from the router to each playbook step.
+- **Nothing is dropped quietly.** A finding the normalizer fails on is handed back to Lambda by sequence number and delivered again; only once the retries are exhausted is the batch reported to a failure queue, and that report — not the failure — is what breaches the findings-stored objective. Writing is keyed on the finding, so a redelivery overwrites rather than duplicates.
 
 ---
 
@@ -136,7 +139,8 @@ screenshots/  evidence captures
 Built over ~27 working days. Everything described above is deployed and verified: the pipeline ingests live findings, the model scores flows, the SOAR loop pauses at its approval gate, and unauthenticated API calls are rejected.
 
 **Deferred / in progress:**
-- Multiclass attack classifier (blocked on a SageMaker training-quota increase; a binary classifier is trained and serving).
+- Serving the multiclass attack classifier. Both models are trained and evaluated on the held-out test split ([`ml/MODEL_CARD.md`](ml/MODEL_CARD.md)); `/predict` returns the binary verdict only, so the attack family the multiclass model infers is not yet reaching the dashboard.
+- Running the triage evaluation against the live model. AWS raised the account's Bedrock daily token quota from zero on 22 September, so the seven cases in `scripts/eval_triage.py` can be run; until they are, the model's behaviour on them — the three prompt-injection attempts above all — is unmeasured.
 - Formal Well-Architected review and cost report.
 - Final documentation and demo video.
 

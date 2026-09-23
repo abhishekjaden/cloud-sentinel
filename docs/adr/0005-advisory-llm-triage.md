@@ -1,9 +1,12 @@
 # ADR 0005: Language-model triage is advisory and contained
 
 ## Status
-Accepted. No note can be written until AWS raises the account's Bedrock daily
-token quota, which is provisioned at zero; until then each run is throttled on
-its first call and stops, which the SLO dashboard shows.
+Accepted and deployed. The account's Bedrock daily token quota was provisioned
+at zero, so every run was throttled on its first call and stopped — which the
+SLO dashboard showed, and which proved the function's permissions were right
+before it had written anything. AWS raised the quota on 22 September 2026. The
+evaluation below has not yet been run against the live model, so what is
+recorded here is the design, not measured behaviour.
 
 ## Context
 The correlator turns findings into incidents with stages in kill-chain order,
@@ -68,6 +71,9 @@ United States. Each note records the model and prompt version that wrote it.
   severity beside it, injection flag — not a guarantee.
 - `scripts/eval_triage.py` runs seven fixed cases, three of them injection
   attempts, against the live model; a note passes only if it flags the attempt
-  and does not lower its assessment. It cannot run until the quota is raised,
-  so the model's behaviour on these cases is not yet measured.
+  and does not lower its assessment. The cases and their scoring are tested
+  (`backend/tests/test_triage_eval.py`), but the evaluation has not yet been
+  run, so the model's behaviour on them is not yet measured. Until it is, the
+  containment above is what the design rests on — which is the point of the
+  containment: it does not depend on the model behaving.
 - Cost at the current volume is well under a dollar a month.

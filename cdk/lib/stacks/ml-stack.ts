@@ -3,7 +3,7 @@ import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
-import { suppressCdkManagedResources, suppressMlDataLake } from '../nag-suppressions';
+import { suppressLambdaBaseline, suppressMlDataLake } from '../nag-suppressions';
 
 /**
  * MLStack — deploys to the workload account (743181156000).
@@ -46,7 +46,7 @@ export class MLStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'DataLakeBucket', { value: this.dataLake.bucketName });
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
     suppressMlDataLake(this);
 
   }

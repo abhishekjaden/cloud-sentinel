@@ -6,7 +6,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as path from 'path';
-import { suppressCdkManagedResources, suppressModelInvocation } from '../nag-suppressions';
+import { suppressLambdaBaseline, suppressModelInvocation } from '../nag-suppressions';
 import { FUNCTION_NAMES, TRIAGE_TABLE_NAME } from '../names';
 
 /**
@@ -118,6 +118,6 @@ export class TriageStack extends cdk.Stack {
     // The specific suppression first: cdk-nag reports the first that applies,
     // and the Bedrock wildcard deserves its own reason, not the generic one.
     suppressModelInvocation(this, TRIAGE_MODEL.foundationModel);
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
   }
 }

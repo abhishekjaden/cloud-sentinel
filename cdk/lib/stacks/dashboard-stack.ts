@@ -6,7 +6,7 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
 import * as path from 'path';
-import { suppressCdkManagedResources, suppressCloudFrontOptional, suppressCloudFrontTls } from '../nag-suppressions';
+import { suppressLambdaBaseline, suppressCloudFrontOptional, suppressCloudFrontTls } from '../nag-suppressions';
 
 /**
  * DashboardStack — deploys to the Audit account (118821712739).
@@ -79,7 +79,7 @@ export class DashboardStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, 'DashboardBucketName', { value: siteBucket.bucketName });
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
     suppressCloudFrontOptional(this);
     suppressCloudFrontTls(this);
 

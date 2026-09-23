@@ -12,7 +12,7 @@ import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Duration } from 'aws-cdk-lib/core';
 import * as path from 'path';
-import { suppressCdkManagedResources } from '../nag-suppressions';
+import { suppressLambdaBaseline } from '../nag-suppressions';
 import { FUNCTION_NAMES, REMEDIATION_RULE_NAME, STATE_MACHINE_NAME } from '../names';
 
 /**
@@ -58,7 +58,19 @@ export class RemediationStack extends cdk.Stack {
       description: 'CloudSentinel remediation executor (isolate/snapshot/disable-key/block-s3)',
     });
 
+    // The one role in the platform that can change the account rather than
+    // read it, and the only wildcard here that is an accepted risk rather than
+    // an AWS constraint (cdk-nag AwsSolutions-IAM5, lib/nag-suppressions.ts).
+    //
+    // Resource: * because a playbook acts on whichever resource a finding
+    // names, and findings name resources that did not exist when this role was
+    // written. Narrowing it would mean predicting them — by tag or by account —
+    // and a compromised instance is exactly the one that may no longer carry
+    // the tag. What bounds it instead is the action list and the workflow: five
+    // actions, each reversible, and no execution reaches this function until a
+    // human has approved it at the Step Functions gate.
     executor.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'RunRemediationPlaybooks',
       actions: [
         'ec2:ModifyInstanceAttribute',
         'ec2:CreateSnapshot',
@@ -218,7 +230,7 @@ export class RemediationStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'NotifyTopicArn', { value: notifyTopic.topicArn });
     new cdk.CfnOutput(this, 'SafeMode', { value: String(safeMode) });
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
 
   }
 }

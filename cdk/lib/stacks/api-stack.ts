@@ -15,7 +15,7 @@ import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import { ACCOUNTS } from '../config';
 import { ALARM_TOPIC_NAME, TRIAGE_TABLE_NAME } from '../names';
-import { suppressCdkManagedResources, suppressPublicIngress } from '../nag-suppressions';
+import { suppressLambdaBaseline, suppressPublicIngress } from '../nag-suppressions';
 
 /**
  * ApiStack — deploys to the Audit account (118821712739).
@@ -329,7 +329,7 @@ export class ApiStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'ApiUrl', { value: `https://${API_DOMAIN}` });
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
     suppressPublicIngress(this);
     new cdk.CfnOutput(this, 'AlbDnsName', { value: service.loadBalancer.loadBalancerDnsName });
   }

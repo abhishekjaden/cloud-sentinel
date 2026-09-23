@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import * as securityhub from 'aws-cdk-lib/aws-securityhub';
-import { suppressCdkManagedResources } from '../nag-suppressions';
+import { suppressLambdaBaseline } from '../nag-suppressions';
 
 /**
  * SecurityServicesStack — deploys to the Audit account (delegated admin).
@@ -22,7 +22,7 @@ export class SecurityServicesStack extends cdk.Stack {
       regionLinkingMode: 'ALL_REGIONS',
     });
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
 
   }
 }

@@ -29,19 +29,22 @@ environment step, not a durable application asset that changes with the system.
 - "The domain is bootstrap; the pipeline is the asset." A reviewer evaluates the
   reproducible pipeline code, not whether the IDE shell was clicked or scripted.
 - Managed job launchers (run_processing.py, run_training.py) are the intended
-  production execution path. On a new account these were blocked by zero-value
-  SageMaker instance quotas (processing and training both denied/pending on
-  new-account grounds), so initial runs were executed in-notebook as a
-  documented interim, with the managed launchers committed and to be re-run once
-  quota clears. This is recorded honestly rather than presented as if managed
-  jobs had run.
+  production execution path. On a new account both were blocked by zero-value
+  SageMaker instance quotas, so initial runs were executed in-notebook as a
+  documented interim rather than presented as if managed jobs had run. The
+  training quota has since cleared: both models were trained by a managed job,
+  `cicids-xgb-2026-09-13-17-36-23-826`, at 616 billable seconds, which is what
+  `ml/MODEL_CARD.md` reports. The processing quota had not cleared when the
+  splits were produced, so `ml/processing/run_local.py` made them and
+  `run_processing.py` remains committed and unrun.
 - Granting data-lake access in CDK (not console) keeps the security-relevant
   permission in code and under review, which is where it matters most.
 
 ## Consequences
 - One manual bootstrap step, documented and reproducible via the runbook.
 - The security-relevant IAM grant remains declarative in CDK.
-- Interim in-notebook runs are labelled as such; the managed jobs remain the
-  reportable production path and will be re-run on quota approval.
+- Training runs on the managed path and is reportable as such. Preprocessing
+  stays in-notebook until its quota clears, and is labelled that way wherever
+  it is reported.
 - Trade-off is documented rather than hidden behind an all-CDK facade,
   consistent with ADR 0002.

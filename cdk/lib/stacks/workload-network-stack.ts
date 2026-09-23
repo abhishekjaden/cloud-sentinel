@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import { Network } from '../constructs/network';
-import { suppressCdkManagedResources } from '../nag-suppressions';
+import { suppressLambdaBaseline } from '../nag-suppressions';
 
 /**
  * WorkloadNetworkStack — deploys to the workload account (743181156000).
@@ -21,7 +21,7 @@ export class WorkloadNetworkStack extends cdk.Stack {
       description: 'CloudSentinel workload VPC ID',
     });
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
 
   }
 }

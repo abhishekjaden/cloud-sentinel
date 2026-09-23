@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { RemovalPolicy, Duration } from 'aws-cdk-lib/core';
-import { suppressCdkManagedResources, suppressCognitoTier } from '../nag-suppressions';
+import { suppressLambdaBaseline, suppressCognitoTier } from '../nag-suppressions';
 
 /**
  * AuthStack — deploys to the Audit account (118821712739).
@@ -87,7 +87,7 @@ export class AuthStack extends cdk.Stack {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}/.well-known/jwks.json`,
     });
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
     suppressCognitoTier(this);
 
   }

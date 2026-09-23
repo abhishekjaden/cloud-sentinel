@@ -5,7 +5,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
-import { suppressCdkManagedResources } from '../nag-suppressions';
+import { suppressLambdaBaseline } from '../nag-suppressions';
 import { TRIAGE_TABLE_NAME } from '../names';
 
 export class DataStoresStack extends cdk.Stack {
@@ -159,7 +159,7 @@ export class DataStoresStack extends cdk.Stack {
       value: this.findingsTable.tableName,
     });
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
 
   }
 }

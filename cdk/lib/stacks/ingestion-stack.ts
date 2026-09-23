@@ -12,7 +12,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import {
-  suppressCdkManagedResources, suppressFailureDestination, suppressStreamEncryption,
+  suppressLambdaBaseline, suppressFailureDestination, suppressStreamEncryption,
 } from '../nag-suppressions';
 import {
   FAILED_FINDINGS_QUEUE_NAME, FINDINGS_STREAM_NAME, FUNCTION_NAMES, INGESTION_RULE_NAMES,
@@ -183,7 +183,7 @@ export class IngestionStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'StreamName', { value: stream.streamName });
 
-    suppressCdkManagedResources(this);
+    suppressLambdaBaseline(this);
     suppressStreamEncryption(this);
 
   }
