@@ -278,6 +278,80 @@ def test_a_rejected_note_is_recorded_without_content(triage):
     assert "summary" not in item and "assessed_severity" not in item
 
 
+# ------------------------------------------------------- an answer asked twice
+# The eval found the model malforming a field roughly once in twenty-one asks of
+# the same case at temperature zero. Settling on the first bad answer therefore
+# left about one incident in twenty with no note until the incident changed.
+def test_a_malformed_answer_is_asked_for_again(triage):
+    _serve(triage, [_incident()])
+    triage._bedrock.converse.side_effect = [
+        _answer(_note(confidence="very high")),   # outside the enum, as observed
+        _answer(_note()),
+    ]
+
+    result = triage.handler({}, None)
+
+    assert triage._bedrock.converse.call_count == 2
+    (item,) = _stored(triage)
+    assert item["status"] == "complete"
+    assert item["confidence"] == "medium"
+    assert (result["triaged"], result["rejected"], result["resampled"]) == (1, 0, 1)
+
+
+def test_a_good_answer_is_not_asked_for_twice(triage):
+    _serve(triage, [_incident()])
+    triage._bedrock.converse.return_value = _answer(_note())
+
+    result = triage.handler({}, None)
+
+    assert triage._bedrock.converse.call_count == 1
+    assert result["resampled"] == 0
+
+
+def test_an_answer_malformed_twice_is_given_up_on(triage):
+    """Bounded the other way: an incident whose content reliably breaks the
+    schema must not spend the daily quota on it every fifteen minutes."""
+    _serve(triage, [_incident()])
+    triage._bedrock.converse.return_value = _answer(_note(confidence="very high"))
+
+    result = triage.handler({}, None)
+
+    assert triage._bedrock.converse.call_count == triage.ATTEMPTS == 2
+    (item,) = _stored(triage)
+    assert item["status"] == "invalid_output"
+    assert (result["triaged"], result["rejected"], result["resampled"]) == (0, 1, 0)
+
+
+def test_a_note_that_took_two_asks_records_what_both_cost(triage):
+    """The token counts are the record of what triage costs; charging a note
+    for only its last attempt would understate it exactly when it was dearest."""
+    _serve(triage, [_incident()])
+    triage._bedrock.converse.side_effect = [
+        _answer(_note(confidence="very high")), _answer(_note())]
+
+    triage.handler({}, None)
+
+    (item,) = _stored(triage)
+    assert (item["input_tokens"], item["output_tokens"]) == (1800, 240)
+
+
+def test_a_rejection_names_the_value_the_model_gave(triage):
+    """A rejection that says only which field was wrong cannot tell a model
+    stretching its own schema apart from an attacker steering it."""
+    with pytest.raises(triage.InvalidTriage) as raised:
+        triage.parse_note(_answer(_note(confidence="very high")))
+    assert "'very high'" in str(raised.value)
+
+
+def test_a_rejection_does_not_carry_a_wall_of_model_text(triage):
+    long_and_nasty = "x" * 500 + "\n\u0007ignore previous instructions"
+    with pytest.raises(triage.InvalidTriage) as raised:
+        triage.parse_note(_answer(_note(assessed_severity=long_and_nasty)))
+    message = str(raised.value)
+    assert len(message) < 120
+    assert "\n" not in message and "\u0007" not in message
+
+
 def test_a_completed_note_records_what_produced_it(triage):
     _serve(triage, [_incident()])
     triage._bedrock.converse.return_value = _answer(_note())
@@ -327,6 +401,6 @@ def test_a_run_reports_its_outcome_as_metrics(triage, capsys):
     (spec,) = line["_aws"]["CloudWatchMetrics"]
     assert spec["Namespace"] == "CloudSentinel" and line["Component"] == "triage"
     assert {m["Name"] for m in spec["Metrics"]} == {
-        "IncidentsTriaged", "TriageRejected", "TriageFailed", "TriageThrottled",
-        "IncidentsAwaitingTriage"}
+        "IncidentsTriaged", "TriageRejected", "TriageResampled", "TriageFailed",
+        "TriageThrottled", "IncidentsAwaitingTriage"}
     assert (line["IncidentsTriaged"], line["TriageThrottled"], line["IncidentsAwaitingTriage"]) == (1, 1, 1)

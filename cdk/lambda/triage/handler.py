@@ -20,7 +20,9 @@ Cost. An incident is triaged again only when what it contains changes — its
 findings, stages or severity, or the model or prompt — not on every correlator
 run. Each run handles at most MAX_PER_RUN incidents, most severe first, and
 stops at the first throttling response rather than spending retries against a
-quota.
+quota. An answer of the wrong shape is asked for again once, because a model
+malforms one occasionally and the second answer is usually good; after that the
+incident is settled without a note rather than asked again every run.
 """
 import hashlib
 import json
@@ -43,6 +45,11 @@ FINDINGS_TABLE = os.environ.get("FINDINGS_TABLE", "cloudsentinel-findings")
 TRIAGE_TABLE = os.environ.get("TRIAGE_TABLE", "cloudsentinel-triage")
 MODEL_ID = os.environ.get("TRIAGE_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 MAX_PER_RUN = int(os.environ.get("MAX_PER_RUN", "5"))
+# How many times one incident may be asked before its answer is given up on.
+# Two, not more: a second ask recovers an answer the model malformed by chance,
+# and an incident whose content reliably breaks the schema stops there rather
+# than spending the daily quota on it every fifteen minutes.
+ATTEMPTS = 2
 
 # Part of every incident's fingerprint: changing the prompt re-triages
 # everything, a few incidents per run.
@@ -263,9 +270,23 @@ def _texts(value, limit_items, field):
     return [_text(v, ITEM_CHARS, field) for v in value[:limit_items]]
 
 
+def _seen(value):
+    """A value the model returned, shortened for a log line.
+
+    Without it a rejection says only that a field was wrong, which cannot tell
+    a model stretching its own schema apart from an attacker steering it. This
+    is the model's own output rather than finding text, and it is trimmed to
+    printable characters and forty of them, JSON-encoded by the caller, and
+    logged rather than stored beside the incident.
+    """
+    if not isinstance(value, str):
+        return type(value).__name__
+    return repr("".join(c for c in value if c.isprintable())[:40])
+
+
 def _choice(value, allowed, field):
     if value not in allowed:
-        raise InvalidTriage(f"{field} is not one of {', '.join(allowed)}")
+        raise InvalidTriage(f"{field} is {_seen(value)}, not one of {', '.join(allowed)}")
     return value
 
 
@@ -336,6 +357,15 @@ def _record(incident, status, note=None, usage=None):
     _triage.put_item(Item=item)
 
 
+def _spent(responses):
+    """Tokens across every attempt on one incident, so a note that took two
+    records what it cost rather than what its last call cost."""
+    return {
+        "inputTokens": sum(int((r.get("usage") or {}).get("inputTokens") or 0) for r in responses),
+        "outputTokens": sum(int((r.get("usage") or {}).get("outputTokens") or 0) for r in responses),
+    }
+
+
 def _metrics_line(**counts):
     """One record in CloudWatch Embedded Metric Format (see the normalizer)."""
     return json.dumps({
@@ -354,17 +384,32 @@ def _metrics_line(**counts):
 
 def handler(event, context):
     incidents = _scan(_incidents)
-    # A note of the wrong shape is settled too: the same input would get the
-    # same answer, so it is retried only when the incident or prompt changes.
+    # An answer of the wrong shape settles the incident too, but only once it
+    # has been asked ATTEMPTS times. It used to settle on the first bad answer,
+    # on the reasoning that the same input would produce the same answer — which
+    # scripts/eval_triage.py disproved: the same case, at temperature zero, was
+    # answered invalidly once in twenty-one and validly the other twenty times.
+    # Settling on the first bad answer therefore left roughly one incident in
+    # twenty with no note at all until the incident itself changed.
     settled = {t["incident_id"]: t.get("fingerprint")
                for t in _scan(_triage, ProjectionExpression="incident_id, fingerprint")}
     queue = pending(incidents, settled)
 
-    triaged = rejected = failed = throttled = 0
+    triaged = rejected = resampled = failed = throttled = 0
     for incident in queue[:MAX_PER_RUN]:
+        responses, note, discarded = [], None, 0
         try:
-            findings = incident_findings(incident)
-            response = _bedrock.converse(**converse_request(incident_payload(incident, findings)))
+            request = converse_request(incident_payload(incident, incident_findings(incident)))
+            for attempt in range(1, ATTEMPTS + 1):
+                responses.append(_bedrock.converse(**request))
+                try:
+                    note = parse_note(responses[-1])
+                    break
+                except InvalidTriage as exc:
+                    discarded += 1
+                    logger.warning("TRIAGE_BAD_ANSWER %s", json.dumps(
+                        {"incident_id": incident["incident_id"], "attempt": attempt,
+                         "reason": str(exc)}))
         except (ClientError, BotoCoreError) as exc:
             code = (exc.response.get("Error", {}).get("Code", "")
                     if isinstance(exc, ClientError) else type(exc).__name__)
@@ -376,22 +421,22 @@ def handler(event, context):
             logger.error("TRIAGE_FAILED %s", json.dumps(
                 {"incident_id": incident["incident_id"], "code": code}))
             continue
-        try:
-            note = parse_note(response)
-        except InvalidTriage as exc:
+
+        if note is None:
             rejected += 1
             logger.warning("TRIAGE_REJECTED %s", json.dumps(
-                {"incident_id": incident["incident_id"], "reason": str(exc)}))
-            _record(incident, "invalid_output", usage=response.get("usage"))
+                {"incident_id": incident["incident_id"], "attempts": discarded}))
+            _record(incident, "invalid_output", usage=_spent(responses))
             continue
-        _record(incident, "complete", note, usage=response.get("usage"))
+        resampled += bool(discarded)
+        _record(incident, "complete", note, usage=_spent(responses))
         triaged += 1
 
     waiting = len(queue) - triaged - rejected
-    summary = {"triaged": triaged, "rejected": rejected, "failed": failed,
-               "throttled": bool(throttled), "waiting": waiting}
+    summary = {"triaged": triaged, "rejected": rejected, "resampled": resampled,
+               "failed": failed, "throttled": bool(throttled), "waiting": waiting}
     logger.info("TRIAGE_RUN %s", json.dumps(summary))
     print(_metrics_line(IncidentsTriaged=triaged, TriageRejected=rejected,
-                        TriageFailed=failed, TriageThrottled=throttled,
-                        IncidentsAwaitingTriage=waiting))
+                        TriageResampled=resampled, TriageFailed=failed,
+                        TriageThrottled=throttled, IncidentsAwaitingTriage=waiting))
     return summary

@@ -321,7 +321,11 @@ export class ObservabilityStack extends cdk.Stack {
             width: 24, height: 5,
             left: [
               published('IncidentsTriaged', 'triage', 'notes written', Duration.minutes(15)),
-              published('TriageRejected', 'triage', 'answers rejected', Duration.minutes(15)),
+              // Asked twice and answered: the model malforms a field now and
+              // then, and a rising line here is the prompt or the model
+              // drifting, visible well before notes start being lost.
+              published('TriageResampled', 'triage', 'answers asked for again', Duration.minutes(15)),
+              published('TriageRejected', 'triage', 'answers given up on', Duration.minutes(15)),
               published('TriageFailed', 'triage', 'model errors', Duration.minutes(15)),
               published('TriageThrottled', 'triage', 'runs throttled', Duration.minutes(15)),
             ],

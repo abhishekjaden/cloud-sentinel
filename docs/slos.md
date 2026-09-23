@@ -202,16 +202,22 @@ Fargate is not traced.
 
 The triage function ([ADR 0005](adr/0005-advisory-llm-triage.md)) has no
 objective: a note helps an analyst but protects nothing, and nothing depends on
-it. Its runs — notes written, answers rejected, model errors, throttled runs and
-incidents still waiting — are graphed on the last row of the SLO dashboard, which
-is where a model quota problem shows.
+it. Its runs — notes written, answers asked for again, answers given up on, model
+errors, throttled runs and incidents still waiting — are graphed on the last row
+of the SLO dashboard, which is where a model quota problem shows.
+
+The two rejection lines separate a recovery from a loss, as the ingestion graphs
+do. The model malforms a field occasionally — measured at roughly one ask in
+twenty-one — and the second ask is normally good, so *answers asked for again*
+rising is the prompt or the model drifting, and it moves well before *answers
+given up on* does.
 
 ## Cost
 
 | Item | Count | Free each month |
 |---|---|---|
 | Alarm metrics (a metric-math alarm is billed per metric it reads) | 11, plus 4 while the API is up | 10 |
-| Custom metrics (published by the handlers, 5 of them by triage) | 8 | 10 |
+| Custom metrics (published by the handlers, 6 of them by triage) | 9 | 10 |
 | Dashboards | 2 | 3 |
 | X-Ray traces | a few thousand to tens of thousands | 100,000 |
 
