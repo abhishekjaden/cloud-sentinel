@@ -7,6 +7,7 @@
  */
 import { NagSuppressions } from 'cdk-nag';
 import { Stack } from 'aws-cdk-lib/core';
+import { IConstruct } from 'constructs';
 
 /** Suppressions that apply to constructs the CDK itself generates. */
 export function suppressCdkManagedResources(stack: Stack): void {
@@ -35,6 +36,28 @@ export function suppressCdkManagedResources(stack: Stack): void {
         'runtime is pinned by the framework, not by application code.',
     },
   ], true);
+}
+
+/**
+ * A queue that is itself the end of the line: an event source mapping's
+ * failure destination. Scoped to the one queue rather than its stack, so a
+ * queue added later still has to answer the rule.
+ */
+export function suppressFailureDestination(queue: IConstruct): void {
+  NagSuppressions.addResourceSuppressions(queue, [
+    {
+      id: 'AwsSolutions-SQS3',
+      reason:
+        'This queue is a dead-letter destination, not a queue that needs one: ' +
+        'Lambda reports to it the batches the normalizer could not process ' +
+        'after its retries. cdk-nag recognises a queue as a dead-letter queue ' +
+        "only when another queue's redrive policy or a function's " +
+        'DeadLetterConfig names it, and neither does here — an event source ' +
+        'mapping names it instead, which the rule cannot see. Giving it a ' +
+        'redrive policy of its own would satisfy the rule by moving the same ' +
+        'question one queue further along.',
+    },
+  ]);
 }
 
 /** Suppressions specific to the public API surface. */

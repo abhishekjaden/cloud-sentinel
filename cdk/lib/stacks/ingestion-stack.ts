@@ -6,12 +6,17 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Duration } from 'aws-cdk-lib/core';
 import { StartingPosition } from 'aws-cdk-lib/aws-lambda';
-import { KinesisEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { KinesisEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as path from 'path';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { suppressCdkManagedResources, suppressStreamEncryption } from '../nag-suppressions';
-import { FINDINGS_STREAM_NAME, FUNCTION_NAMES, INGESTION_RULE_NAMES } from '../names';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import {
+  suppressCdkManagedResources, suppressFailureDestination, suppressStreamEncryption,
+} from '../nag-suppressions';
+import {
+  FAILED_FINDINGS_QUEUE_NAME, FINDINGS_STREAM_NAME, FUNCTION_NAMES, INGESTION_RULE_NAMES,
+} from '../names';
 
 /**
  * IngestionStack — deploys to the Audit account (118821712739).
@@ -54,12 +59,38 @@ export class IngestionStack extends cdk.Stack {
       description: 'Normalizes security findings into a common schema',
     });
 
+    // Where a batch goes once the normalizer has failed on it through every
+    // retry. Lambda sends the batch's *metadata* — the shard and the range of
+    // sequence numbers — not the findings themselves, so a message is a pointer
+    // back into the stream rather than a copy of what was lost. The stream
+    // keeps records for 24 hours; the queue keeps the pointers for 14 days, so
+    // that a loss is still on the record after the records themselves have
+    // aged out and recovery has to come from the source service's own console.
+    const failedFindings = new sqs.Queue(this, 'FailedFindings', {
+      queueName: FAILED_FINDINGS_QUEUE_NAME,
+      // SQS-managed keys rather than a CMK: the messages name sequence numbers
+      // and carry no finding content.
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      enforceSSL: true,
+      retentionPeriod: Duration.days(14),
+    });
+    suppressFailureDestination(failedFindings);
+
     // Lambda consumes the Kinesis stream in batches
     normalizer.addEventSource(new KinesisEventSource(stream, {
       startingPosition: StartingPosition.LATEST,
       batchSize: 100,
       maxBatchingWindow: Duration.seconds(10),
       retryAttempts: 2,
+      // Without this, the checkpoint advances past every record the handler
+      // returned from, whether or not it stored them, and a finding that failed
+      // on a throttle or a timeout was simply gone. With it, the handler names
+      // the records it could not store and Lambda delivers them again.
+      reportBatchItemFailures: true,
+      // And when the retries run out, the batch is reported rather than
+      // discarded silently. This is the only signal that a finding was lost,
+      // so the findings-stored objective is measured from it (docs/slos.md).
+      onFailure: new SqsDlq(failedFindings),
     }));
 
     // Nothing is routed to a function until its log group exists. CDK creates

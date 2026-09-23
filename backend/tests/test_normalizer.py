@@ -224,13 +224,16 @@ def test_securityhub_event_with_no_findings_does_not_raise(normalizer):
     assert out["severity"] == 0
 
 
-# ------------------------------------------------------------------ metrics
-# The findings-stored alarm in the observability stack reads these counts. A
-# failed record is caught so the rest of its batch still goes through, which
-# also keeps it out of Lambda's own Errors metric; without these counts a lost
-# finding would leave no trace in any metric.
+# --------------------------------------------------------- failures and loss
+# A record that fails is handed back to Lambda by sequence number, so the shard
+# rewinds to it and it is delivered again rather than skipped. Getting this
+# wrong is silent: the batch still succeeds, the alarm still reads zero, and the
+# finding is simply not in the table.
 def _batch(*payloads):
-    return {"Records": [{"kinesis": {"data": base64.b64encode(p).decode()}} for p in payloads]}
+    return {"Records": [
+        {"kinesis": {"data": base64.b64encode(p).decode(), "sequenceNumber": f"4957{i:04d}"}}
+        for i, p in enumerate(payloads)
+    ]}
 
 
 def _metric_lines(capsys):
@@ -239,17 +242,62 @@ def _metric_lines(capsys):
             if line.startswith("{") and '"_aws"' in line]
 
 
-def test_a_batch_reports_how_many_records_it_received_and_lost(normalizer, capsys):
+def test_a_failed_record_is_handed_back_by_sequence_number(normalizer, capsys):
     good = json.dumps(INSPECTOR_EVENT).encode()
     with mock.patch.object(normalizer, "_table") as table:
         # one record that cannot be parsed, one that DynamoDB refuses
         table.put_item.side_effect = [None, RuntimeError("throttled"), None]
-        result = normalizer.handler(_batch(good, b"not json", good, good), None)
+        event = _batch(good, b"not json", good, good)
+        result = normalizer.handler(event, None)
 
-    assert result == {"processed": 2}
+    assert result == {"batchItemFailures": [
+        {"itemIdentifier": "49570001"},  # the unparseable record
+        {"itemIdentifier": "49570002"},  # the one DynamoDB refused
+    ]}
     (line,) = _metric_lines(capsys)
     assert line["RecordsReceived"] == 4
     assert line["RecordsFailed"] == 2
+
+
+def test_a_stored_record_is_never_handed_back(normalizer):
+    """Reporting a record Lambda already stored rewinds the shard over it for
+    nothing, and every record after it in the batch with it."""
+    with mock.patch.object(normalizer, "_table"):
+        result = normalizer.handler(_batch(*[json.dumps(INSPECTOR_EVENT).encode()] * 3), None)
+
+    assert result == {"batchItemFailures": []}
+
+
+def test_the_response_carries_nothing_but_the_failures(normalizer):
+    """Lambda reads this response as a partial batch report and treats one it
+    cannot read as the whole batch failing, so an extra key here would turn one
+    bad record into a hundred retried ones."""
+    with mock.patch.object(normalizer, "_table"):
+        result = normalizer.handler(_batch(json.dumps(INSPECTOR_EVENT).encode()), None)
+
+    assert set(result) == {"batchItemFailures"}
+
+
+def test_a_record_with_no_sequence_number_is_still_counted(normalizer, capsys):
+    """Nothing can be handed back for a record Lambda did not identify, but the
+    count is what the dashboard shows, so it must not quietly read zero."""
+    with mock.patch.object(normalizer, "_table"):
+        result = normalizer.handler({"Records": [{"kinesis": {}}]}, None)
+
+    assert result == {"batchItemFailures": []}
+    (line,) = _metric_lines(capsys)
+    assert (line["RecordsReceived"], line["RecordsFailed"]) == (1, 1)
+
+
+def test_a_redelivered_record_overwrites_rather_than_duplicates(normalizer):
+    """Kinesis redelivers from the lowest reported sequence number, so records
+    after a failed one are processed twice. The key has to come from the
+    finding, or a retry would double every finding that shared its batch."""
+    with mock.patch.object(normalizer, "_table") as table:
+        normalizer.handler(_batch(*[json.dumps(INSPECTOR_EVENT).encode()] * 2), None)
+
+    first, second = (call.kwargs["Item"] for call in table.put_item.call_args_list)
+    assert (first["pk"], first["sk"]) == (second["pk"], second["sk"])
 
 
 def test_a_clean_batch_reports_no_failures(normalizer, capsys):

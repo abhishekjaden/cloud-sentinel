@@ -13,11 +13,17 @@ DynamoDB item keys:
 created_at is ISO 8601 for every source. sk sorts by time only because of that,
 so a source that sends another format is converted here, not downstream.
 
-Each batch also reports how many records it received and how many failed, as
-CloudWatch metrics. A record that fails is caught so the rest of its batch still
-goes through, which also keeps the failure out of Lambda's own Errors metric:
-the invocation succeeds either way. These counts are what make a lost finding
-visible, and the findings-stored alarm watches them (docs/slos.md).
+A record that fails is caught so the rest of its batch still goes through, and
+its sequence number is returned to Lambda, which rewinds the shard to it and
+delivers it again. Records after it in the batch are delivered again too —
+Kinesis retries from the lowest reported sequence number — so persisting has to
+be idempotent, and is: the key is derived from the finding, so a second write of
+the same record overwrites the first.
+
+Each batch reports how many records it received and how many it had to hand back
+as CloudWatch metrics. Neither is a lost finding: a record is lost only once
+Lambda has retried it to exhaustion, at which point Lambda reports the batch to
+the failure queue, which is what the findings-stored alarm watches (docs/slos.md).
 """
 import base64
 import json
@@ -216,19 +222,28 @@ def _metrics_line(**counts):
 
 def handler(event, context):
     records = event.get("Records", [])
-    processed = 0
+    failed = 0
+    retry = []
     for record in records:
+        # Read before the work, so a record that fails can still be named.
+        sequence_number = (record.get("kinesis") or {}).get("sequenceNumber")
         try:
             payload = base64.b64decode(record["kinesis"]["data"])
             raw_event = json.loads(payload)
             normalized = _normalize(raw_event)
             _persist(normalized)
             logger.info("NORMALIZED_FINDING %s", json.dumps(normalized))
-            processed += 1
         except Exception as exc:  # noqa: BLE001
-            logger.error("Failed to process record: %s", exc)
+            failed += 1
+            logger.error("Failed to process record %s: %s: %s",
+                         sequence_number or "unidentified", type(exc).__name__, exc)
+            if sequence_number:
+                retry.append({"itemIdentifier": sequence_number})
     # Printed rather than logged: Lambda's log handler prefixes each line with a
     # level and request ID, and CloudWatch reads EMF only from a line that is
     # JSON from its first character.
-    print(_metrics_line(RecordsReceived=len(records), RecordsFailed=len(records) - processed))
-    return {"processed": processed}
+    print(_metrics_line(RecordsReceived=len(records), RecordsFailed=failed))
+    # Nothing else may go in this response. Lambda reads it as a partial batch
+    # report, and treats a response it cannot read as the whole batch failing —
+    # so an extra key would turn one bad record into a hundred retried ones.
+    return {"batchItemFailures": retry}

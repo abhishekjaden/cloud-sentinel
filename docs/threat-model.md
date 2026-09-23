@@ -71,8 +71,8 @@ human decision on one side causes irreversible change on the other.
 | **T** | Altering findings in flight | Kinesis encrypted at rest; TLS in transit; DynamoDB uses a customer-managed key | The normalizer trusts its input entirely — no schema validation or signature check. |
 | **R** | No record of what was ingested | Normalizer logs every normalized finding to CloudWatch | Retention is CloudWatch's default; no immutable archive. |
 | **I** | Reading the findings store | Customer-managed KMS key; `kms:Decrypt` scoped by `kms:ViaService` to DynamoDB only | Anyone with the audit account's admin role reads everything. Single-account blast radius. |
-| **D** | Flooding the stream | Provisioned shard sustains 1,000 records/second against an observed ~950/day. Throttled writes are graphed; the `findings-fresh` alarm fires when findings wait over five minutes, and `findings-stored` when one is dropped ([SLOs](slos.md)) | A sustained flood would still throttle ingestion. The alarms report it; nothing prevents it. |
-| **E** | Normalizer role misuse | Role limited to Kinesis read, DynamoDB write, and KMS use through DynamoDB | None known. |
+| **D** | Flooding the stream | Provisioned shard sustains 1,000 records/second against an observed ~950/day. Throttled writes are graphed; the `findings-fresh` alarm fires when findings wait over five minutes, and `findings-stored` when one is lost for good ([SLOs](slos.md)) | A sustained flood would still throttle ingestion. The alarms report it; nothing prevents it. |
+| **E** | Normalizer role misuse | Role limited to Kinesis read, DynamoDB write, KMS use through DynamoDB, and sending to its own failure queue | None known. |
 
 ### B5 — Operator → Step Functions (approval)
 

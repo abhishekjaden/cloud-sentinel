@@ -13,7 +13,9 @@ import * as path from 'path';
 import * as cdk from 'aws-cdk-lib/core';
 import { Template } from 'aws-cdk-lib/assertions';
 import { ACCOUNTS, env } from '../lib/config';
-import { ALARM_TOPIC_NAME, FUNCTION_NAMES, METRIC_NAMESPACE } from '../lib/names';
+import {
+  ALARM_TOPIC_NAME, FAILED_FINDINGS_QUEUE_NAME, FUNCTION_NAMES, METRIC_NAMESPACE,
+} from '../lib/names';
 import { ApiStack } from '../lib/stacks/api-stack';
 import { DnsStack } from '../lib/stacks/dns-stack';
 import { IngestionStack } from '../lib/stacks/ingestion-stack';
@@ -53,6 +55,31 @@ const resources = (t: Template, type: string): Props[] =>
   Object.values(t.findResources(type)).map((r: any) => r.Properties ?? {});
 
 const alarms = (t: Template) => resources(t, 'AWS::CloudWatch::Alarm');
+
+/**
+ * The metrics an alarm's value is actually computed from, as `namespace/name`.
+ *
+ * A metric-math alarm renders every metric it was given, whether or not the
+ * expression it evaluates refers to it, so the presence of a metric in the
+ * alarm proves nothing. This starts at the expression the alarm reads and
+ * follows the identifiers it names, through nested expressions, to the
+ * metrics underneath.
+ */
+function counted(alarm: Props): string[] {
+  if (!alarm.Metrics) return [`${alarm.Namespace}/${alarm.MetricName}`];
+  const byId = new Map<string, any>(alarm.Metrics.map((m: any) => [m.Id, m]));
+  const walk = (id: string): string[] => {
+    const entry = byId.get(id);
+    if (!entry) throw new Error(`${alarm.AlarmName} reads "${id}", which it does not define`);
+    if (entry.MetricStat) {
+      return [`${entry.MetricStat.Metric.Namespace}/${entry.MetricStat.Metric.MetricName}`];
+    }
+    return (entry.Expression.match(/[A-Za-z_]\w*/g) ?? [])
+      .filter((token: string) => byId.has(token))
+      .flatMap(walk);
+  };
+  return walk(alarm.Metrics.find((m: any) => m.ReturnData).Id);
+}
 
 // ---------------------------------------------------------------- tracing
 describe('tracing', () => {
@@ -173,6 +200,24 @@ describe('objectives', () => {
     });
   });
 
+  test('a finding counts as lost only once it can no longer be retried', () => {
+    // The normalizer hands a failed record back and Lambda delivers it again.
+    // Alarming on that count — which this alarm used to do, when a failed
+    // record really was gone — would page somebody for a DynamoDB throttle
+    // that fixed itself on the retry, and an alarm like that gets muted.
+    //
+    // Read through the expression rather than over the whole Metrics array: a
+    // metric can be defined for an alarm and left out of the sum it evaluates,
+    // which is exactly the mistake that would switch this objective off.
+    const stored = byName(pipelineAlarms).get('cloudsentinel-slo-findings-stored')!;
+    expect(counted(stored).sort()).toEqual([
+      'AWS/Events/FailedInvocations',   // EventBridge gave up on an event
+      'AWS/Events/FailedInvocations',
+      'AWS/Events/FailedInvocations',
+      'AWS/SQS/NumberOfMessagesSent',   // Lambda gave up on a batch
+    ]);
+  });
+
   test('remediation health is measured by errors, not by failed workflows', () => {
     // Rejecting an approval fails the workflow. An alarm on ExecutionsFailed
     // would fire on every rejection, and be ignored soon after.
@@ -180,6 +225,48 @@ describe('objectives', () => {
     const read = JSON.stringify(remediationRuns.Metrics);
     expect(read).toContain('"Errors"');
     expect(read).not.toContain('ExecutionsFailed');
+  });
+});
+
+// ------------------------------------------------------- what makes 1 true
+describe('a record the normalizer fails on is retried, and kept if it still fails', () => {
+  // Objective 1 is only worth alarming on if the pipeline behind it holds. If
+  // the checkpoint moved past a record the handler returned from, the finding
+  // would be gone and every metric would still read zero.
+  const [mapping] = resources(ingestion, 'AWS::Lambda::EventSourceMapping');
+  const queues = resources(ingestion, 'AWS::SQS::Queue');
+
+  test('the event source reads the handler\'s report of which records failed', () => {
+    expect(mapping.FunctionResponseTypes).toEqual(['ReportBatchItemFailures']);
+  });
+
+  test('a batch that fails every retry is reported rather than discarded', () => {
+    const [queueId] = Object.keys(ingestion.findResources('AWS::SQS::Queue'));
+    expect(mapping.DestinationConfig?.OnFailure?.Destination)
+      .toEqual({ 'Fn::GetAtt': [queueId, 'Arn'] });
+    expect(mapping.MaximumRetryAttempts).toBe(2);
+  });
+
+  test('the failure queue is named, encrypted, TLS-only and outlives the stream', () => {
+    // Named because the alarm finds it by name. Encrypted and TLS-only because
+    // cdk-nag requires both. Retained for longer than the stream's 24 hours, so
+    // a loss is still on the record after the records themselves have aged out.
+    expect(queues.length).toBe(1);
+    const [queue] = queues;
+    expect(queue.QueueName).toBe(FAILED_FINDINGS_QUEUE_NAME);
+    expect(queue.SqsManagedSseEnabled).toBe(true);
+    expect(queue.MessageRetentionPeriod).toBe(14 * 24 * 60 * 60);
+    const policies = resources(ingestion, 'AWS::SQS::QueuePolicy');
+    expect(JSON.stringify(policies)).toContain('"aws:SecureTransport":"false"');
+  });
+
+  test('the normalizer may write to the failure queue and nothing else may', () => {
+    // Lambda sends the report under the function's own role, so the grant has
+    // to be there or the batch is lost silently after all.
+    const senders = Object.entries(ingestion.findResources('AWS::IAM::Policy'))
+      .filter(([, p]) => JSON.stringify((p as any).Properties.PolicyDocument).includes('sqs:SendMessage'));
+    expect(senders.length).toBe(1);
+    expect(JSON.stringify(senders[0][1])).toContain('NormalizerServiceRole');
   });
 });
 
@@ -238,6 +325,7 @@ describe('every metric the objectives read is emitted by something deployed', ()
     functions: new Set(both.flatMap((t) => resources(t, 'AWS::Lambda::Function').map((r) => r.FunctionName))),
     rules: new Set(both.flatMap((t) => resources(t, 'AWS::Events::Rule').map((r) => r.Name))),
     streams: new Set(resources(ingestion, 'AWS::Kinesis::Stream').map((r) => r.Name)),
+    queues: new Set(both.flatMap((t) => resources(t, 'AWS::SQS::Queue').map((r) => r.QueueName))),
     machines: resources(remediation, 'AWS::StepFunctions::StateMachine').map((r) => r.StateMachineName),
   };
 
@@ -260,6 +348,9 @@ describe('every metric the objectives read is emitted by something deployed', ()
         break;
       case 'AWS/Kinesis':
         expect({ context, ok: deployed.streams.has(m.dims.StreamName) }).toEqual({ context, ok: true });
+        break;
+      case 'AWS/SQS':
+        expect({ context, ok: deployed.queues.has(m.dims.QueueName) }).toEqual({ context, ok: true });
         break;
       case 'AWS/States':
         expect({

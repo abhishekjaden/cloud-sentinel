@@ -7,8 +7,8 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import {
-  ALARM_TOPIC_NAME, FINDINGS_STREAM_NAME, FUNCTION_NAMES, INGESTION_RULE_NAMES,
-  METRIC_NAMESPACE, REMEDIATION_RULE_NAME, STATE_MACHINE_NAME,
+  ALARM_TOPIC_NAME, FAILED_FINDINGS_QUEUE_NAME, FINDINGS_STREAM_NAME, FUNCTION_NAMES,
+  INGESTION_RULE_NAMES, METRIC_NAMESPACE, REMEDIATION_RULE_NAME, STATE_MACHINE_NAME,
 } from '../names';
 
 /**
@@ -79,6 +79,14 @@ export class ObservabilityStack extends cdk.Stack {
       ...sum, label,
     });
 
+    /** The queue Lambda reports a batch to once its retries are exhausted. */
+    const failureQueue = (metricName: string, statistic: string, label: string) =>
+      new cloudwatch.Metric({
+        namespace: 'AWS/SQS', metricName,
+        dimensionsMap: { QueueName: FAILED_FINDINGS_QUEUE_NAME },
+        statistic, period: FIVE_MINUTES, label,
+      });
+
     // ------------------------------------------------------------ objectives
     const slo = (name: string, description: string, props: {
       metric: cloudwatch.IMetric;
@@ -101,13 +109,19 @@ export class ObservabilityStack extends cdk.Stack {
       return alarm;
     };
 
-    // 1. Findings are stored. Three places can drop one: EventBridge failing to
-    //    deliver it to the stream, the normalizer failing on the record (such
-    //    failures are caught per record, so they never reach Lambda's own
-    //    Errors metric — the handler counts them itself), and the normalizer
-    //    failing a whole batch.
-    const failedInNormalizer = published('RecordsFailed', 'normalizer', 'failed in normalizer');
+    // 1. Findings are stored. Two places can lose one for good: EventBridge
+    //    failing to deliver it to the stream after its own retries, and Lambda
+    //    giving up on a batch the normalizer kept failing on, which it reports
+    //    to the failure queue.
+    //
+    //    A record the normalizer fails on is *not* one of them, and is not in
+    //    this alarm: the handler hands its sequence number back and Lambda
+    //    delivers it again, so a throttle or a timeout costs a retry, not a
+    //    finding. Those counts are graphed instead, because a rising number of
+    //    retries is how this objective is usually about to break.
+    const retriedInNormalizer = published('RecordsFailed', 'normalizer', 'handed back for retry');
     const normalizerErrors = errors(normalizer, 'normalizer batch errors');
+    const lostInNormalizer = failureQueue('NumberOfMessagesSent', 'Sum', 'given up on by Lambda');
     const ingestionUndelivered = new cloudwatch.MathExpression({
       expression: 'SUM([gd, sh, insp])',
       usingMetrics: {
@@ -119,14 +133,15 @@ export class ObservabilityStack extends cdk.Stack {
       period: FIVE_MINUTES,
     });
     slo('findings-stored',
-      'A security finding failed between EventBridge and the findings table in the last 5 ' +
-      'minutes. A record that fails inside the normalizer is not retried, so that finding is ' +
-      'lost. The CloudSentinel-SLOs dashboard shows which stage failed; the normalizer logs ' +
-      'each failure as "Failed to process record".', {
+      'A security finding was lost between EventBridge and the findings table: either ' +
+      'EventBridge could not deliver it to the stream, or the normalizer failed on it through ' +
+      'every retry and Lambda reported the batch to the cloudsentinel-failed-findings queue. ' +
+      'The CloudSentinel-SLOs dashboard shows which; docs/slos.md says how to recover the ' +
+      'finding from the stream, which holds it for 24 hours.', {
         metric: new cloudwatch.MathExpression({
-          expression: 'SUM([failed, batch, undelivered])',
-          usingMetrics: { failed: failedInNormalizer, batch: normalizerErrors, undelivered: ingestionUndelivered },
-          label: 'findings not stored',
+          expression: 'SUM([lost, undelivered])',
+          usingMetrics: { lost: lostInNormalizer, undelivered: ingestionUndelivered },
+          label: 'findings lost',
           period: FIVE_MINUTES,
         }),
         threshold: 1,
@@ -231,13 +246,23 @@ export class ObservabilityStack extends cdk.Stack {
         ],
         [
           new cloudwatch.GraphWidget({
-            title: 'Findings not stored (objective: none)', width: 12, stacked: true,
-            left: [failedInNormalizer, normalizerErrors, ingestionUndelivered],
+            title: 'Findings lost (objective: none)', width: 8, stacked: true,
+            left: [ingestionUndelivered, lostInNormalizer],
             leftAnnotations: [line(1, 'alarm')],
+            leftYAxis: { min: 0, showUnits: false },
+            // Sent counts the moment of loss and falls back to zero; this stays
+            // up while the pointers to lost findings are still unrecovered.
+            right: [failureQueue('ApproximateNumberOfMessagesVisible', 'Maximum',
+              'batches awaiting recovery')],
+            rightYAxis: { min: 0, showUnits: false },
+          }),
+          new cloudwatch.GraphWidget({
+            title: 'Retried, not lost', width: 8, stacked: true,
+            left: [retriedInNormalizer, normalizerErrors],
             leftYAxis: { min: 0, showUnits: false },
           }),
           new cloudwatch.GraphWidget({
-            title: 'Findings arriving', width: 12,
+            title: 'Findings arriving', width: 8,
             left: [
               stream('IncomingRecords', 'written to the stream'),
               published('RecordsReceived', 'normalizer', 'read by the normalizer'),

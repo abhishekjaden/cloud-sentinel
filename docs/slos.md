@@ -31,7 +31,7 @@ Then confirm from the email AWS sends.
 
 | # | Objective | Alarm (`cloudsentinel-slo-…`) | Measured by | Target | Fires when |
 |---|---|---|---|---|---|
-| 1 | Findings are stored | `findings-stored` | failures between EventBridge and the findings table | 99.9% of findings, 28 days | any failure in 5 minutes |
+| 1 | Findings are stored | `findings-stored` | findings lost between EventBridge and the findings table | 99.9% of findings, 28 days | any loss in 5 minutes |
 | 2 | Findings are stored promptly | `findings-fresh` | normalizer iterator age | under 5 minutes in 99% of 5-minute windows | over 5 minutes, two windows running |
 | 3 | Incidents stay current | `incidents-current` | completed correlation runs | a run at least every 45 minutes | none in 45 minutes |
 | 4 | Remediation steps run | `remediation-runs` | router, recorder and executor errors | no step fails | any error in 5 minutes |
@@ -44,33 +44,61 @@ Then confirm from the email AWS sends.
 **Promise.** Every finding GuardDuty, Security Hub or Inspector delivers to
 CloudSentinel is written to the findings table.
 
-**Measured by** the sum, per 5 minutes, of three counts — one for each place a
-finding can be dropped:
+**Measured by** the sum, per 5 minutes, of the two counts that mean a finding
+is gone:
 
 - events EventBridge matched but could not deliver to the stream, after its own
   retries (`FailedInvocations` on the three ingestion rules);
-- records the normalizer failed on (`RecordsFailed`). The normalizer catches an
-  error per record, so one bad record does not fail its whole batch; the cost is
-  that such failures never reach Lambda's `Errors` metric, because the
-  invocation succeeds either way. The normalizer counts them itself and
-  publishes the count in CloudWatch Embedded Metric Format;
-- normalizer invocations that failed outright (Lambda `Errors`).
+- batches Lambda gave up on (`NumberOfMessagesSent` on the
+  `cloudsentinel-failed-findings` queue). The normalizer hands back the sequence
+  number of every record it could not store, and Lambda rewinds the shard and
+  delivers those records again; only when the retries are exhausted does it
+  report the batch to that queue and move on.
 
-**Why alarm on the first failure.** At about a thousand findings a day, a 99.9%
+**What is not counted.** A record the normalizer fails on. It is retried, so a
+DynamoDB throttle or a slow write costs a retry rather than a finding, and
+alarming on it would page somebody for something that fixed itself. The
+normalizer publishes the count as `RecordsFailed`, and the dashboard graphs it
+under *Retried, not lost*, next to the normalizer's own `Errors`. A rising line
+there is the warning that comes before this objective breaks.
+
+**Why alarm on the first loss.** At about a thousand findings a day, a 99.9%
 objective allows roughly one lost finding a day. A burn-rate alert on an error
-budget that small fires on the first failure anyway, so the alarm says so
-directly.
+budget that small fires on the first loss anyway, so the alarm says so directly.
 
-**When it fires.** The dashboard's second row shows which of the three failed.
-For the normalizer, open log group `/aws/lambda/CloudSentinel-Normalizer` and
-search for `Failed to process record`. A record that fails inside the
-normalizer is not retried, so the finding is missing from CloudSentinel — it is
-still in the console of the service that raised it, which is where to recover
-it from.
+**When it fires.** The dashboard's second row shows which of the two happened.
+If it was the normalizer, a message is waiting in the queue:
 
-**Known gap.** Failed records are dropped rather than retried. The fix is for
-the normalizer to report partial batch failures, so Lambda retries a failed
-record, with an on-failure destination that keeps what still fails.
+```bash
+aws sqs receive-message --profile cs-audit --region us-east-1 \
+  --queue-url https://sqs.us-east-1.amazonaws.com/118821712739/cloudsentinel-failed-findings \
+  --max-number-of-messages 10 --visibility-timeout 0
+```
+
+Its body names the shard and the range of sequence numbers Lambda gave up on —
+the findings themselves are not in it. Read the normalizer's own account of why
+in `/aws/lambda/CloudSentinel-Normalizer`, where each failure is logged as
+`Failed to process record <sequence number>` with the exception that caused it.
+
+To recover the findings, fix the cause first — otherwise the replay fails the
+same way — then read the records back out of the stream, which keeps them for 24
+hours:
+
+```bash
+ITERATOR=$(aws kinesis get-shard-iterator --profile cs-audit --region us-east-1 \
+  --stream-name cloudsentinel-findings --shard-id shardId-000000000000 \
+  --shard-iterator-type AT_SEQUENCE_NUMBER --starting-sequence-number <from the message> \
+  --query ShardIterator --output text)
+aws kinesis get-records --profile cs-audit --region us-east-1 --shard-iterator "$ITERATOR"
+```
+
+Records are base64-encoded EventBridge events; re-publishing them to the stream
+with `kinesis put-record` puts them through the normalizer again, which
+overwrites rather than duplicates. Past 24 hours the stream no longer holds
+them and the findings have to come from the console of the service that raised
+them; the queue keeps its pointers for 14 days either way, so the loss stays on
+the record after the records are gone. Delete a message once it is dealt with —
+the dashboard's *batches awaiting recovery* line is what is still outstanding.
 
 ## 2. Findings are stored promptly — `cloudsentinel-slo-findings-fresh`
 
@@ -181,7 +209,7 @@ is where a model quota problem shows.
 
 | Item | Count | Free each month |
 |---|---|---|
-| Alarm metrics (a metric-math alarm is billed per metric it reads) | 12, plus 4 while the API is up | 10 |
+| Alarm metrics (a metric-math alarm is billed per metric it reads) | 11, plus 4 while the API is up | 10 |
 | Custom metrics (published by the handlers, 5 of them by triage) | 8 | 10 |
 | Dashboards | 2 | 3 |
 | X-Ray traces | a few thousand to tens of thousands | 100,000 |

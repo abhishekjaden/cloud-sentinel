@@ -20,6 +20,13 @@ export const FUNCTION_NAMES = {
 
 export const FINDINGS_STREAM_NAME = 'cloudsentinel-findings';
 
+/**
+ * Where Lambda reports batches the normalizer could not process, after its
+ * retries. A message here is a finding CloudSentinel lost, which is what the
+ * findings-stored objective alarms on.
+ */
+export const FAILED_FINDINGS_QUEUE_NAME = 'cloudsentinel-failed-findings';
+
 /** One EventBridge rule per finding source, each routing into the stream. */
 export const INGESTION_RULE_NAMES = {
   GuardDuty: 'cloudsentinel-guardduty-findings',
