@@ -256,17 +256,27 @@ describe('a record the normalizer fails on is retried, and kept if it still fail
     expect(queue.QueueName).toBe(FAILED_FINDINGS_QUEUE_NAME);
     expect(queue.SqsManagedSseEnabled).toBe(true);
     expect(queue.MessageRetentionPeriod).toBe(14 * 24 * 60 * 60);
-    const policies = resources(ingestion, 'AWS::SQS::QueuePolicy');
-    expect(JSON.stringify(policies)).toContain('"aws:SecureTransport":"false"');
+
+    const [insecure] = resources(ingestion, 'AWS::SQS::QueuePolicy')
+      .flatMap((p) => p.PolicyDocument.Statement)
+      .filter((st: any) => st.Condition?.Bool?.['aws:SecureTransport'] === 'false');
+    expect(insecure?.Effect).toBe('Deny');
   });
 
   test('the normalizer may write to the failure queue and nothing else may', () => {
     // Lambda sends the report under the function's own role, so the grant has
     // to be there or the batch is lost silently after all.
-    const senders = Object.entries(ingestion.findResources('AWS::IAM::Policy'))
-      .filter(([, p]) => JSON.stringify((p as any).Properties.PolicyDocument).includes('sqs:SendMessage'));
+    const [queueId] = Object.keys(ingestion.findResources('AWS::SQS::Queue'));
+    const sends = (st: any) => ([] as string[]).concat(st.Action).includes('sqs:SendMessage');
+    const senders = resources(ingestion, 'AWS::IAM::Policy')
+      .filter((p) => p.PolicyDocument.Statement.some(sends));
+
     expect(senders.length).toBe(1);
-    expect(JSON.stringify(senders[0][1])).toContain('NormalizerServiceRole');
+    const [policy] = senders;
+    expect(policy.Roles.map((r: any) => r.Ref))
+      .toEqual([expect.stringMatching(/^NormalizerServiceRole/)]);
+    expect(policy.PolicyDocument.Statement.filter(sends).map((st: any) => st.Resource))
+      .toEqual([{ 'Fn::GetAtt': [queueId, 'Arn'] }]);
   });
 });
 

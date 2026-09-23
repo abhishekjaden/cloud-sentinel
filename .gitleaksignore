@@ -1,0 +1,20 @@
+# Findings gitleaks is right to raise and that cannot be removed.
+#
+# The weekly sweep in .github/workflows/security.yml scans the whole history —
+# gitleaks-action passes --log-opts only for push and pull_request events, so a
+# scheduled run has none and reads every commit. A finding in a commit that is
+# already public therefore fails that job every Monday, whatever the working
+# tree contains.
+#
+# These three are one invented identifier in triage evaluation data, shaped like
+# an AWS temporary access key ID (ASIA followed by sixteen uppercase
+# alphanumerics), which is enough for gitleaks and GitHub's secret scanning to
+# match. Nothing was ever behind it. The placeholder was replaced in 124de21
+# with a hyphenated form that cannot match, but 6aedfcf is pushed and public, so
+# the history keeps it.
+#
+# Each entry is commit:file:rule:line. They pin one commit and one file, so a
+# real credential committed anywhere else still fails the scan.
+6aedfcff4dc49c75dee8fde9ca0209ce1ef62ed4:scripts/triage_eval_cases.json:aws-access-token:91
+6aedfcff4dc49c75dee8fde9ca0209ce1ef62ed4:scripts/triage_eval_cases.json:aws-access-token:100
+6aedfcff4dc49c75dee8fde9ca0209ce1ef62ed4:scripts/triage_eval_cases.json:aws-access-token:103
