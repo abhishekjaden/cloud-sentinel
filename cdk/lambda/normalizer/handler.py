@@ -11,6 +11,9 @@ DynamoDB item keys:
   severity_bucket = CRITICAL|HIGH|MEDIUM|LOW|INFO  (for severity GSI)
   indicators = {ips, domains} the finding names (GuardDuty only), kept for
                threat-intelligence enrichment; absent when it names none
+  event_time, queued_at, stored_at = when EventBridge emitted the event, when it
+               reached the stream, and when this function wrote it: the three
+               stamps the latency measurement (scripts/measure.py) reads
 
 created_at is ISO 8601 for every source. sk sorts by time only because of that,
 so a source that sends another format is converted here, not downstream.
@@ -245,14 +248,26 @@ def _normalize(event):
     }
 
 
-def _persist(finding):
-    """Write a normalized finding to DynamoDB."""
+def _iso(epoch):
+    """An epoch timestamp as ISO 8601 UTC, or None if it is not a number."""
+    try:
+        return datetime.fromtimestamp(float(epoch), tz=timezone.utc).isoformat(timespec="milliseconds")
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _persist(finding, event_time=None, queued_at=None):
+    """Write a normalized finding to DynamoDB, stamped with when the event
+    was emitted, when it reached the stream and when it was written."""
     fid = finding.get("finding_id") or "unknown"
     created = finding.get("created_at") or "unknown"
     item = dict(finding)
     item["pk"] = f"{finding.get('source', 'unknown')}#{finding.get('account_id', 'unknown')}"
     item["sk"] = f"{created}#{fid}"
     item["severity_bucket"] = _severity_bucket(finding.get("severity", 0))
+    item["event_time"] = event_time
+    item["queued_at"] = _iso(queued_at)
+    item["stored_at"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
     # DynamoDB rejects empty strings in some contexts; drop null/empty values
     item = {k: v for k, v in item.items() if v is not None and v != ""}
     _table.put_item(Item=item)
@@ -291,7 +306,8 @@ def handler(event, context):
             payload = base64.b64decode(record["kinesis"]["data"])
             raw_event = json.loads(payload)
             normalized = _normalize(raw_event)
-            _persist(normalized)
+            _persist(normalized, event_time=raw_event.get("time"),
+                     queued_at=record["kinesis"].get("approximateArrivalTimestamp"))
             logger.info("NORMALIZED_FINDING %s", json.dumps(normalized))
         except Exception as exc:  # noqa: BLE001
             failed += 1

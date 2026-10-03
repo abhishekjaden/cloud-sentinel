@@ -344,6 +344,28 @@ def test_a_failed_record_is_handed_back_by_sequence_number(normalizer, capsys):
     assert line["RecordsFailed"] == 2
 
 
+def test_a_stored_finding_carries_the_three_latency_stamps(normalizer):
+    """Emitted, queued, stored: the measurement script reads the gaps between
+    them, so a finding missing one would vanish from the latency figures."""
+    event = {**INSPECTOR_EVENT, "time": "2026-10-03T09:00:00Z"}
+    batch = _batch(json.dumps(event).encode())
+    batch["Records"][0]["kinesis"]["approximateArrivalTimestamp"] = 1790000000.25
+    with mock.patch.object(normalizer, "_table") as table:
+        normalizer.handler(batch, None)
+
+    item = table.put_item.call_args.kwargs["Item"]
+    assert item["event_time"] == "2026-10-03T09:00:00Z"
+    assert item["queued_at"] == "2026-09-21T14:13:20.250+00:00"
+    assert item["stored_at"] >= item["queued_at"] and item["stored_at"].endswith("+00:00")
+
+
+def test_a_record_without_an_arrival_time_is_stored_without_one(normalizer):
+    with mock.patch.object(normalizer, "_table") as table:
+        normalizer.handler(_batch(json.dumps(INSPECTOR_EVENT).encode()), None)
+    item = table.put_item.call_args.kwargs["Item"]
+    assert "queued_at" not in item and "stored_at" in item
+
+
 def test_a_stored_record_is_never_handed_back(normalizer):
     """Reporting a record Lambda already stored rewinds the shard over it for
     nothing, and every record after it in the batch with it."""
