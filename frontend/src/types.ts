@@ -46,6 +46,33 @@ export interface Incident {
   sample: boolean;
   /** Advisory note from the triage model; null until one has been written. */
   triage?: Triage | null;
+  /** The public addresses and domains the findings name, each once. */
+  indicators?: { ips: string[]; domains: string[] };
+  /** Threat-intelligence verdicts by indicator value, for those looked up so far. */
+  intel?: Record<string, Intel>;
+}
+
+/**
+ * What the enricher recorded for one indicator. Counts and scores from the
+ * providers, never their prose; a verdict is reputation, not proof.
+ */
+export interface Intel {
+  kind: "ip" | "domain";
+  value: string;
+  verdict: "malicious" | "suspicious" | "not-listed" | "unknown";
+  abuseipdb?: {
+    confidence: number;
+    reports: number;
+    country?: string;
+    isp?: string;
+    usage_type?: string;
+    tor?: boolean;
+    last_reported_at?: string;
+  };
+  otx?: { pulses: number };
+  providers_asked?: string[];
+  providers_failed?: string[];
+  looked_up_at: string;
 }
 
 /**

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { getIncidentReport } from "../api";
-import type { IncidentsResponse, Triage } from "../types";
+import type { Incident, IncidentsResponse, Triage } from "../types";
 import {
-  describeSpan, modelLabel, reportFilename, saveBlob, severityBucket, stageLabel,
+  describeSpan, describeVerdict, indicatorsOf, modelLabel, reportFilename, saveBlob,
+  severityBucket, stageLabel,
 } from "../incidents";
 
 /**
@@ -54,6 +55,29 @@ function TriageNote({ note }: { note: Triage | null | undefined }) {
         {modelLabel(note.model_id)} · {new Date(note.triaged_at).toLocaleString()}
       </div>
     </section>
+  );
+}
+
+/**
+ * The addresses and domains the findings name, each with the verdict the
+ * enricher recorded for it. Reputation, not proof — the chip says one word
+ * and the numbers behind it are a hover away.
+ */
+function Indicators({ incident }: { incident: Incident }) {
+  const indicators = indicatorsOf(incident);
+  if (indicators.length === 0) return null;
+  return (
+    <ul className="indicator-list" aria-label="Indicators and threat-intelligence verdicts">
+      {indicators.map(({ kind, value }) => {
+        const verdict = describeVerdict(incident.intel?.[value]);
+        return (
+          <li key={`${kind}:${value}`} className="indicator" title={verdict.detail}>
+            <span className="indicator-value">{value}</span>
+            <span className={`verdict verdict-${verdict.tone}`}>{verdict.text}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -134,6 +158,7 @@ export function IncidentsPanel({ data, error }: {
                     <li key={s}><span className="stage-pill">{stageLabel(s)}</span></li>
                   ))}
                 </ol>
+                <Indicators incident={i} />
                 <div className="incident-meta">
                   {describeSpan(i.finding_count, i.duration_seconds)}
                   {" · first seen "}

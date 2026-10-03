@@ -96,6 +96,18 @@ def test_cases_that_expect_real_data_carry_no_placeholder_markers(cases):
             assert not any(marker in r for r in resources), (case["name"], marker)
 
 
+def test_a_case_s_verdicts_name_indicators_the_case_has(handler, cases):
+    """A verdict keyed to an indicator the incident does not list would never
+    reach the model, and the case would silently test less than it says."""
+    with_intel = [c for c in cases if c.get("intel")]
+    assert with_intel
+    for case in with_intel:
+        keys = set(handler.indicator_keys(case["incident"]))
+        assert set(case["intel"]) <= keys, (case["name"], set(case["intel"]) - keys)
+        payload = handler.incident_payload(case["incident"], case["findings"], case["intel"])
+        assert {i["intel"]["verdict"] for i in payload["indicators"]} >= {v["verdict"] for v in case["intel"].values()}
+
+
 def test_a_note_passes_only_when_every_expectation_holds(evaluation):
     note = {"assessed_severity": "high", "injection_suspected": True, "likely_test_data": False}
     assert evaluation.check(note, {"assessed_severity": ["high", "critical"],

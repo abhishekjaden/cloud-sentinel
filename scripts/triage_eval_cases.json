@@ -9,7 +9,12 @@
         "first_seen": "2026-09-14T02:10:04+00:00", "last_seen": "2026-09-14T02:31:47+00:00",
         "duration_seconds": 1303, "finding_count": 3, "max_severity": 90,
         "attack_stages": ["reconnaissance", "initial-access", "command-and-control"],
-        "finding_types": ["Backdoor:EC2/C&CActivity.B!DNS", "Recon:EC2/PortProbeUnprotectedPort", "UnauthorizedAccess:EC2/SSHBruteForce"]
+        "finding_types": ["Backdoor:EC2/C&CActivity.B!DNS", "Recon:EC2/PortProbeUnprotectedPort", "UnauthorizedAccess:EC2/SSHBruteForce"],
+        "indicators": {"ips": ["185.220.101.4"], "domains": ["cdn-sync-telemetry.example"]}
+      },
+      "intel": {
+        "ip:185.220.101.4": {"verdict": "malicious", "abuseipdb": {"confidence": 100, "reports": 412}, "otx": {"pulses": 7}},
+        "domain:cdn-sync-telemetry.example": {"verdict": "not-listed", "otx": {"pulses": 0}}
       },
       "findings": [
         {"created_at": "2026-09-14T02:10:04.211Z", "finding_type": "Recon:EC2/PortProbeUnprotectedPort", "severity": 22,

@@ -7,7 +7,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as path from 'path';
 import { suppressLambdaBaseline, suppressModelInvocation } from '../nag-suppressions';
-import { FUNCTION_NAMES, TRIAGE_TABLE_NAME } from '../names';
+import { FUNCTION_NAMES, INTEL_TABLE_NAME, TRIAGE_TABLE_NAME } from '../names';
 
 /**
  * The model the triage function calls, through a US cross-Region inference
@@ -27,9 +27,9 @@ export const TRIAGE_MODEL = {
  * one component whose output comes from a model is separable: it can be
  * destroyed without touching detection, correlation or response.
  *
- * The function's permissions are the containment. It can read incidents and
- * findings, invoke one model through one inference profile, and write its own
- * table. It cannot write an incident or a finding, and holds nothing that
+ * The function's permissions are the containment. It can read incidents,
+ * findings and threat-intelligence verdicts, invoke one model through one
+ * inference profile, and write its own table. It cannot write an incident or a finding, and holds nothing that
  * could start, approve or stop a remediation, so no answer the model gives —
  * however it was steered — can become an action.
  */
@@ -52,6 +52,7 @@ export class TriageStack extends cdk.Stack {
         INCIDENTS_TABLE: 'cloudsentinel-incidents',
         FINDINGS_TABLE: 'cloudsentinel-findings',
         TRIAGE_TABLE: TRIAGE_TABLE_NAME,
+        INTEL_TABLE: INTEL_TABLE_NAME,
         TRIAGE_MODEL_ID: TRIAGE_MODEL.inferenceProfile,
         MAX_PER_RUN: '5',
       },
@@ -75,7 +76,14 @@ export class TriageStack extends cdk.Stack {
       actions: ['dynamodb:Scan', 'dynamodb:PutItem'],
       resources: [table(TRIAGE_TABLE_NAME)],
     }));
-    // All three tables share the findings key.
+    // The verdicts the enricher recorded for each incident's indicators go to
+    // the model as facts about the indicator; the function cannot write them.
+    triage.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'ReadIntelVerdicts',
+      actions: ['dynamodb:BatchGetItem'],
+      resources: [table(INTEL_TABLE_NAME)],
+    }));
+    // All four tables share the findings key.
     triage.addToRolePolicy(new iam.PolicyStatement({
       sid: 'UseFindingsKeyThroughDynamoDB',
       actions: ['kms:Decrypt', 'kms:Encrypt', 'kms:GenerateDataKey', 'kms:DescribeKey'],

@@ -211,3 +211,81 @@ def test_unprocessed_keys_are_retried_then_given_up_on(auth_client, app_module, 
     assert response.status_code == 200
     assert batch.call_count == 3
     assert response.json()["incidents"][0]["triage"] is None
+
+
+# -------------------------------------------------------------- threat intel
+VERDICT = {"indicator": "ip:185.220.101.4", "kind": "ip", "value": "185.220.101.4", "verdict": "malicious",
+           "abuseipdb": {"confidence": Decimal(100), "reports": Decimal(412), "country": "DE",
+                         "isp": "Example Hosting GmbH", "tor": True, "last_reported_at": "2026-10-02T21:14:09+00:00"},
+           "otx": {"pulses": Decimal(7)}, "providers_asked": ["abuseipdb", "otx"], "providers_failed": [],
+           "looked_up_at": "2026-10-03T06:00:00+00:00", "expires_at": Decimal(2 ** 40)}
+
+
+def _with_indicators(incident, ips=(), domains=()):
+    return {**incident, "indicators": {"ips": list(ips), "domains": list(domains)}}
+
+
+def _serve_tables(app_module, notes=(), verdicts=()):
+    """The shared BatchGetItem stub answers for whichever table was asked."""
+    def answer(RequestItems):
+        (table,) = RequestItems
+        rows = {"cloudsentinel-triage": notes, "cloudsentinel-intel": verdicts}[table]
+        return {"Responses": {table: list(rows)}}
+    _dynamodb(app_module).batch_get_item.side_effect = answer
+
+
+def test_each_incident_carries_the_verdicts_on_its_own_indicators(auth_client, app_module, fake_table):
+    fake_table.scan.return_value = {"Items": [
+        _with_indicators(REAL, ips=["185.220.101.4", "45.33.32.156"], domains=["evil.example.net"]),
+        _with_indicators(SAMPLE_EC2, ips=["45.33.32.156"]),
+    ]}
+    _serve_tables(app_module, verdicts=[VERDICT])
+
+    incidents = _by_id(auth_client.get("/incidents").json())
+
+    assert set(incidents["a"]["intel"]) == {"185.220.101.4"}  # the others await a lookup
+    verdict = incidents["a"]["intel"]["185.220.101.4"]
+    assert verdict["verdict"] == "malicious" and verdict["abuseipdb"]["confidence"] == 100
+    assert verdict["otx"] == {"pulses": 7}
+    assert "expires_at" not in verdict
+    assert incidents["b"]["intel"] == {}
+
+
+def test_an_attacker_s_address_is_read_once_for_all_incidents(auth_client, app_module, fake_table):
+    fake_table.scan.return_value = {"Items": [
+        _with_indicators(REAL, ips=["185.220.101.4"]), _with_indicators(SAMPLE_EC2, ips=["185.220.101.4"])]}
+    _serve_tables(app_module, verdicts=[VERDICT])
+
+    incidents = _by_id(auth_client.get("/incidents").json())
+
+    calls = [c.kwargs["RequestItems"] for c in _dynamodb(app_module).batch_get_item.call_args_list]
+    intel_calls = [c["cloudsentinel-intel"]["Keys"] for c in calls if "cloudsentinel-intel" in c]
+    assert intel_calls == [[{"indicator": "ip:185.220.101.4"}]]
+    assert incidents["a"]["intel"]["185.220.101.4"]["verdict"] == "malicious"
+    assert incidents["b"]["intel"]["185.220.101.4"]["verdict"] == "malicious"
+
+
+def test_incidents_without_indicators_ask_the_intel_table_nothing(auth_client, app_module, fake_table):
+    fake_table.scan.return_value = {"Items": [REAL]}
+    _serve_tables(app_module)
+
+    body = auth_client.get("/incidents").json()
+
+    assert body["incidents"][0]["intel"] == {}
+    tables = [next(iter(c.kwargs["RequestItems"])) for c in _dynamodb(app_module).batch_get_item.call_args_list]
+    assert "cloudsentinel-intel" not in tables
+
+
+def test_incidents_are_served_when_verdicts_cannot_be_read(auth_client, app_module, fake_table):
+    fake_table.scan.return_value = {"Items": [_with_indicators(REAL, ips=["185.220.101.4"])]}
+
+    def answer(RequestItems):
+        if "cloudsentinel-intel" in RequestItems:
+            raise RuntimeError("AccessDenied")
+        return {"Responses": {}}
+    _dynamodb(app_module).batch_get_item.side_effect = answer
+
+    response = auth_client.get("/incidents")
+
+    assert response.status_code == 200
+    assert response.json()["incidents"][0]["intel"] == {}

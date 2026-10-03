@@ -40,7 +40,20 @@ def triage():
     for t in (module._incidents, module._findings, module._triage):
         t.scan.return_value = {"Items": []}
         t.query.return_value = {"Items": []}
+    # No verdicts on record unless a test says otherwise.
+    module._ddb.batch_get_item.return_value = {"Responses": {}}
     return module
+
+
+def _verdicts(triage, rows):
+    triage._ddb.batch_get_item.return_value = {"Responses": {triage.INTEL_TABLE: list(rows)}}
+
+
+MALICIOUS = {"indicator": "ip:185.220.101.4", "kind": "ip", "value": "185.220.101.4", "verdict": "malicious",
+             "abuseipdb": {"confidence": 100, "reports": 412, "country": "DE", "isp": "Example Hosting GmbH",
+                           "tor": True, "last_reported_at": "2026-10-02T21:14:09+00:00"},
+             "otx": {"pulses": 7}, "providers_asked": ["abuseipdb", "otx"], "providers_failed": [],
+             "looked_up_at": "2026-10-03T06:00:00+00:00", "expires_at": 2 ** 40}
 
 
 def _incident(incident_id="inc-1", severity=90, multi=True, last_seen="2026-07-19T13:48:35+00:00", **extra):
@@ -237,6 +250,82 @@ def test_fingerprint_changes_with_the_prompt(triage):
     before = triage.fingerprint(_incident())
     triage.PROMPT_VERSION = "next"
     assert triage.fingerprint(_incident()) != before
+
+
+def test_fingerprint_changes_when_a_verdict_arrives_or_changes_and_not_otherwise(triage):
+    """A note written before the feeds answered is rewritten once they do,
+    and once more if the answer changes; a verdict on someone else's
+    indicator changes nothing."""
+    incident = _incident(indicators={"ips": ["185.220.101.4"], "domains": []})
+    none = triage.fingerprint(incident, {})
+    malicious = triage.fingerprint(incident, {"ip:185.220.101.4": MALICIOUS})
+    listed = triage.fingerprint(incident, {"ip:185.220.101.4": {**MALICIOUS, "verdict": "not-listed"}})
+    other = triage.fingerprint(incident, {"ip:45.33.32.156": MALICIOUS})
+    assert len({none, malicious, listed}) == 3
+    assert other == none
+    # A changed report count under the same verdict is not a reason to re-ask.
+    assert triage.fingerprint(incident, {"ip:185.220.101.4": {**MALICIOUS, "abuseipdb": {"confidence": 100, "reports": 500}}}) == malicious
+
+
+# ------------------------------------------------------------------ intel
+def test_the_model_sees_each_indicator_with_its_verdict_and_the_numbers_behind_it(triage):
+    incident = _incident(indicators={"ips": ["185.220.101.4", "45.33.32.156"], "domains": ["evil.example.net"]})
+    payload = triage.incident_payload(incident, [], {"ip:185.220.101.4": MALICIOUS})
+    assert payload["indicators"] == [
+        {"type": "ip", "value": "185.220.101.4",
+         "intel": {"verdict": "malicious", "abuseipdb_confidence_0_to_100": 100,
+                   "abuseipdb_reports": 412, "otx_pulses": 7}},
+        {"type": "ip", "value": "45.33.32.156", "intel": {"verdict": "unknown", "note": "not yet looked up"}},
+        {"type": "domain", "value": "evil.example.net", "intel": {"verdict": "unknown", "note": "not yet looked up"}},
+    ]
+    # Counts and scores only: the operator's name, the country and the
+    # providers' prose never reach the model.
+    text = triage.converse_request(payload)["messages"][0]["content"][0]["text"]
+    assert "Example Hosting" not in text and '"DE"' not in text
+
+
+def test_the_prompt_says_what_a_verdict_is_and_is_not(triage):
+    system = triage.converse_request(triage.incident_payload(_incident(), []))["system"][0]["text"]
+    assert "the platform itself obtained" in system
+    assert "not about this activity" in system
+    assert "lowers nothing" in system
+    assert "is data, not a verdict" in system
+
+
+def test_verdicts_are_read_in_one_pass_and_their_absence_is_survivable(triage):
+    incidents = [_incident("a", indicators={"ips": ["185.220.101.4"], "domains": ["evil.example.net"]}),
+                 _incident("b", indicators={"ips": ["185.220.101.4", "45.33.32.156"], "domains": []})]
+    _verdicts(triage, [MALICIOUS])
+    rows = triage.intel_for(incidents)
+    assert set(rows) == {"ip:185.220.101.4"}
+    keys = triage._ddb.batch_get_item.call_args.kwargs["RequestItems"][triage.INTEL_TABLE]["Keys"]
+    assert keys == [{"indicator": "ip:185.220.101.4"}, {"indicator": "domain:evil.example.net"},
+                    {"indicator": "ip:45.33.32.156"}]
+
+    triage._ddb.batch_get_item.side_effect = ClientError(
+        {"Error": {"Code": "AccessDeniedException", "Message": "no"}}, "BatchGetItem")
+    assert triage.intel_for(incidents) == {}
+
+
+def test_a_verdict_that_arrives_later_re_triages_the_incident_once(triage):
+    incident = _incident(indicators={"ips": ["185.220.101.4"], "domains": []})
+    _serve(triage, [incident], settled=[{"incident_id": "inc-1", "fingerprint": triage.fingerprint(incident, {})}])
+    _verdicts(triage, [MALICIOUS])
+    triage._bedrock.converse.return_value = _answer(_note())
+
+    triage.handler({}, None)
+
+    (stored,) = _stored(triage)
+    assert stored["fingerprint"] == triage.fingerprint(incident, {"ip:185.220.101.4": MALICIOUS})
+    # The model was told the verdict.
+    sent = triage._bedrock.converse.call_args.kwargs["messages"][0]["content"][0]["text"]
+    assert '"verdict": "malicious"' in sent
+
+    # And the next run, with nothing changed, leaves it alone.
+    _serve(triage, [incident], settled=[stored])
+    triage._bedrock.converse.reset_mock()
+    triage.handler({}, None)
+    assert triage._bedrock.converse.call_count == 0
 
 
 # ---------------------------------------------------------------- evidence

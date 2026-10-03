@@ -14,7 +14,7 @@ import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import { ACCOUNTS } from '../config';
-import { ALARM_TOPIC_NAME, TRIAGE_TABLE_NAME } from '../names';
+import { ALARM_TOPIC_NAME, INTEL_TABLE_NAME, TRIAGE_TABLE_NAME } from '../names';
 import { suppressLambdaBaseline, suppressPublicIngress } from '../nag-suppressions';
 
 /**
@@ -125,6 +125,7 @@ export class ApiStack extends cdk.Stack {
           APPROVALS_TABLE: 'cloudsentinel-approvals',
           INCIDENTS_TABLE: 'cloudsentinel-incidents',
           TRIAGE_TABLE: TRIAGE_TABLE_NAME,
+          INTEL_TABLE: INTEL_TABLE_NAME,
         },
       },
       publicLoadBalancer: true,
@@ -196,9 +197,16 @@ export class ApiStack extends cdk.Stack {
       actions: ['dynamodb:BatchGetItem'],
       resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/${TRIAGE_TABLE_NAME}`],
     }));
+    // Threat-intelligence verdicts are shown beside each indicator. Read-only
+    // for the same reason: the enricher is their only writer.
+    taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'ReadIntelVerdicts',
+      actions: ['dynamodb:BatchGetItem'],
+      resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/${INTEL_TABLE_NAME}`],
+    }));
 
-    // The incidents and triage tables share this key, so this grant also
-    // covers reading them.
+    // The incidents, triage and intel tables share this key, so this grant
+    // also covers reading them.
     taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       sid: 'DecryptFindingsTable',
       actions: ['kms:Decrypt', 'kms:DescribeKey'],

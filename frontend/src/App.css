@@ -259,6 +259,22 @@ td { padding: 8px; border-bottom: 1px solid var(--border); }
 }
 .incident-meta { font-size: 0.8rem; color: var(--muted); }
 
+/* Indicators with their threat-intelligence verdicts */
+.indicator-list {
+  list-style: none; margin: 0 0 0.5rem; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.indicator {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px;
+  padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border);
+}
+.indicator-value { font-family: monospace; }
+.verdict { font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; font-size: 10px; }
+.verdict-malicious { color: var(--crit); }
+.verdict-suspicious { color: var(--med); }
+.verdict-unlisted { color: var(--muted); }
+.verdict-pending { color: var(--muted); font-weight: 400; text-transform: none; font-style: italic; }
+
 /* Advisory triage note (model output: set apart, plain text) */
 .triage {
   margin: 0.65rem 0 0; padding: 0.55rem 0.75rem;

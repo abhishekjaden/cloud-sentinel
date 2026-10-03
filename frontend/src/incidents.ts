@@ -2,6 +2,8 @@
  * Display logic for correlated incidents, kept apart from the component so it
  * can be tested without rendering.
  */
+import type { Incident, Intel } from "./types";
+
 
 /**
  * Severity bucket for a 0–100 score. The thresholds mirror the normalizer's,
@@ -55,6 +57,41 @@ export function modelLabel(id: string | undefined): string {
   if (!m) return id;
   const family = m[1][0].toUpperCase() + m[1].slice(1);
   return `Claude ${family} ${m[3] ? `${m[2]}.${m[3]}` : m[2]}`;
+}
+
+/** Each indicator an incident names, addresses first, in the order recorded. */
+export function indicatorsOf(incident: Incident): Array<{ kind: "ip" | "domain"; value: string }> {
+  const found = incident.indicators;
+  if (!found) return [];
+  return [
+    ...(found.ips ?? []).map((value) => ({ kind: "ip" as const, value })),
+    ...(found.domains ?? []).map((value) => ({ kind: "domain" as const, value })),
+  ];
+}
+
+/**
+ * How a verdict reads on a chip, and the tone it is styled in. An indicator
+ * the enricher has not reached yet says so rather than looking clean, and
+ * "not listed" is deliberately not "clean": the feeds not having heard of an
+ * address is not evidence about it.
+ */
+export function describeVerdict(intel: Intel | undefined): { text: string; tone: string; detail: string } {
+  if (!intel) return { text: "not yet checked", tone: "pending", detail: "No threat-intelligence lookup has run for this indicator yet." };
+  const parts: string[] = [];
+  if (intel.abuseipdb) {
+    parts.push(`AbuseIPDB: ${intel.abuseipdb.confidence}% confidence, ${intel.abuseipdb.reports} reports`
+      + (intel.abuseipdb.country ? `, ${intel.abuseipdb.country}` : "")
+      + (intel.abuseipdb.tor ? ", Tor exit" : ""));
+  }
+  if (intel.otx) parts.push(`OTX: ${intel.otx.pulses} pulse${intel.otx.pulses === 1 ? "" : "s"}`);
+  if (intel.providers_failed?.length) parts.push(`${intel.providers_failed.join(", ")} did not answer`);
+  const detail = parts.length ? parts.join(" · ") : "No provider answered.";
+  switch (intel.verdict) {
+    case "malicious": return { text: "malicious", tone: "malicious", detail };
+    case "suspicious": return { text: "suspicious", tone: "suspicious", detail };
+    case "not-listed": return { text: "not listed", tone: "unlisted", detail: `${detail} — not listed is not clean.` };
+    default: return { text: "unknown", tone: "pending", detail };
+  }
 }
 
 /** The file name a downloaded report gets, from the incident's ID. */

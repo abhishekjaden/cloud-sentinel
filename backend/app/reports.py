@@ -23,8 +23,8 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from html import escape
 from io import BytesIO
-from xml.sax.saxutils import escape
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -42,7 +42,7 @@ from reportlab.platypus import (
 
 from app import attack
 from app.auth import require_auth
-from app.incidents import _is_sample, _public, _triage_notes
+from app.incidents import _is_sample, _public, _triage_notes, indicator_keys, intel_for
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -130,6 +130,14 @@ def _approvals_for(finding_ids):
             for r in rows]
 
 
+def _intel(incident):
+    try:
+        return intel_for([incident]) if indicator_keys(incident) else {}
+    except Exception:  # noqa: BLE001 — a missing verdict is said in the report, not fatal to it
+        logger.exception("threat-intel verdicts could not be read for the report")
+        return {}
+
+
 def _triage_note(incident_id):
     try:
         return _triage_notes([incident_id]).get(incident_id)
@@ -166,7 +174,33 @@ def _resource_ids(resource_json):
     return ids
 
 
-def build_report(incident, findings, note, approvals, now=None):
+def _described_indicators(incident, intel):
+    """Each indicator the incident names with its verdict, or a row that says
+    it has not been looked up: an analyst should see that a verdict is
+    missing, not infer it from a blank."""
+    intel = intel or {}
+    found = incident.get("indicators") or {}
+    rows = []
+    for kind, plural in (("ip", "ips"), ("domain", "domains")):
+        for value in found.get(plural) or []:
+            value = _text(value, 253)
+            row = intel.get(value) or {}
+            abuse = row.get("abuseipdb") or {}
+            otx = row.get("otx") or {}
+            rows.append({
+                "kind": kind, "value": value,
+                "verdict": _text(row.get("verdict") or "not yet looked up", 20),
+                "abuseipdb": (f"{int(abuse.get('confidence') or 0)}% confidence, "
+                              f"{int(abuse.get('reports') or 0)} reports"
+                              + (f", {_text(abuse.get('country'), 8)}" if abuse.get("country") else "")
+                              + (", Tor exit" if abuse.get("tor") else "")) if abuse else "—",
+                "otx": f"{int(otx.get('pulses') or 0)} pulses" if otx else "—",
+                "looked_up_at": _text(row.get("looked_up_at")),
+            })
+    return rows
+
+
+def build_report(incident, findings, note, approvals, intel=None, now=None):
     """Everything the PDF says, as plain data, so it can be checked without
     parsing a PDF. Numbers come back from DynamoDB as Decimals; they are made
     ints here, once."""
@@ -204,6 +238,7 @@ def build_report(incident, findings, note, approvals, now=None):
             "sample": _is_sample(incident.get("resource")),
         },
         "resources": resources,
+        "indicators": _described_indicators(incident, intel),
         "findings": rows,
         # The correlator keeps up to 50 IDs; a finding that has since expired
         # from the table is counted here rather than silently absent.
@@ -236,7 +271,7 @@ _GRID = TableStyle([
 def _p(text, style=_BODY):
     """A paragraph of untrusted text: escaped, so markup in the data is shown,
     not interpreted."""
-    return Paragraph(escape(str(text)), style)
+    return Paragraph(escape(str(text), quote=False), style)
 
 
 def _cell(text):
@@ -298,12 +333,14 @@ def _summary_sentence(inc):
 
 def render_pdf(report):
     inc = report["incident"]
+    provenance = ("Assembled from the platform's own records: the correlated incident, the findings "
+                  "it was built from, the threat-intelligence verdicts on the addresses and domains "
+                  "it names, remediation that reached the approval gate, and the advisory note a "
+                  "language model wrote about it. The ATT&CK placement is indicative.")
     story = [
         _p("CloudSentinel incident report", _H1),
         _p(f"Incident {inc['incident_id']} · generated {report['generated_at']}", _SMALL),
-        _p("Assembled from the platform's own records: the correlated incident, the findings "
-           "it was built from, remediation that reached the approval gate, and the advisory "
-           "note a language model wrote about it. The ATT&CK placement is indicative.", _SMALL),
+        _p(provenance, _SMALL),
         Spacer(1, 6),
 
         _p("Executive summary", _H2),
@@ -332,6 +369,21 @@ def render_pdf(report):
         _p("Affected resources", _H2),
         _bullets(report["resources"]),
 
+        _p("Indicators and threat intelligence", _H2),
+    ]
+    if report["indicators"]:
+        story.append(_table(
+            ["Indicator", "Kind", "Verdict", "AbuseIPDB", "AlienVault OTX", "Looked up (UTC)"],
+            [[i["value"], i["kind"], i["verdict"], i["abuseipdb"], i["otx"], _clock(i["looked_up_at"])]
+             for i in report["indicators"]],
+            [44 * mm, 14 * mm, 24 * mm, 42 * mm, 24 * mm, 26 * mm]))
+        story.append(_p("Verdicts are reputation, not proof: malicious means the feeds hold many "
+                        "reports of the indicator, not listed means they hold none, and a targeted "
+                        "attacker is never listed. Nothing in the platform acts on a verdict.", _SMALL))
+    else:
+        story.append(_p("The findings name no public address or domain."))
+
+    story += [
         _p("Timeline", _H2),
     ]
     if report["findings"]:
@@ -425,7 +477,7 @@ def incident_report(incident_id: str):
     try:
         findings = _incident_findings(incident)
         approvals = _approvals_for(incident.get("finding_ids") or [])
-        report = build_report(incident, findings, _triage_note(incident_id), approvals)
+        report = build_report(incident, findings, _triage_note(incident_id), approvals, _intel(incident))
         pdf = render_pdf(report)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"report failed: {e}")

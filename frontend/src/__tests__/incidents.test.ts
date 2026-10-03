@@ -13,8 +13,10 @@ import { describe, test, expect, afterEach } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { IncidentsPanel } from "../components/IncidentsPanel";
-import { describeSpan, formatDuration, modelLabel, severityBucket, stageLabel } from "../incidents";
-import type { Incident, IncidentsResponse, Triage } from "../types";
+import {
+  describeSpan, describeVerdict, formatDuration, indicatorsOf, modelLabel, severityBucket, stageLabel,
+} from "../incidents";
+import type { Incident, IncidentsResponse, Intel, Triage } from "../types";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -61,6 +63,53 @@ describe("describeSpan", () => {
 
 test("stage names read as words", () => {
   expect(stageLabel("command-and-control")).toBe("command and control");
+});
+
+// ------------------------------------------------------------ threat intel
+const MALICIOUS: Intel = {
+  kind: "ip", value: "185.220.101.4", verdict: "malicious",
+  abuseipdb: { confidence: 100, reports: 412, country: "DE", tor: true },
+  otx: { pulses: 7 }, providers_asked: ["abuseipdb", "otx"], providers_failed: [],
+  looked_up_at: "2026-10-03T06:00:00+00:00",
+};
+
+describe("describeVerdict", () => {
+  test("an indicator not yet looked up says so, and does not look clean", () => {
+    const v = describeVerdict(undefined);
+    expect(v.text).toBe("not yet checked");
+    expect(v.tone).toBe("pending");
+  });
+
+  test("a verdict carries the numbers behind it for the hover", () => {
+    const v = describeVerdict(MALICIOUS);
+    expect(v).toMatchObject({ text: "malicious", tone: "malicious" });
+    expect(v.detail).toBe("AbuseIPDB: 100% confidence, 412 reports, DE, Tor exit · OTX: 7 pulses");
+  });
+
+  test("not listed is said as not listed, never as clean", () => {
+    const v = describeVerdict({ ...MALICIOUS, verdict: "not-listed", abuseipdb: { confidence: 0, reports: 0 }, otx: { pulses: 0 } });
+    expect(v.text).toBe("not listed");
+    expect(v.tone).toBe("unlisted");
+    expect(v.detail).toContain("not listed is not clean");
+  });
+
+  test("a provider that did not answer is named", () => {
+    const v = describeVerdict({ kind: "ip", value: "x", verdict: "unknown", providers_failed: ["abuseipdb", "otx"], looked_up_at: "t" });
+    expect(v.text).toBe("unknown");
+    expect(v.detail).toBe("abuseipdb, otx did not answer");
+  });
+
+  test("one pulse is singular", () => {
+    expect(describeVerdict({ ...MALICIOUS, verdict: "suspicious", abuseipdb: undefined, otx: { pulses: 1 } }).detail)
+      .toBe("OTX: 1 pulse");
+  });
+});
+
+test("indicatorsOf lists addresses then domains, and nothing for an incident without them", () => {
+  expect(indicatorsOf(incident({}))).toEqual([]);
+  expect(indicatorsOf(incident({ indicators: { ips: ["185.220.101.4"], domains: ["evil.example.net"] } }))).toEqual([
+    { kind: "ip", value: "185.220.101.4" }, { kind: "domain", value: "evil.example.net" },
+  ]);
 });
 
 // ---------------------------------------------------------------- rendering
@@ -128,6 +177,26 @@ describe("IncidentsPanel", () => {
     expect(real.querySelector(".tag-sample")).toBeNull();
     expect(sample.querySelector(".tag-sample")).not.toBeNull();
     expect(host.querySelector(".status-sample .summary-count")?.textContent).toBe("1");
+  });
+
+  test("each indicator is shown with its verdict, or with the fact that none exists yet", () => {
+    const host = render(response([incident({
+      indicators: { ips: ["185.220.101.4", "45.33.32.156"], domains: ["evil.example.net"] },
+      intel: { "185.220.101.4": MALICIOUS, "evil.example.net": { ...MALICIOUS, kind: "domain", value: "evil.example.net", verdict: "not-listed", abuseipdb: undefined, otx: { pulses: 0 } } },
+    })]));
+    const chips = [...host.querySelectorAll(".indicator")];
+    expect(chips.map((c) => c.querySelector(".indicator-value")?.textContent)).toEqual([
+      "185.220.101.4", "45.33.32.156", "evil.example.net"]);
+    expect(chips.map((c) => c.querySelector(".verdict")?.textContent)).toEqual([
+      "malicious", "not yet checked", "not listed"]);
+    expect(chips[0].querySelector(".verdict")?.classList.contains("verdict-malicious")).toBe(true);
+    expect(chips[1].querySelector(".verdict")?.classList.contains("verdict-pending")).toBe(true);
+    expect(chips[0].getAttribute("title")).toContain("412 reports");
+  });
+
+  test("an incident that names no indicator shows no indicator row", () => {
+    const host = render(response([incident({})]));
+    expect(host.querySelector(".indicator-list")).toBeNull();
   });
 
   test("no sample summary appears when nothing came from samples", () => {

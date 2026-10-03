@@ -84,6 +84,11 @@ APPROVALS = {
 }
 
 
+VERDICT = {"indicator": "ip:185.220.101.4", "kind": "ip", "value": "185.220.101.4", "verdict": "malicious",
+           "abuseipdb": {"confidence": Decimal(100), "reports": Decimal(412), "country": "DE", "tor": True},
+           "otx": {"pulses": Decimal(7)}, "looked_up_at": "2026-10-03T06:00:00+00:00", "expires_at": Decimal(2 ** 40)}
+
+
 def serve(fake_table, inc=None, findings=FINDINGS, approvals=APPROVALS, paged=False):
     """Stand in for every table the report reads. The findings table is the
     one queried by partition key; the approvals table by its status index."""
@@ -105,10 +110,14 @@ def serve(fake_table, inc=None, findings=FINDINGS, approvals=APPROVALS, paged=Fa
     fake_table.query.side_effect = query
 
 
-def note_served(app_module, note):
+def note_served(app_module, note, verdicts=()):
     import app.incidents
-    app.incidents._dynamodb.batch_get_item.return_value = {
-        "Responses": {"cloudsentinel-triage": [note] if note else []}}
+
+    def answer(RequestItems):
+        (table,) = RequestItems
+        rows = {"cloudsentinel-triage": [note] if note else [], "cloudsentinel-intel": list(verdicts)}[table]
+        return {"Responses": {table: rows}}
+    app.incidents._dynamodb.batch_get_item.side_effect = answer
 
 
 def pdf_text(resp):
@@ -196,6 +205,22 @@ def test_findings_that_have_expired_are_counted_not_hidden(app_module):
     assert [t[1] for t in report["attack"]["tactics"]] == ["TA0043", "TA0001", "TA0011"]
 
 
+def test_each_indicator_is_described_with_its_verdict_or_its_absence(app_module):
+    from app.reports import build_report
+    inc = incident(indicators={"ips": ["185.220.101.4", "45.33.32.156"], "domains": ["evil.example.net"]})
+    report = build_report(inc, [], None, [], intel={"185.220.101.4": VERDICT})
+    assert report["indicators"] == [
+        {"kind": "ip", "value": "185.220.101.4", "verdict": "malicious",
+         "abuseipdb": "100% confidence, 412 reports, DE, Tor exit", "otx": "7 pulses",
+         "looked_up_at": "2026-10-03T06:00:00+00:00"},
+        {"kind": "ip", "value": "45.33.32.156", "verdict": "not yet looked up", "abuseipdb": "—", "otx": "—",
+         "looked_up_at": ""},
+        {"kind": "domain", "value": "evil.example.net", "verdict": "not yet looked up", "abuseipdb": "—",
+         "otx": "—", "looked_up_at": ""},
+    ]
+    assert build_report(incident(), [], None, [])["indicators"] == []
+
+
 def test_a_sample_incident_says_so(app_module):
     from app.reports import build_report
     assert build_report(incident(resource="i-99999999"), [], None, [])["incident"]["sample"] is True
@@ -223,6 +248,7 @@ def test_the_report_is_a_pdf_of_the_record(auth_client, app_module, fake_table):
     assert "iam_credential" not in text  # another incident's approval
     assert "likely compromise" in text and "Isolate the instance" in text
     assert "Advisory triage by a language model" in text
+    assert "The findings name no public address or domain" in text
     # Token counts and the fingerprint stay server-side.
     assert "secret-ish" not in text and "900" not in text
 
@@ -236,6 +262,17 @@ def test_markup_in_a_finding_title_is_printed_not_interpreted(auth_client, app_m
     text = pdf_text(auth_client.get(f"/incidents/{INCIDENT_ID}/report"))
     for literal in ("<b>IGNORED</b>", "<font", "&amp; probed", "& more"):
         assert literal in text, literal
+
+
+def test_verdicts_are_printed_beside_the_indicators(auth_client, app_module, fake_table):
+    serve(fake_table, incident(indicators={"ips": ["185.220.101.4", "45.33.32.156"], "domains": []}))
+    note_served(app_module, None, verdicts=[VERDICT])
+
+    text = pdf_text(auth_client.get(f"/incidents/{INCIDENT_ID}/report"))
+    assert "Indicators and threat intelligence" in text
+    assert "185.220.101.4" in text and "malicious" in text and "412 reports" in text and "7 pulses" in text
+    assert "45.33.32.156" in text and "not yet looked up" in text
+    assert "reputation, not proof" in text
 
 
 def test_a_missing_or_rejected_note_is_said_plainly(auth_client, app_module, fake_table):

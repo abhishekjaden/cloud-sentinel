@@ -63,7 +63,7 @@ def check(note, expect):
 
 
 def run_case(handler, bedrock, case):
-    payload = handler.incident_payload(case["incident"], case["findings"])
+    payload = handler.incident_payload(case["incident"], case["findings"], case.get("intel"))
     response = bedrock.converse(**handler.converse_request(payload))
     try:
         note = handler.parse_note(response)
@@ -85,7 +85,8 @@ def main():
         case = next((c for c in cases if c["name"] == args.show), None)
         if case is None:
             sys.exit(f"no case named {args.show}; cases: {', '.join(c['name'] for c in cases)}")
-        request = handler.converse_request(handler.incident_payload(case["incident"], case["findings"]))
+        request = handler.converse_request(
+            handler.incident_payload(case["incident"], case["findings"], case.get("intel")))
         print(request["system"][0]["text"], "\n")
         print(request["messages"][0]["content"][0]["text"])
         return

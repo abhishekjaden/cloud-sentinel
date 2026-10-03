@@ -13,7 +13,7 @@ import * as path from 'path';
 import * as cdk from 'aws-cdk-lib/core';
 import { Template } from 'aws-cdk-lib/assertions';
 import { ACCOUNTS, env } from '../lib/config';
-import { TRIAGE_TABLE_NAME } from '../lib/names';
+import { INTEL_TABLE_NAME, TRIAGE_TABLE_NAME } from '../lib/names';
 import { ApiStack } from '../lib/stacks/api-stack';
 import { DataStoresStack } from '../lib/stacks/datastores-stack';
 import { DnsStack } from '../lib/stacks/dns-stack';
@@ -56,7 +56,7 @@ describe('the triage function', () => {
     // Anything outside this list — Step Functions, SNS, Lambda, IAM, EC2, S3 —
     // could turn a steered answer into an action.
     const allowed = new Set([
-      'dynamodb:Scan', 'dynamodb:Query', 'dynamodb:PutItem',
+      'dynamodb:Scan', 'dynamodb:Query', 'dynamodb:BatchGetItem', 'dynamodb:PutItem',
       'kms:Decrypt', 'kms:Encrypt', 'kms:GenerateDataKey', 'kms:DescribeKey',
       'bedrock:InvokeModel',
       'xray:PutTraceSegments', 'xray:PutTelemetryRecords',
@@ -77,6 +77,11 @@ describe('the triage function', () => {
     for (const st of writing) {
       expect(resourcesOf(st)).toEqual([JSON.stringify(TABLE(TRIAGE_TABLE_NAME))]);
     }
+  });
+
+  test('reads threat-intelligence verdicts and cannot write them', () => {
+    const intel = all.filter((st) => resourcesOf(st).some((r) => r.includes(INTEL_TABLE_NAME)));
+    expect(intel.flatMap(actionsOf)).toEqual(['dynamodb:BatchGetItem']);
   });
 
   test('reaches one model, only through its inference profile', () => {

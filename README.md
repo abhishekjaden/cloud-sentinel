@@ -13,9 +13,10 @@ Built as a portfolio project to demonstrate cloud security engineering end to en
 
 | Stage | Capability |
 |-------|-----------|
-| **Detect** | Ingests findings from GuardDuty, Security Hub, and Inspector across all accounts, normalizing each source into one common schema. |
+| **Detect** | Ingests findings from GuardDuty, Security Hub, and Inspector across all accounts, normalizing each source into one common schema and keeping the public addresses and domains each finding names. |
 | **Classify** | Two XGBoost models are trained on network flows: a binary intrusion detector (AUC 0.999963) and an eight-class attack-family classifier (macro-F1 0.9586). Both are evaluated on a held-out split and documented with their limitations in the model card. `/predict` serves both: the binary model's verdict and, beside it, the family the multiclass model finds most likely with its probability — reported even when the two disagree. |
 | **Respond** | High-severity findings trigger a Step Functions SOAR workflow that routes each threat to the correct playbook and **pauses at a human approval gate** before any destructive action. |
+| **Enrich** | The addresses and domains an incident names are looked up in AbuseIPDB and AlienVault OTX — once a week each, ten a run — and the verdict is shown beside the indicator, printed in the report and given to the triage model as a fact about the indicator, never about the activity. |
 | **Triage** | A language model on Amazon Bedrock drafts an advisory note for each correlated incident — what likely happened and what to check next — contained so that no answer it gives, however steered, can cause an action. |
 | **Observe** | A React SOC dashboard shows live severity/source charts, a filterable findings table, remediation status, and an interactive prediction tool. Any incident downloads as a PDF report: executive summary, affected resources, timeline, an indicative ATT&CK placement, the actions that reached the approval gate, and the advisory note — assembled from the record, with nothing generated. |
 | **Protect** | Cognito authentication with JWT validation enforced on **every** API route — the data cannot be reached by bypassing the UI. |
@@ -34,6 +35,8 @@ AWS Organization (Control Tower, 4 accounts)
 Detection pipeline (Audit)
   GuardDuty / Security Hub / Inspector
     → EventBridge → Kinesis → Lambda normalizer → DynamoDB
+  Correlator (15 min) → incidents → Enricher (15 min) → AbuseIPDB / OTX → intel cache
+                                   → Triage (15 min) → Bedrock → advisory notes
 
 SOAR layer (Audit)
   EventBridge (severity ≥ 7) → Router Lambda
@@ -58,6 +61,7 @@ ML (Workload)
 | Infrastructure as Code | AWS CDK (TypeScript), CloudFormation |
 | Multi-account | Organizations, Control Tower, IAM Identity Center |
 | Security services | GuardDuty, Security Hub, Inspector, AWS Config |
+| Threat intelligence | AbuseIPDB, AlienVault OTX (free tiers; keys in Secrets Manager; verdicts cached in DynamoDB with TTL) |
 | Ingestion | EventBridge, Kinesis Data Streams, Lambda (Python, partial batch failures with an SQS failure destination) |
 | Storage | DynamoDB (severity and source/time GSIs, customer-managed KMS key), S3 |
 | ML | SageMaker Studio, XGBoost, pandas / NumPy, CICIDS2017 |
