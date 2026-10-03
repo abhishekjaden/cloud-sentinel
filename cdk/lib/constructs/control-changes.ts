@@ -178,9 +178,11 @@ export class ControlChanges extends Construct {
 
     // Scalar fields only: a text template cannot carry the request object,
     // whose quotes would break it. The full event, request included, is in
-    // the log group under the event ID the message names.
+    // the log group under the event ID the message names. Multiline text
+    // rather than text: EventBridge quotes a single-line template, and the
+    // first message arrived in the inbox wrapped in quotes with literal \n.
     const field = (path: string) => events.EventField.fromPath(path);
-    const message = (watch: Watch) => events.RuleTargetInput.fromText([
+    const message = (watch: Watch) => events.RuleTargetInput.fromMultilineText([
       `CloudSentinel: ${watch.what} was changed outside the deployment pipeline.`,
       '',
       `What:  ${field('$.detail.eventName')} (${field('$.detail.eventSource')})`,
