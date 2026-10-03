@@ -87,8 +87,14 @@ export interface RemediationsResponse {
 
 export interface PredictResponse {
   attack_probability: number;
+  /** The binary model's verdict against the threshold: "ATTACK" or "BENIGN". */
   prediction: string;
   threshold: number;
+  /** The multiclass model's most likely class. It may say "BENIGN" of a flow
+   *  the binary model called an attack; the two are reported, not reconciled. */
+  attack_family: string;
+  family_probability: number;
+  family_probabilities: Record<string, number>;
 }
 
 export interface Approval {

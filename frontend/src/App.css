@@ -132,6 +132,8 @@ td { padding: 8px; border-bottom: 1px solid var(--border); }
 .predict-result.benign .predict-label { color: var(--low); }
 .predict-result.attack .predict-label { color: var(--crit); }
 .predict-prob { font-size: 13px; color: var(--muted); }
+.predict-family { font-size: 13px; margin-top: 6px; }
+.predict-margin { display: flex; gap: 12px; font-size: 12px; color: var(--muted); }
 .error-text { color: var(--crit); font-size: 13px; }
 
 .footer {

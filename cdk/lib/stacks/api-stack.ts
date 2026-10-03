@@ -25,7 +25,7 @@ import { suppressLambdaBaseline, suppressPublicIngress } from '../nag-suppressio
  * the SOC dashboard. Reads existing resources same-account:
  *   - DynamoDB cloudsentinel-findings
  *   - DynamoDB cloudsentinel-incidents (read-only)
- *   - S3 cloudsentinel-models-<acct> (binary model)
+ *   - S3 cloudsentinel-models-<acct> (both XGBoost models and their label map)
  *   - Step Functions cloudsentinel-remediation
  *
  * Cost note: ALB + Fargate + NAT are always-on. Run `cdk destroy
@@ -105,8 +105,13 @@ export class ApiStack extends cdk.Stack {
         environment: {
           AWS_REGION: this.region,
           FINDINGS_TABLE: 'cloudsentinel-findings',
+          // /predict scores a flow with both models: the binary one gives the
+          // verdict, the multiclass one the attack family, and the label map
+          // names the multiclass outputs. All three come from one training run.
           ML_BUCKET: `cloudsentinel-models-${this.account}`,
-          MODEL_KEY: 'binary_model.json',
+          BINARY_MODEL_KEY: 'binary_model.json',
+          MULTICLASS_MODEL_KEY: 'multiclass_model.json',
+          LABEL_CLASSES_KEY: 'label_classes.json',
           STATE_MACHINE_ARN: `arn:aws:states:${this.region}:${this.account}:stateMachine:cloudsentinel-remediation`,
           // Cognito: the API verifies every data request's JWT against the pool.
           COGNITO_USER_POOL_ID: COGNITO_USER_POOL_ID,

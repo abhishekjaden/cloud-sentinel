@@ -1,8 +1,11 @@
 # Model Card — CloudSentinel Intrusion Detection
 
 Two XGBoost classifiers trained on CICIDS2017. The CloudSentinel API's
-`/predict` route serves the binary one; the multiclass model is trained and
-evaluated but not yet served. This document records what they do, how well they
+`/predict` route serves both: the binary model's verdict against a threshold,
+and the family the multiclass model finds most likely, with its probability and
+the full class distribution. The two are reported side by side and may
+disagree; the verdict is always the binary model's, because it is the one
+evaluated for that decision. This document records what they do, how well they
 do it, and — at greater length — the reasons the headline figures should not be
 read as real-world detection accuracy.
 
@@ -162,9 +165,11 @@ approval, not an isolated production instance.
 
 ## 5. Intended use and limitations
 
-**Intended:** prioritisation support inside CloudSentinel. The model scores
-network flows to help an analyst decide what to look at first. It does not
-trigger remediation on its own; the SOAR layer routes on finding severity, and
+**Intended:** prioritisation support inside CloudSentinel. The models score
+network flows to help an analyst decide what to look at first. The family is a
+second opinion read with its probability, not a classification to act on: Bot
+precision of 0.648 means roughly one Bot call in three is wrong. Neither model triggers
+remediation on its own; the SOAR layer routes on finding severity, and
 destructive actions require authenticated human approval.
 
 **Not intended:** autonomous blocking, evidence in an incident report, or any

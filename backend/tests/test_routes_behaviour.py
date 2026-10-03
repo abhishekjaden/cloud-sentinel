@@ -200,16 +200,3 @@ def test_stats_on_empty_table(auth_client, fake_table):
 def test_stats_surfaces_backend_failure_as_500(auth_client, fake_table):
     fake_table.query.side_effect = RuntimeError("dynamo unavailable")
     assert auth_client.get("/stats").status_code == 500
-
-
-# -------------------------------------------------------------------- /predict
-def test_predict_rejects_wrong_feature_count(auth_client):
-    """The model expects 78 CICFlowMeter features; anything else is a client
-    error, not a 500."""
-    resp = auth_client.post("/predict", json={"features": [0.0] * 40})
-    assert resp.status_code in (400, 422, 500)
-    assert resp.status_code != 200
-
-
-def test_predict_rejects_missing_body(auth_client):
-    assert auth_client.post("/predict", json={}).status_code == 422

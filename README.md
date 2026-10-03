@@ -14,7 +14,7 @@ Built as a portfolio project to demonstrate cloud security engineering end to en
 | Stage | Capability |
 |-------|-----------|
 | **Detect** | Ingests findings from GuardDuty, Security Hub, and Inspector across all accounts, normalizing each source into one common schema. |
-| **Classify** | Two XGBoost models are trained on network flows: a binary intrusion detector (AUC 0.999963) and an eight-class attack-family classifier (macro-F1 0.9586). Both are evaluated on a held-out split and documented with their limitations in the model card; the API serves the binary verdict. |
+| **Classify** | Two XGBoost models are trained on network flows: a binary intrusion detector (AUC 0.999963) and an eight-class attack-family classifier (macro-F1 0.9586). Both are evaluated on a held-out split and documented with their limitations in the model card. `/predict` serves both: the binary model's verdict and, beside it, the family the multiclass model finds most likely with its probability — reported even when the two disagree. |
 | **Respond** | High-severity findings trigger a Step Functions SOAR workflow that routes each threat to the correct playbook and **pauses at a human approval gate** before any destructive action. |
 | **Triage** | A language model on Amazon Bedrock drafts an advisory note for each correlated incident — what likely happened and what to check next — contained so that no answer it gives, however steered, can cause an action. |
 | **Observe** | A React SOC dashboard shows live severity/source charts, a filterable findings table, remediation status, and an interactive prediction tool. |
@@ -139,7 +139,6 @@ screenshots/  evidence captures
 Built over ~27 working days. Everything described above is deployed and verified: the pipeline ingests live findings, the model scores flows, the SOAR loop pauses at its approval gate, and unauthenticated API calls are rejected.
 
 **Deferred / in progress:**
-- Serving the multiclass attack classifier. Both models are trained and evaluated on the held-out test split ([`ml/MODEL_CARD.md`](ml/MODEL_CARD.md)); `/predict` returns the binary verdict only, so the attack family the multiclass model infers is not yet reaching the dashboard.
 - Evaluating the triage model on cases it did not grow up with. Its seven cases are written by the same hand as its prompt and are all synthetic; the next step is cases written independently, human-labelled, and real GuardDuty findings from a honeypot instance ([ADR 0005](docs/adr/0005-advisory-llm-triage.md) records what has been measured so far: three runs of seven cases in September, 20 of 21, three more in October at the revised prompt, 21 of 21, all eighteen injection attempts flagged).
 - Formal Well-Architected review and cost report.
 - Final documentation and demo video.

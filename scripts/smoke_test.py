@@ -114,6 +114,13 @@ def main() -> int:
                   r.status_code == 401, f"got {r.status_code}")
         except requests.RequestException as e:
             check(f"{path} is reachable", False, str(e))
+    # The model route takes a POST; the models cost money to run and the
+    # verdicts they give are nothing an anonymous caller should see.
+    try:
+        r = requests.post(f"{api_url}/predict", json={"features": [0.0] * 78}, timeout=TIMEOUT)
+        check("/predict rejects unauthenticated callers", r.status_code == 401, f"got {r.status_code}")
+    except requests.RequestException as e:
+        check("/predict is reachable", False, str(e))
 
     # --- the browser can actually call the API ----------------------------
     print("\nCross-origin access")

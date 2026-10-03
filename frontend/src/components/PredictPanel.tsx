@@ -1,6 +1,28 @@
 import { useState } from "react";
 import { predict } from "../api";
+import { describeFamily, percent, topFamilies } from "../predict";
 import type { PredictResponse } from "../types";
+
+/** The verdict, the family beside it, and the margin behind the family. */
+export function PredictResult({ result }: { result: PredictResponse }) {
+  const attack = result.prediction === "ATTACK";
+  return (
+    <div className={`predict-result ${attack ? "attack" : "benign"}`}>
+      <span className="predict-label">{result.prediction}</span>
+      <span className="predict-prob">
+        {(result.attack_probability * 100).toFixed(2)}% attack probability
+      </span>
+      <span className="predict-family">{describeFamily(result)}</span>
+      <span className="predict-margin">
+        {topFamilies(result.family_probabilities).map(([name, p]) => (
+          <span key={name} className="predict-margin-item">
+            {name} {percent(p)}
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
 
 export function PredictPanel() {
   const [result, setResult] = useState<PredictResponse | null>(null);
@@ -26,8 +48,9 @@ export function PredictPanel() {
   return (
     <div className="predict-panel">
       <p className="muted">
-        Score a network flow through the trained XGBoost intrusion-detection model
-        (binary classifier, AUC 0.9999).
+        Score a network flow through the trained XGBoost models. The binary
+        detector gives the verdict; the eight-class model names the most likely
+        attack family (held-out macro-F1 0.959, uneven across classes).
       </p>
       <div className="predict-actions">
         <button onClick={() => runSample("benign")} disabled={loading}>
@@ -41,14 +64,7 @@ export function PredictPanel() {
       {loading && <p className="muted">Scoring…</p>}
       {error && <p className="error-text">{error}</p>}
 
-      {result && !loading && (
-        <div className={`predict-result ${result.prediction === "ATTACK" ? "attack" : "benign"}`}>
-          <span className="predict-label">{result.prediction}</span>
-          <span className="predict-prob">
-            {(result.attack_probability * 100).toFixed(2)}% attack probability
-          </span>
-        </div>
-      )}
+      {result && !loading && <PredictResult result={result} />}
     </div>
   );
 }
