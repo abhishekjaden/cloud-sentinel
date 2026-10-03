@@ -145,10 +145,12 @@ across which anything leaves the account to a party other than AWS.
 
 1. **Single-account blast radius.** Audit-account administrator access reads
    every finding, edits the state machine, and disables the KMS key.
-2. **Partial alerting on the security controls themselves.** Alarms now fire if
-   ingestion drops or delays findings, correlation stops, a remediation step
-   fails or an approval expires ([SLOs](slos.md)). Nothing yet alarms when the
-   state machine, an EventBridge rule or the KMS key is changed or disabled.
+2. **Changes to the controls made through the deployment pipeline.** A change
+   to the state machine, a rule, a key, GuardDuty, a function, a table or the
+   alarms themselves is now reported with its caller unless it arrived through
+   CloudFormation's CDK execution role ([SLO 8](slos.md)). A change that does
+   arrive that way — a malicious commit on `main`, a stolen GitHub deploy
+   role — looks like a deploy, and the run log's diff is the only record.
 3. **Unvalidated ingestion input.** The normalizer trusts whatever reaches it.
 4. **No WAF or rate limiting.** Accepted deliberately on cost grounds.
 

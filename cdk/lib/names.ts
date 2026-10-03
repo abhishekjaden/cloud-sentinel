@@ -49,3 +49,10 @@ export const ALARM_TOPIC_NAME = 'cloudsentinel-alarms';
  * Embedded Metric Format log lines. The handler tests pin the same value.
  */
 export const METRIC_NAMESPACE = 'CloudSentinel';
+
+/**
+ * The CDK bootstrap qualifier, which names the bootstrap roles in every
+ * account: the CI/CD stack grants assumption of them, and the control-change
+ * watch excludes CloudFormation acting through the execution role.
+ */
+export const CDK_QUALIFIER = 'hnb659fds';

@@ -23,6 +23,7 @@ import { ObservabilityStack } from '../lib/stacks/observability-stack';
 import { RemediationStack } from '../lib/stacks/remediation-stack';
 import { TriageStack } from '../lib/stacks/triage-stack';
 import { IntelStack } from '../lib/stacks/intel-stack';
+import { CONTROL_CHANGES_METRIC } from '../lib/constructs/control-changes';
 
 const audit = { env: env(ACCOUNTS.audit) };
 // Synthesized with the app's own feature flags from cdk.json, as `cdk synth`
@@ -162,6 +163,7 @@ describe('objectives', () => {
       'cloudsentinel-slo-api-available',
       'cloudsentinel-slo-api-latency',
       'cloudsentinel-slo-approvals-decided',
+      'cloudsentinel-slo-controls-unchanged',
       'cloudsentinel-slo-findings-fresh',
       'cloudsentinel-slo-findings-stored',
       'cloudsentinel-slo-incidents-current',
@@ -200,6 +202,7 @@ describe('objectives', () => {
       'cloudsentinel-slo-incidents-current': 'breaching',
       'cloudsentinel-slo-remediation-runs': 'notBreaching',
       'cloudsentinel-slo-approvals-decided': 'notBreaching',
+      'cloudsentinel-slo-controls-unchanged': 'notBreaching',
     });
   });
 
@@ -376,6 +379,14 @@ describe('every metric the objectives read is emitted by something deployed', ()
         const source = handlerSource[m.dims.Component] ?? '';
         expect({ context, ok: source.includes(`_COMPONENT = "${m.dims.Component}"`) && source.includes(m.name) })
           .toEqual({ context, ok: true });
+        break;
+      }
+      case CONTROL_CHANGES_METRIC.namespace: {
+        // Emitted by a metric filter in this stack, not by a handler.
+        const filters = resources(observability, 'AWS::Logs::MetricFilter')
+          .flatMap((f) => f.MetricTransformations)
+          .filter((mt: any) => mt.MetricNamespace === m.namespace && mt.MetricName === m.name);
+        expect({ context, ok: filters.length === 1 }).toEqual({ context, ok: true });
         break;
       }
       default:

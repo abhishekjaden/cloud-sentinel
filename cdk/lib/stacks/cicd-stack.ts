@@ -3,10 +3,10 @@ import { Construct } from 'constructs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { ACCOUNTS } from '../config';
 import { suppressLambdaBaseline } from '../nag-suppressions';
+import { CDK_QUALIFIER } from '../names';
 
 const GITHUB_OWNER = 'abhishekjaden';
 const GITHUB_REPO = 'cloud-sentinel';
-const CDK_QUALIFIER = 'hnb659fds';
 
 /**
  * CicdStack — deploys to the MANAGEMENT account (062345618950).

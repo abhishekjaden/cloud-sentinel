@@ -6,6 +6,7 @@ import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as sns from 'aws-cdk-lib/aws-sns';
+import { ControlChanges } from '../constructs/control-changes';
 import {
   ALARM_TOPIC_NAME, FAILED_FINDINGS_QUEUE_NAME, FINDINGS_STREAM_NAME, FUNCTION_NAMES,
   INGESTION_RULE_NAMES, METRIC_NAMESPACE, REMEDIATION_RULE_NAME, STATE_MACHINE_NAME,
@@ -219,6 +220,24 @@ export class ObservabilityStack extends cdk.Stack {
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
       });
 
+    // 8. Controls change only through deployment. Every objective above
+    //    watches the pipeline doing its job; this one watches the controls
+    //    being switched off. A change to the state machine, a rule, a key, the
+    //    detector, a function, a table or these alarms that did not arrive
+    //    through CloudFormation's execution role is reported with who made it.
+    const controls = new ControlChanges(this, 'ControlChanges', topic);
+    slo('controls-unchanged',
+      'A security control was changed outside the deployment pipeline: the remediation state ' +
+      'machine, an EventBridge rule, a KMS key, GuardDuty, a platform function, a table, or ' +
+      'an alarm, by a caller other than CloudFormation\'s CDK execution role. The topic also ' +
+      'received a message naming the caller and the request. If it was not you, treat it as ' +
+      'an intrusion in progress; the record is in the /cloudsentinel/control-changes log group.', {
+        metric: controls.metric,
+        threshold: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+
     // ------------------------------------------------------------ dashboard
     const line = (value: number, label: string) => ({ value, label, color: RED });
     const seconds = (id: string, metric: cloudwatch.IMetric, label: string) =>
@@ -364,6 +383,24 @@ export class ObservabilityStack extends cdk.Stack {
             ],
             leftYAxis: { min: 0, showUnits: false },
             rightYAxis: { min: 0, showUnits: false },
+          }),
+        ],
+        [
+          new cloudwatch.GraphWidget({
+            title: 'Controls changed outside the pipeline (objective: none)', width: 8,
+            left: [controls.metric],
+            leftAnnotations: [line(1, 'alarm')],
+            leftYAxis: { min: 0, showUnits: false },
+          }),
+          new cloudwatch.LogQueryWidget({
+            title: 'The changes, most recent first', width: 16,
+            logGroupNames: [controls.log.logGroupName],
+            queryLines: [
+              'fields @timestamp, detail.eventName as what, detail.userIdentity.arn as who,',
+              '  detail.sourceIPAddress as from',
+              'sort @timestamp desc',
+              'limit 20',
+            ],
           }),
         ],
         [
