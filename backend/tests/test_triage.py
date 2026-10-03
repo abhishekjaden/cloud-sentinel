@@ -109,6 +109,22 @@ def test_untrusted_text_cannot_close_the_data_block(triage):
     assert data["findings"][0]["title"] == hostile
 
 
+def test_severity_is_defined_as_the_activity_not_the_doubt(triage):
+    """The first real notes split six to one on what assessed_severity meant
+    once the model suspected test data. It has to mean the activity: a model
+    that rated sample-looking findings low would hand an attacker a new way to
+    be rated low — make a real finding look like a sample. The prompt and the
+    schema both say so, and both parts of the contract are pinned here."""
+    request = triage.converse_request(triage.incident_payload(_incident(), []))
+    system = request["system"][0]["text"]
+    assert "as if it were real" in system
+    assert "never in the severity" in system
+    (tool,) = request["toolConfig"]["tools"]
+    props = tool["toolSpec"]["inputSchema"]["json"]["properties"]
+    assert "if real" in props["assessed_severity"]["description"]
+    assert "Does not change assessed_severity" in props["likely_test_data"]["description"]
+
+
 def test_the_model_can_answer_only_through_the_tool(triage):
     request = triage.converse_request(triage.incident_payload(_incident(), []))
     assert request["toolConfig"]["toolChoice"] == {"tool": {"name": "record_triage"}}

@@ -140,7 +140,7 @@ Built over ~27 working days. Everything described above is deployed and verified
 
 **Deferred / in progress:**
 - Serving the multiclass attack classifier. Both models are trained and evaluated on the held-out test split ([`ml/MODEL_CARD.md`](ml/MODEL_CARD.md)); `/predict` returns the binary verdict only, so the attack family the multiclass model infers is not yet reaching the dashboard.
-- Deciding what the triage model's severity should mean for a finding it has identified as test data. It writes notes about real incidents and has since 21 September; the first seven were all GuardDuty sample findings and it spotted every one, but six of the notes dropped the severity to low and the seventh kept it high and dropped its confidence instead. The prompt never said which, so the column cannot be scanned until it does ([ADR 0005](docs/adr/0005-advisory-llm-triage.md), which also records the evaluation: three runs of seven cases, 20 of 21, all nine injection attempts flagged).
+- Evaluating the triage model on cases it did not grow up with. Its seven cases are written by the same hand as its prompt and are all synthetic; the next step is cases written independently, human-labelled, and real GuardDuty findings from a honeypot instance ([ADR 0005](docs/adr/0005-advisory-llm-triage.md) records what has been measured so far: three runs of seven cases, 20 of 21, all nine injection attempts flagged).
 - Formal Well-Architected review and cost report.
 - Final documentation and demo video.
 

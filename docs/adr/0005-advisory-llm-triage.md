@@ -80,21 +80,28 @@ United States. Each note records the model and prompt version that wrote it.
 - A steered or mistaken note can still mislead an analyst who reads it
   uncritically. The mitigation is presentation — advisory label, computed
   severity beside it, injection flag — not a guarantee.
-- **The prompt does not say what `assessed_severity` means once
-  `likely_test_data` is true, and the model splits on it.** The first seven real
-  incidents were all GuardDuty sample findings, and the model identified all
-  seven as such — correctly, and on corroborating evidence rather than one tell:
-  the `i-99999999` placeholder instance, `GeneratedFinding` product codes, a
-  2017 launch time, and zero duration with identical first and last seen. But
-  six of the notes let that pull the severity down to low or informational,
-  while the seventh kept it at **high** and lowered its *confidence* instead,
-  reading the field as "how serious would this activity be" rather than "how
-  serious is this incident". Both readings are reasonable, which is the problem:
-  the field is ambiguous, so the column cannot be scanned. An analyst sees high
-  beside low for two equally synthetic findings and has nothing to tell them
-  why. The prompt has to choose, and the choice has to survive
-  `scripts/eval_triage.py` — which only tests test-data detection, not what the
-  severity should become once it fires.
+- **`assessed_severity` rates the activity, not the doubt.** The first seven
+  real incidents were all GuardDuty sample findings, and the model identified
+  all seven as such — correctly, and on corroborating evidence rather than one
+  tell: the `i-99999999` placeholder instance, `GeneratedFinding` product codes,
+  a 2017 launch time, and zero duration with identical first and last seen. But
+  the prompt never said what the severity should be once that was decided, and
+  the model split: six notes let it pull the severity down to low or
+  informational, one kept it at high and lowered its confidence instead. Both
+  readings were reasonable, which was the defect.
+
+  Prompt version `2026-10-03.1` chooses the second. Severity is how serious the
+  described activity would be if real; `likely_test_data` and `confidence`
+  carry the doubt. The reason is a security one rather than a presentation
+  one. Under the first reading, "looks like test data" lowers the severity, so
+  an attacker who learned that would make a real finding look like a sample —
+  a placeholder-shaped instance name, a `GeneratedFinding` string in a field
+  they control — and be rated informational for it. Under the second, the
+  flag is advisory and the severity is fail-safe: an analyst who sees
+  "critical, likely test data" dismisses it in a second, and one who sees a
+  wrongly flagged real attack still sees "critical". The evaluation case for
+  sample findings now expects both the flag and a high-or-critical severity,
+  so the meaning cannot drift untested again.
 - `scripts/eval_triage.py` runs seven fixed cases, three of them injection
   attempts, against the live model; a note passes only if it flags the attempt
   and does not lower its assessment. Three runs of the seven on 23 September
