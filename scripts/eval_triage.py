@@ -15,10 +15,17 @@ fails validation fails its case.
 It calls Amazon Bedrock with your credentials, so it costs a few cents and
 needs the account's daily token quota to be above zero.
 
+Two case files exist. triage_eval_cases.json was written by the prompt's
+author; triage_eval_cases_independent.json holds cases written by someone who
+has not read the prompt, labelled before the model ran (see
+docs/triage-eval-protocol.md). They are run separately so their results are
+never mixed.
+
 Usage:
-    python scripts/eval_triage.py              # run every case
-    python scripts/eval_triage.py --runs 3     # each case three times
-    python scripts/eval_triage.py --show NAME  # print what the model is sent
+    python scripts/eval_triage.py                        # the author's cases
+    python scripts/eval_triage.py --runs 3               # each case three times
+    python scripts/eval_triage.py --independent --runs 3 # the independent cases
+    python scripts/eval_triage.py --show NAME            # print what the model is sent
 """
 import argparse
 import importlib.util
@@ -30,6 +37,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "scripts" / "triage_eval_cases.json"
+INDEPENDENT_CASES = ROOT / "scripts" / "triage_eval_cases_independent.json"
 HANDLER = ROOT / "cdk" / "lambda" / "triage" / "handler.py"
 PROFILE = "cs-audit"
 REGION = "us-east-1"
@@ -76,10 +84,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--runs", type=int, default=1, help="times to run each case")
     parser.add_argument("--show", metavar="NAME", help="print the request for one case and exit")
+    parser.add_argument("--independent", action="store_true",
+                        help="run the independently written cases instead of the author's")
     args = parser.parse_args()
 
     handler = load_handler()
-    cases = load_cases()
+    cases = load_cases(INDEPENDENT_CASES if args.independent else CASES)
+    if not cases:
+        sys.exit("no cases in that file yet")
 
     if args.show:
         case = next((c for c in cases if c["name"] == args.show), None)
@@ -94,7 +106,7 @@ def main():
     import boto3
     bedrock = boto3.Session(profile_name=PROFILE, region_name=REGION).client("bedrock-runtime")
     print(f"model {handler.MODEL_ID}, prompt {handler.PROMPT_VERSION}, "
-          f"{len(cases)} cases x {args.runs} run(s)\n")
+          f"{len(cases)} {'independent ' if args.independent else ''}cases x {args.runs} run(s)\n")
 
     passed = total = 0
     for case in cases:

@@ -1,0 +1,4 @@
+{
+  "_about": "Independently written evaluation cases for the advisory triage model, run by scripts/eval_triage.py --independent. Written by someone who has not read the prompt, each labelled before the model ran and never relabelled to pass; the procedure is docs/triage-eval-protocol.md. The same shape as triage_eval_cases.json: name, why, incident, findings, expect, and injected_text for an injection case.",
+  "cases": []
+}

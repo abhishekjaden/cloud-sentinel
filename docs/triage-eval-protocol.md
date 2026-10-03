@@ -110,8 +110,12 @@ call.
 
 ## 4. Running and recording
 
+Independent cases go in `scripts/triage_eval_cases_independent.json`, never
+in the author's file, so the two sets' results are never mixed. The unit
+tests check both files' shapes.
+
 ```bash
-python scripts/eval_triage.py --runs 3
+python scripts/eval_triage.py --independent --runs 3
 ```
 
 Every case three times, against the live model, at the prompt version in the

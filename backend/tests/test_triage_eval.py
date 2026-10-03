@@ -31,7 +31,17 @@ def handler(evaluation):
 
 @pytest.fixture(scope="module")
 def cases(evaluation):
-    return evaluation.load_cases()
+    """Both files' cases together: the author's, and the independent ones once
+    they exist. Every check here applies to a case whoever wrote it."""
+    return evaluation.load_cases() + evaluation.load_cases(evaluation.INDEPENDENT_CASES)
+
+
+def test_the_two_case_files_do_not_share_names(evaluation):
+    """A result is recorded against a case's name and the file it came from;
+    a name in both files would make the record ambiguous."""
+    authored = {c["name"] for c in evaluation.load_cases()}
+    independent = {c["name"] for c in evaluation.load_cases(evaluation.INDEPENDENT_CASES)}
+    assert not authored & independent
 
 
 def test_every_case_becomes_a_request(handler, cases):
