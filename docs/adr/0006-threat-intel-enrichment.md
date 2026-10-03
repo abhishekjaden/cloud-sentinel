@@ -68,9 +68,11 @@ report and the triage model read them.
   dashboard metric shows how many providers are configured — zero means every
   indicator waits forever, which no error would report.
 - **Keys in Secrets Manager, filled in by hand.** The stack creates the
-  secret with empty keys so it deploys before the operator has any. The
-  providers issue the keys and only they can rotate them, which is recorded
-  as an accepted cdk-nag finding.
+  secret with empty keys so it deploys before the operator has any, and the
+  function reads the secret again every run until a key is present, so the
+  keys take effect on the run after they are filled in. The providers issue
+  the keys and only they can rotate them, which is recorded as an accepted
+  cdk-nag finding; a rotated key takes effect at the next cold start.
 - **Nothing acts on a verdict.** The enricher can read incidents, read and
   write its own table, and read one secret; it cannot write an incident, a
   finding or a note, and holds nothing that starts, approves or stops a

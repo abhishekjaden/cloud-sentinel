@@ -233,8 +233,9 @@ export function suppressThirdPartyKeyRotation(secret: IConstruct): void {
         'those providers can issue. Automatic rotation would need a rotation ' +
         'function that logs in to each provider and mints a new key, which ' +
         'neither offers an API for. The keys are rotated at the provider and ' +
-        'pasted in, and the enricher reads the secret once per container, so a ' +
-        'new value takes effect at the next cold start.',
+        'pasted in; the enricher reads the secret every run until a key is ' +
+        'present and once per container after that, so a rotated key takes ' +
+        'effect at the next cold start.',
     },
   ]);
 }

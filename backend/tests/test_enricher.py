@@ -120,6 +120,19 @@ def test_the_keys_are_read_once_per_container(enricher):
     assert enricher._secrets.get_secret_value.call_count == 1
 
 
+def test_keys_filled_in_after_deployment_take_effect_on_the_next_run(enricher):
+    """The stack deploys the secret empty. A container that read it empty must
+    not remember that for its lifetime, or the keys would take effect at some
+    unknowable later cold start."""
+    enricher._secrets.get_secret_value.return_value = {"SecretString": "{}"}
+    assert enricher.keys() == {"abuseipdb": None, "otx": None}
+    enricher._secrets.get_secret_value.return_value = {
+        "SecretString": json.dumps({"abuseipdb_api_key": "abuse-key", "otx_api_key": ""})}
+    assert enricher.keys() == {"abuseipdb": "abuse-key", "otx": None}
+    enricher.keys()
+    assert enricher._secrets.get_secret_value.call_count == 2
+
+
 # --------------------------------------------------------------------- verdict
 @pytest.mark.parametrize("abuse, otx, expected", [
     (None, None, "unknown"),

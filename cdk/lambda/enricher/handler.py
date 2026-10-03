@@ -78,8 +78,12 @@ _keys = None
 
 # ------------------------------------------------------------------ providers
 def keys():
-    """The providers' API keys, read once per container. An empty or missing
-    key means that provider is not configured and is skipped, not failed."""
+    """The providers' API keys. An empty or missing key means that provider is
+    not configured and is skipped, not failed. Keys are held for the life of
+    the container once any is present; while none is, the secret is read
+    again every run, so the keys take effect on the run after the operator
+    fills them in rather than whenever Lambda happens to recycle the
+    container."""
     global _keys
     if _keys is None:
         try:
@@ -87,8 +91,11 @@ def keys():
         except Exception:  # noqa: BLE001 — no keys is a configuration state, not a crash
             logger.exception("threat-intel keys could not be read")
             raw = {}
-        _keys = {"abuseipdb": (raw.get("abuseipdb_api_key") or "").strip() or None,
+        found = {"abuseipdb": (raw.get("abuseipdb_api_key") or "").strip() or None,
                  "otx": (raw.get("otx_api_key") or "").strip() or None}
+        if not any(found.values()):
+            return found
+        _keys = found
     return _keys
 
 
