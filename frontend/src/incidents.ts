@@ -56,3 +56,20 @@ export function modelLabel(id: string | undefined): string {
   const family = m[1][0].toUpperCase() + m[1].slice(1);
   return `Claude ${family} ${m[3] ? `${m[2]}.${m[3]}` : m[2]}`;
 }
+
+/** The file name a downloaded report gets, from the incident's ID. */
+export function reportFilename(incidentId: string): string {
+  return `cloudsentinel-incident-${incidentId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 12)}.pdf`;
+}
+
+/** Hand a fetched file to the browser's download flow. */
+export function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

@@ -1,5 +1,9 @@
+import { useState } from "react";
+import { getIncidentReport } from "../api";
 import type { IncidentsResponse, Triage } from "../types";
-import { describeSpan, modelLabel, severityBucket, stageLabel } from "../incidents";
+import {
+  describeSpan, modelLabel, reportFilename, saveBlob, severityBucket, stageLabel,
+} from "../incidents";
 
 /**
  * The model's triage note for one incident. Labelled advisory, because it is:
@@ -66,10 +70,26 @@ export function IncidentsPanel({ data, error }: {
   data: IncidentsResponse | null;
   error: string | null;
 }) {
+  // The report being fetched, and the last fetch that failed, by incident.
+  const [preparing, setPreparing] = useState<string | null>(null);
+  const [reportError, setReportError] = useState<{ id: string; message: string } | null>(null);
+
   if (error) return <p className="error-text">Could not load incidents: {error}</p>;
   if (!data) return <p className="muted">Loading incidents...</p>;
 
   const samples = data.incidents.filter((i) => i.sample).length;
+
+  async function downloadReport(incidentId: string) {
+    setPreparing(incidentId);
+    setReportError(null);
+    try {
+      saveBlob(await getIncidentReport(incidentId), reportFilename(incidentId));
+    } catch (e) {
+      setReportError({ id: incidentId, message: e instanceof Error ? e.message : "Report failed" });
+    } finally {
+      setPreparing(null);
+    }
+  }
 
   return (
     <div className="incidents-panel">
@@ -118,6 +138,19 @@ export function IncidentsPanel({ data, error }: {
                   {describeSpan(i.finding_count, i.duration_seconds)}
                   {" · first seen "}
                   {new Date(i.first_seen).toLocaleString()}
+                  {" · "}
+                  <button
+                    type="button"
+                    className="report-link"
+                    disabled={preparing === i.incident_id}
+                    onClick={() => downloadReport(i.incident_id)}
+                    title="Summary, timeline, ATT&CK placement, actions taken and the advisory note, as a PDF"
+                  >
+                    {preparing === i.incident_id ? "Preparing report…" : "Report (PDF)"}
+                  </button>
+                  {reportError?.id === i.incident_id && (
+                    <span className="error-text"> Report failed: {reportError.message}</span>
+                  )}
                 </div>
                 <TriageNote note={i.triage} />
               </li>

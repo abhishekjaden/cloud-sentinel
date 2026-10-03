@@ -117,6 +117,12 @@ td { padding: 8px; border-bottom: 1px solid var(--border); }
 .exec-status { color: var(--muted); }
 .hint { margin-top: 12px; font-size: 11px; font-style: italic; }
 
+.report-link {
+  background: none; border: none; padding: 0; color: var(--accent); cursor: pointer;
+  font: inherit; text-decoration: underline;
+}
+.report-link:disabled { color: var(--muted); cursor: default; text-decoration: none; }
+
 .predict-actions { display: flex; gap: 10px; margin: 14px 0; }
 .predict-actions button {
   background: var(--bg); border: 1px solid var(--accent); color: var(--accent);

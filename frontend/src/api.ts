@@ -36,6 +36,15 @@ export async function getIncidents(limit = 50): Promise<IncidentsResponse> {
   return data;
 }
 
+/** One incident as a PDF. Fetched rather than linked, because the route is
+ *  authenticated and a plain link would carry no token. */
+export async function getIncidentReport(incidentId: string): Promise<Blob> {
+  const c = await client();
+  const { data } = await c.get<Blob>(
+    `/incidents/${encodeURIComponent(incidentId)}/report`, { responseType: "blob" });
+  return data;
+}
+
 export async function getRemediations(limit = 20): Promise<RemediationsResponse> {
   const c = await client();
   const { data } = await c.get<RemediationsResponse>("/remediations", { params: { limit } });

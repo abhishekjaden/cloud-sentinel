@@ -21,8 +21,9 @@ import { suppressLambdaBaseline, suppressPublicIngress } from '../nag-suppressio
  * ApiStack — deploys to the Audit account (118821712739).
  *
  * The CloudSentinel REST API (FastAPI) on ECS Fargate behind an Application
- * Load Balancer. Serves findings, ML predictions, and remediation status to
- * the SOC dashboard. Reads existing resources same-account:
+ * Load Balancer. Serves findings, incidents and their PDF reports, ML
+ * predictions, and remediation status to the SOC dashboard. Reads existing
+ * resources same-account:
  *   - DynamoDB cloudsentinel-findings
  *   - DynamoDB cloudsentinel-incidents (read-only)
  *   - S3 cloudsentinel-models-<acct> (both XGBoost models and their label map)
@@ -176,11 +177,12 @@ export class ApiStack extends cdk.Stack {
     }));
 
     // Correlated incidents are read-only to the API: the correlator writes them,
-    // the dashboard displays them. The one index the API queries is named
-    // rather than matched by index/* — there is no other index it needs.
+    // the dashboard displays them, and the report route reads one by key. The
+    // one index the API queries is named rather than matched by index/* —
+    // there is no other index it needs.
     taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       sid: 'ReadIncidents',
-      actions: ['dynamodb:Query', 'dynamodb:Scan'],
+      actions: ['dynamodb:GetItem', 'dynamodb:Query', 'dynamodb:Scan'],
       resources: [
         `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-incidents`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-incidents/index/status-index`,

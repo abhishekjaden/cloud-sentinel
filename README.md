@@ -17,7 +17,7 @@ Built as a portfolio project to demonstrate cloud security engineering end to en
 | **Classify** | Two XGBoost models are trained on network flows: a binary intrusion detector (AUC 0.999963) and an eight-class attack-family classifier (macro-F1 0.9586). Both are evaluated on a held-out split and documented with their limitations in the model card. `/predict` serves both: the binary model's verdict and, beside it, the family the multiclass model finds most likely with its probability — reported even when the two disagree. |
 | **Respond** | High-severity findings trigger a Step Functions SOAR workflow that routes each threat to the correct playbook and **pauses at a human approval gate** before any destructive action. |
 | **Triage** | A language model on Amazon Bedrock drafts an advisory note for each correlated incident — what likely happened and what to check next — contained so that no answer it gives, however steered, can cause an action. |
-| **Observe** | A React SOC dashboard shows live severity/source charts, a filterable findings table, remediation status, and an interactive prediction tool. |
+| **Observe** | A React SOC dashboard shows live severity/source charts, a filterable findings table, remediation status, and an interactive prediction tool. Any incident downloads as a PDF report: executive summary, affected resources, timeline, an indicative ATT&CK placement, the actions that reached the approval gate, and the advisory note — assembled from the record, with nothing generated. |
 | **Protect** | Cognito authentication with JWT validation enforced on **every** API route — the data cannot be reached by bypassing the UI. |
 
 ---
@@ -63,7 +63,7 @@ ML (Workload)
 | ML | SageMaker Studio, XGBoost, pandas / NumPy, CICIDS2017 |
 | SOAR | Step Functions (approval gates via task tokens), SNS, Lambda |
 | AI triage | Amazon Bedrock (Claude Haiku 4.5, US cross-Region inference, forced tool use) |
-| API | FastAPI, Pydantic, Uvicorn, Docker, ECS Fargate, ALB, ECR |
+| API | FastAPI, Pydantic, Uvicorn, reportlab (incident reports), Docker, ECS Fargate, ALB, ECR |
 | Auth | Cognito (hosted UI, PKCE), python-jose (JWT/JWKS verification) |
 | Frontend | React, TypeScript, Vite, Recharts, axios |
 | Hosting / DNS / TLS | S3 + CloudFront (OAC), Route 53, ACM |
@@ -115,6 +115,7 @@ Other decisions worth naming:
 - **Runtime configuration.** The dashboard fetches its API URL at startup, so the built artifact isn't coupled to a backend URL.
 - **A model that reads attacker text gets no authority.** Incident triage by a language model is advisory and contained ([ADR 0005](docs/adr/0005-advisory-llm-triage.md)): the function can write nothing but its own notes and holds no permission that acts, finding text reaches the model escaped as untrusted data, answers must fit one validated schema, and seven evaluation cases — three of them prompt-injection attempts — define what a correct note looks like. Running them three times against the live model passed 20 of 21; the one miss was the schema validation discarding a malformed answer, which is the containment doing its job and which changed the design — an answer is now asked for a second time before the incident is given up on. The same evaluation later caught a prompt revision setting the test-data flag on an attacker's claim before it was deployed; the corrected wording passed 21 of 21.
 - **Objectives, not just logs.** Seven service level objectives in [`docs/slos.md`](docs/slos.md) each have an alarm and a written response: findings stored, stored promptly, correlation running, remediation steps succeeding, approvals decided, API availability and latency. Every function and the SOAR workflow record X-Ray traces, so a remediation is one trace from the router to each playbook step.
+- **The report claims only what was recorded.** An incident's PDF is assembled from the correlator's record, its findings, the approvals table and the triage note; the one derived element, the ATT&CK placement, is computed from finding types by a fixed table and labelled indicative. Finding text is attacker-influenced and the PDF library interprets inline markup, so every value is escaped on the way in — a title containing `<b>` prints as five characters — and the test suite reads the PDF back to prove it.
 - **Nothing is dropped quietly.** A finding the normalizer fails on is handed back to Lambda by sequence number and delivered again; only once the retries are exhausted is the batch reported to a failure queue, and that report — not the failure — is what breaches the findings-stored objective. Writing is keyed on the finding, so a redelivery overwrites rather than duplicates.
 
 ---

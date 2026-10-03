@@ -62,6 +62,7 @@ human decision on one side causes irreversible change on the other.
 | **I** | Cross-origin data theft | CORS restricted to the dashboard origin — previously `*`, which would have let any site issue credentialed requests | None material for browsers that honour CORS. |
 | **D** | Expensive queries | `limit` bounded 1–200 and asserted by tests; every findings route reads an index or a key, and the task role holds no `dynamodb:Scan` on that table, so no request costs the whole table | A determined caller can still issue many small requests; no per-principal throttling. `/incidents` still reads the incidents table in full. |
 | **E** | Reaching data without a token | Authorization enforced at the API, not the UI; every data route asserted to return 401 unauthenticated | None known. |
+| **T** | Finding text carried into a document | The incident report is rendered with reportlab, whose paragraphs interpret inline markup. Every value from the record is escaped before it enters one, so a title written to contain `<b>` or `<font>` prints as those characters; a test puts markup in a title and reads the PDF back. The report also contains nothing generated: its one derived element is the ATT&CK placement, from a fixed table | A report is read outside the dashboard, where the advisory label on the triage note is the only reminder that part of it is model output over attacker-influenced text. |
 
 ### B3 — Findings ingestion
 
