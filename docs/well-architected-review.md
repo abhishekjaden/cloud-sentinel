@@ -201,22 +201,30 @@ control-change watch and the honeypot.
 **Strengths**
 - Teardown is the primary lever: the serving layer (ALB, NAT, Fargate) is
   destroyed between sessions and redeploys from code in about seven minutes.
-  The idle baseline is about $15–20 a month; the API adds about $1.60 a day
-  while up.
+  The September 2026 invoices put the idle baseline at about $25 a month net
+  and the API at about $2.25 a day while up (`docs/evaluation.md`, section
+  2) — both higher than the first review's estimates, which this review
+  corrects.
 - Cost is measured, not assumed: a monthly budget with alerts, Cost Explorer
-  attribution by service, and `scripts/measure.py` reporting cost per
-  thousand findings for a period.
+  attribution by service, `scripts/measure.py` reporting cost per thousand
+  findings for a period, and the invoices read service by service.
 - Spend that bought nothing was removed when measured: an idle OpenSearch
   domain (ADR 0004, ~$25 a month).
 - The additions since v1 cost almost nothing: the model triage well under a
   dollar a month at current volume, the threat-intelligence feeds on free
   tiers with a cache that keeps them there, the observability stack within
   CloudWatch's free allowance but for a couple of dollars, the honeypot
-  about $3 a month while it exists.
+  about $6.70 a month while it exists, half of that its public address.
 
 **Gaps / next step**
-- The NAT gateway is the largest item while the API is up. VPC endpoints for
-  the services the task calls would remove most of its traffic.
+- The NAT gateway is half the API's daily cost. Endpoints would not remove
+  its hourly charge; running the task in a public subnet with its own
+  address, the security group still admitting only the load balancer,
+  would. A decision for an ADR.
+- The Kinesis shard is the largest idle item — $10.80 a month, over 40% of
+  the baseline — for a pipeline moving about a thousand findings a day. A
+  queue would do the work for cents and lose the 24-hour replay by sequence
+  number that the chaos experiments rely on. Also an ADR, if taken.
 - Teardown depends on discipline. A scheduled teardown would make idle-cost
   control automatic.
 - No Savings Plans or Spot; appropriate at this scale.

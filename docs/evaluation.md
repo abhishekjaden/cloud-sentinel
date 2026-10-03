@@ -38,10 +38,64 @@ period by the findings stored in it.
 |---|---|---|---|---|
 | | | | | pending — first full month with the stamps |
 
-Known standing costs, from billing rather than measurement: about $15–20 a
-month idle; the API about $1.60 a day while deployed; the honeypot about $3 a
-month while deployed; the model triage well under a dollar a month at current
-volume; the threat-intelligence feeds free.
+### September 2026, from the invoices
+
+The first full month in which every component but the honeypot existed. AWS
+India bills in rupees with 18% GST on top; the figures below are the invoiced
+amounts before GST, with dollars at the month-end rate of about ₹96. The
+log-archive account's invoice is not in hand; its charges are S3 storage for
+CloudTrail and Config, a few rupees.
+
+| Account | Net ₹ | ≈ $ | What it was |
+|---|---|---|---|
+| Audit — the platform | 3,004 | 31.3 | by service, below |
+| Workload | 123 | 1.3 | one SageMaker training job for the attack-family model (₹115); S3, Config, GuardDuty |
+| Management | 61 | 0.6 | the domain's hosted zone (₹49), Cost Explorer calls, Detective |
+| **Three accounts** | **3,189** | **33.2** | ₹3,763 with GST |
+
+The audit account by service:
+
+| Service | Net ₹ | ≈ $ | Note |
+|---|---|---|---|
+| Kinesis | 1,037 | 10.80 | one provisioned shard: 720 hours at $0.015, to the cent. The largest line. |
+| Security Hub | 456 | 4.75 | standards checks across the organisation |
+| Inspector | 351 | 3.65 | |
+| Config | 312 | 3.25 | the recorder and rules Security Hub's checks run on |
+| EC2 | 309 | 3.20 | the NAT gateway, about 71 hours: the API was up roughly three days |
+| Elastic Load Balancing | 147 | 1.55 | the ALB, the same hours |
+| KMS | 103 | 1.05 | the customer-managed key and its requests |
+| VPC | 94 | 1.00 | public IPv4 addresses for the ALB and the NAT gateway while up |
+| ECS | 77 | 0.80 | the Fargate task, the same hours |
+| Route 53 | 48 | 0.50 | one hosted zone |
+| GuardDuty | 22 | 0.25 | |
+| ECR | 21 | 0.20 | image storage |
+| DynamoDB | 16 | 0.15 | every table, on demand |
+| Macie, S3, data transfer | 11 | 0.10 | Macie's last days before it was disabled on 3 September (ADR 0004) |
+
+Two figures quoted before this invoice were wrong, and are corrected here
+rather than in the places that quoted them:
+
+- **Idle is about $25 a month net, not $15–20** — ₹2,440, ₹2,880 with GST,
+  across the three accounts with the serving layer and the training job taken
+  out. The shard is over 40% of it and the native detection stack (Security
+  Hub, Inspector, Config) another 45%; everything else — every table, every
+  function, every key, the model's notes, the feeds — is about $3.
+- **The API costs about $2.25 a day while up, not $1.60.** Over its ≈71
+  hours: the NAT gateway $1.08 a day, the ALB $0.54, the three public
+  addresses $0.34, the task $0.28. The gateway alone is half.
+
+So always-on, the plan for the application window, is $25 + 30 × $2.25 ≈
+**$93 a month net, about ₹10,500 with GST**, not the $40 planned. Two
+levers, in order of return: run the task in a public subnet with its own
+address and no NAT gateway (saves about $1.10 a day; the security group
+still admits only the load balancer), and replace the shard with a queue
+(saves $10.80 a month; costs the 24-hour replay by sequence number that E2
+relies on). Both together bring always-on to about $50 net. Each is a
+decision, not a fix, and gets an ADR if taken.
+
+The honeypot, deployed 3 October, adds about $6.70 a month: $3.05 for the
+instance and $3.65 for its public address. The model triage stays well under
+a dollar a month at current volume; the threat-intelligence feeds are free.
 
 ## 3. The advisory model
 
