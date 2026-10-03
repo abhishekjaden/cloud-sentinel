@@ -18,6 +18,7 @@ import { CicdStack } from '../lib/stacks/cicd-stack';
 import { ObservabilityStack } from '../lib/stacks/observability-stack';
 import { TriageStack } from '../lib/stacks/triage-stack';
 import { IntelStack } from '../lib/stacks/intel-stack';
+import { HoneypotStack } from '../lib/stacks/honeypot-stack';
 
 const app = new cdk.App();
 
@@ -99,4 +100,10 @@ const intel = new IntelStack(app, 'CloudSentinel-Intel', {
 });
 // Same reason as triage: the enricher finds its cache table by name.
 intel.addDependency(dataStores);
+// On demand, like the API: deployed for a week or two to collect real
+// findings, then destroyed. Not in the deploy workflow.
+new HoneypotStack(app, 'CloudSentinel-Honeypot', {
+  env: env(ACCOUNTS.workload),
+  description: 'CloudSentinel: honeypot instance for real findings (Workload account, on demand)',
+});
 app.synth();

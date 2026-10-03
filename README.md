@@ -30,7 +30,7 @@ AWS Organization (Control Tower, 4 accounts)
 ├── Management    — org root, DNS apex, delegation role
 ├── Log Archive   — centralized CloudTrail
 ├── Audit         — security services + the entire platform
-└── Workload      — ML training environment
+└── Workload      — ML training environment; honeypot (on demand, own VPC)
 
 Detection pipeline (Audit)
   GuardDuty / Security Hub / Inspector
@@ -145,7 +145,7 @@ screenshots/  evidence captures
 Built over ~27 working days. Everything described above is deployed and verified: the pipeline ingests live findings, the model scores flows, the SOAR loop pauses at its approval gate, and unauthenticated API calls are rejected.
 
 **Deferred / in progress:**
-- Evaluating the triage model on cases it did not grow up with. Its seven cases are written by the same hand as its prompt and are all synthetic; the next step is cases written independently, human-labelled, and real GuardDuty findings from a honeypot instance ([ADR 0005](docs/adr/0005-advisory-llm-triage.md) records what has been measured so far: three runs of seven cases in September, 20 of 21, three more in October at the revised prompt, 21 of 21, all eighteen injection attempts flagged).
+- Evaluating the triage model on cases it did not grow up with. Its seven cases are written by the same hand as its prompt and are all synthetic; [`docs/triage-eval-protocol.md`](docs/triage-eval-protocol.md) is the procedure for the next set — cases written blind and labelled first, and real findings from an on-demand honeypot instance (`CloudSentinel-Honeypot`: no credential, no login, no egress) — and the results are not yet in ([ADR 0005](docs/adr/0005-advisory-llm-triage.md) records what has been measured so far: three runs of seven cases in September, 20 of 21, three more in October at the revised prompt, 21 of 21, all eighteen injection attempts flagged).
 - Formal Well-Architected review and cost report.
 - Final documentation and demo video.
 

@@ -40,6 +40,15 @@ AWS's own control plane, and the security of the operator's endpoint device.
 B5 is the boundary that distinguishes this system from a passive dashboard: a
 human decision on one side causes irreversible change on the other.
 
+One deliberate attack surface sits outside every boundary above. The honeypot
+(`CloudSentinel-Honeypot`, deployed on demand in the workload account) is an
+instance that exists to be attacked, so the platform sees real findings. It
+is built to be worthless to whoever gets in: its own VPC with one subnet and
+no NAT, no instance role and no key pair, password login off, IMDSv2 required,
+and a security group with no outbound rule, so a compromised instance could
+reach nothing — not the internet, not the account, not the platform. The
+tests in `cdk/test/honeypot.test.ts` hold each of those properties.
+
 ---
 
 ## 2. STRIDE analysis
