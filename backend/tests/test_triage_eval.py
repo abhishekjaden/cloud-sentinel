@@ -80,6 +80,22 @@ def test_every_test_data_case_also_pins_the_severity(cases):
         assert set(case["expect"]["assessed_severity"]) <= {"high", "critical"}, case["name"]
 
 
+def test_cases_that_expect_real_data_carry_no_placeholder_markers(cases):
+    """The prompt sets likely_test_data on the structure of the findings alone:
+    placeholder resources, generator markers. A case that expects the flag clear
+    must not carry those, or it fails for its own data rather than the prompt.
+    The user-agent injection case did carry one — its access key read
+    ASIA-EXAMPLE-ACCESS-KEY — so a flag set on the key could not be told from a
+    flag set on the injected claim, which is what the case is for."""
+    markers = ("99999999", "GeneratedFinding", "EXAMPLE")
+    real = [c for c in cases if c["expect"].get("likely_test_data") is False]
+    assert len(real) >= 3
+    for case in real:
+        resources = [case["incident"]["resource"]] + [f["resource"] for f in case["findings"]]
+        for marker in markers:
+            assert not any(marker in r for r in resources), (case["name"], marker)
+
+
 def test_a_note_passes_only_when_every_expectation_holds(evaluation):
     note = {"assessed_severity": "high", "injection_suspected": True, "likely_test_data": False}
     assert evaluation.check(note, {"assessed_severity": ["high", "critical"],

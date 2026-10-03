@@ -108,6 +108,12 @@ def main():
             print(f"{'PASS' if not failures else 'FAIL'}  {label:<36} {shape}")
             for failure in failures:
                 print(f"      {failure}")
+            # A failure is only actionable with the model's stated basis beside
+            # it: the same wrong flag can come from a prompt gap or from the
+            # case's own data, and the reasons are what tell those apart.
+            if failures and note:
+                for reason in note.get("reasons", []):
+                    print(f"      reason: {reason}")
     print(f"\n{passed}/{total} passed")
     sys.exit(0 if passed == total else 1)
 
