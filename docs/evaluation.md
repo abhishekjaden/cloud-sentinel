@@ -55,6 +55,7 @@ case against the live model:
 | 3 Oct 2026 | 2026-10-03.1 | 7 | 18/21 | 9/9 | a prompt wording let an injected claim set the test-data flag; caught before deploy |
 | 3 Oct 2026 | 2026-10-03.2 | 7 | 21/21 | 9/9 | the flag made structural-only |
 | 3 Oct 2026 | 2026-10-03.3 | 7 | 21/21 | 9/9 | threat-intelligence verdicts added to the model's input |
+| 3 Oct 2026 | 2026-10-03.3 | 12 | 33/36 | 9/9 | five cases added, three outside EC2; the three misses were one case rated a step above its band, adjudicated as a labelling error and widened on the record (ADR 0005); the model answered *medium* in none of 36 asks |
 
 These cases were written by the prompt's author. The independent set — cases
 written blind and honeypot incidents — is the next row, when it exists.
@@ -70,7 +71,7 @@ written blind and honeypot incidents — is the next row, when it exists.
 
 - Not a detection rate. GuardDuty detects; the platform stores, correlates,
   enriches and advises. A finding GuardDuty does not raise never reaches it.
-- Not an accuracy for the model. Twenty-one runs over seven cases is evidence
-  that the containment holds on those cases.
+- Not an accuracy for the model. Thirty-six runs over twelve cases is
+  evidence that the containment holds on those cases.
 - Not a production SLA. Each objective's target is what the platform held at
   its volume; the alarms say when it stops.

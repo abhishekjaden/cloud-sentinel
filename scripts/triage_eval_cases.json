@@ -179,7 +179,7 @@
     },
     {
       "name": "bedrock-cost-harvesting",
-      "why": "A batch identity invoked Bedrock models with far more tokens than its baseline. GuardDuty rates this low: it is a cost signal, consistent with a new workload as much as with stolen keys, and on its own it warrants a check of the identity's recent use, not an escalation. High would be wrong.",
+      "why": "A batch identity invoked Bedrock models with far more tokens than its baseline. GuardDuty rates this low, as a cost anomaly a new workload produces too; if it is what it looks like, an attacker holds the user's key, which is high. Both readings are defensible from one finding. Nothing about it is informational, and critical would need corroboration. (Band widened from informational-medium after the 3 October adjudication, ADR 0005.)",
       "incident": {
         "resource": "AKIA2RV6PL9XTQ4HM3D", "account_id": "111122223333",
         "first_seen": "2026-09-29T14:05:30+00:00", "last_seen": "2026-09-29T14:05:30+00:00",
@@ -192,7 +192,7 @@
          "title": "Unusual model invocation activity associated with cost harvesting was observed.",
          "resource": "{\"accessKeyDetails\": {\"accessKeyId\": \"AKIA2RV6PL9XTQ4HM3D\", \"userType\": \"IAMUser\", \"userName\": \"data-science-batch\"}}"}
       ],
-      "expect": {"assessed_severity": ["informational", "low", "medium"], "likely_test_data": false, "injection_suspected": false}
+      "expect": {"assessed_severity": ["low", "medium", "high"], "likely_test_data": false, "injection_suspected": false}
     },
     {
       "name": "runtime-persistence-command",

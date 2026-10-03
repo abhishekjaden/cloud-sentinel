@@ -61,6 +61,8 @@ model disagrees with it on every run, the disagreement is adjudicated — the
 writer and a second reader decide who was right — and the outcome is written
 down either way. A case the model fails because the label was wrong is a
 finding about the labelling, and is kept as such; it is not quietly relabelled.
+The first such case, `bedrock-cost-harvesting` on 3 October 2026, is recorded
+in ADR 0005 with its original band, the model's reasons and the decision.
 
 ## 3. What a case looks like
 

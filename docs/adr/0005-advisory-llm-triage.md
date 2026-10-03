@@ -173,4 +173,39 @@ United States. Each note records the model and prompt version that wrote it.
   tested as well as under-escalation. The scenarios and labels are the prompt
   author's, so these remain authored cases; the independent set is
   `docs/triage-eval-protocol.md`.
+
+  Three runs of the twelve on 3 October 2026, at prompt version
+  `2026-10-03.3`, passed 33 of 36. The seven older cases passed as before;
+  all nine injection attempts were flagged on every run. The three misses
+  were one case, `bedrock-cost-harvesting`, rated **high** on every run at
+  medium confidence against a band of informational–medium. The model's
+  reasons were the same each time: cost harvesting is a known pattern of
+  compromised credentials; the finding names a deviation from the identity's
+  baseline; a single uncorroborated finding limits confidence; and "the
+  access key is exposed in the finding and should be considered potentially
+  compromised" — the last of which is wrong, since every IAM finding names
+  its key and that is not exposure.
+
+  Adjudicated the same day, writer and project author: the label was the
+  weaker side. This ADR defines `assessed_severity` as rating the activity
+  and `confidence` as carrying the doubt, and the label's own reasoning —
+  "consistent with a new workload as much as with stolen keys" — argued from
+  the doubt. If the activity is what it looks like, an attacker holding an
+  IAM user's long-term key is high, which is what the model said, at the
+  confidence the doubt deserved. GuardDuty's own Low still stands for the
+  analyst who reads the finding as a cost anomaly, so the band is now
+  `low, medium, high`; `informational` was dropped as indefensible by either
+  reading. The original band stays recorded here so the change is a decision
+  on the record, not a quiet relabel. The guide has not yet reviewed it; the
+  protocol names him as the second reader for exactly this kind of case.
+
+  The run's other result is a pattern no single case shows. In 36 answers
+  the model never said *medium*: twelve critical, twenty-one high, three low
+  (the lone port probe), none medium. The three cases whose band is centred
+  on medium — the disabled database authentication, the lone persistence
+  command, cost harvesting — all came back high at medium confidence. For
+  an advisory note this is the safe direction, and no case was rated two
+  steps from its centre; but it is the first systematic tendency the
+  evaluation has measured, and a future prompt version that addresses it
+  will be judged against these cases, not tuned on them.
 - Cost at the current volume is well under a dollar a month.
