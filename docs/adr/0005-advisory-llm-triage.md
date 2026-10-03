@@ -197,7 +197,9 @@ United States. Each note records the model and prompt version that wrote it.
   `low, medium, high`; `informational` was dropped as indefensible by either
   reading. The original band stays recorded here so the change is a decision
   on the record, not a quiet relabel. The guide has not yet reviewed it; the
-  protocol names him as the second reader for exactly this kind of case.
+  protocol names him as the second reader for exactly this kind of case. A
+  rerun the same evening, on the adjudicated band, passed 36 of 36 with every
+  answer — severity, confidence and both flags — identical to the run before.
 
   The run's other result is a pattern no single case shows. In 36 answers
   the model never said *medium*: twelve critical, twenty-one high, three low

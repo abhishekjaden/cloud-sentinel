@@ -92,10 +92,11 @@ control-change watch and the honeypot.
 - A language model reads attacker-controlled text and is given no authority
   (ADR 0005): finding data is escaped as untrusted, answers must fit one
   validated schema, injection attempts are flagged, and the function's
-  permissions make an action impossible whatever the model says. Thirty-three
-  of thirty-six evaluation runs at the current prompt, every injection attempt
-  flagged on every run; the three misses were one case rated a step above its
-  band, adjudicated on the record (ADR 0005).
+  permissions make an action impossible whatever the model says. Thirty-six
+  of thirty-six evaluation runs at the current prompt on the adjudicated
+  labels, every injection attempt flagged on every run; the run before it
+  passed 33, and its three misses — one case rated a step above its band —
+  are the adjudication on the record in ADR 0005.
 - Data at rest under a customer-managed KMS key for every table, usable only
   through DynamoDB; TLS enforced on the queue and the topic; the API
   container runs as a non-root user; findings text is escaped before it
