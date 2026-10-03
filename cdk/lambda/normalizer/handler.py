@@ -9,6 +9,8 @@ DynamoDB item keys:
   pk = "<source>#<account_id>"
   sk = "<created_at>#<finding_id>"
   severity_bucket = CRITICAL|HIGH|MEDIUM|LOW|INFO  (for severity GSI)
+  indicators = {ips, domains} the finding names (GuardDuty only), kept for
+               threat-intelligence enrichment; absent when it names none
 
 created_at is ISO 8601 for every source. sk sorts by time only because of that,
 so a source that sends another format is converted here, not downstream.
@@ -26,6 +28,7 @@ Lambda has retried it to exhaustion, at which point Lambda reports the batch to
 the failure queue, which is what the findings-stored alarm watches (docs/slos.md).
 """
 import base64
+import ipaddress
 import json
 import logging
 import os
@@ -126,6 +129,53 @@ def _inspector_time(value, fallback):
     return fallback
 
 
+# How many of each kind of indicator one finding keeps. A port probe can list
+# dozens of remote addresses; the first few are what an analyst will look up.
+MAX_INDICATORS = 10
+
+
+def _public_ip(value):
+    """The address if it is a public one, else None: private, loopback and
+    link-local addresses belong to the VPC, not to an attacker, and would only
+    spend threat-intelligence lookups on nothing."""
+    try:
+        address = ipaddress.ip_address(str(value).strip())
+    except ValueError:
+        return None
+    # is_global is a property of the address, not a method.
+    public = address.is_global  # nosemgrep: python.lang.maintainability.is-function-without-parentheses
+    return str(address) if public else None
+
+
+def _indicators(detail):
+    """The remote addresses and domains a GuardDuty finding names, from the
+    action block under service. GuardDuty puts the remote end of a connection,
+    probe, API call or login attempt under remoteIpDetails and a DNS request's
+    name under dnsRequestAction; nothing else in a finding is an indicator a
+    threat-intelligence feed can be asked about."""
+    action = ((detail.get("service") or {}).get("action") or {})
+    remote = []
+    for key in ("networkConnectionAction", "awsApiCallAction", "kubernetesApiCallAction",
+                "rdsLoginAttemptAction"):
+        remote.append(((action.get(key) or {}).get("remoteIpDetails") or {}).get("ipAddressV4"))
+    for probe in (action.get("portProbeAction") or {}).get("portProbeDetails") or []:
+        remote.append(((probe or {}).get("remoteIpDetails") or {}).get("ipAddressV4"))
+    ips, domains = [], []
+    for value in remote:
+        public = _public_ip(value) if value else None
+        if public and public not in ips:
+            ips.append(public)
+    domain = (action.get("dnsRequestAction") or {}).get("domain")
+    if isinstance(domain, str) and domain.strip():
+        domains.append(domain.strip().rstrip(".").lower()[:253])
+    found = {}
+    if ips:
+        found["ips"] = ips[:MAX_INDICATORS]
+    if domains:
+        found["domains"] = domains[:MAX_INDICATORS]
+    return found or None
+
+
 def _normalize(event):
     src = event.get("source", "")
     detail = event.get("detail", {})
@@ -141,6 +191,9 @@ def _normalize(event):
             "finding_type": detail.get("type"),
             "resource": json.dumps(detail.get("resource", {}))[:1024],
             "created_at": detail.get("createdAt") or event.get("time"),
+            # Kept for threat-intelligence enrichment; absent when the finding
+            # names no public address or domain.
+            "indicators": _indicators(detail),
         }
     if src == "aws.securityhub":
         findings = detail.get("findings", [{}])

@@ -96,6 +96,58 @@ def test_guardduty_event_is_normalized(normalizer):
     assert out["finding_type"] == "Backdoor:EC2/C&CActivity.B!DNS"
 
 
+def _guardduty(action, finding_type="UnauthorizedAccess:EC2/SSHBruteForce"):
+    return {"source": "aws.guardduty", "account": "111122223333", "region": "us-east-1",
+            "time": "2026-01-01T00:00:00Z",
+            "detail": {"id": "gd-1", "severity": 5.0, "title": "t", "type": finding_type,
+                       "resource": {"instanceDetails": {"instanceId": "i-123"}},
+                       "createdAt": "2026-01-01T00:00:00Z",
+                       "service": {"action": action}}}
+
+
+def test_the_remote_end_of_a_connection_is_kept_as_an_indicator(normalizer):
+    """GuardDuty puts the other party under remoteIpDetails, for a connection,
+    an API call, a Kubernetes call or a database login alike."""
+    for key in ("networkConnectionAction", "awsApiCallAction", "kubernetesApiCallAction",
+                "rdsLoginAttemptAction"):
+        out = normalizer._normalize(_guardduty({key: {"remoteIpDetails": {"ipAddressV4": "45.33.32.156"}}}))
+        assert out["indicators"] == {"ips": ["45.33.32.156"]}, key
+
+
+def test_a_port_probe_keeps_each_prober_once_and_only_so_many(normalizer):
+    probes = [{"remoteIpDetails": {"ipAddressV4": f"45.33.32.{n}"}} for n in range(1, 15)]
+    probes.insert(0, {"remoteIpDetails": {"ipAddressV4": "45.33.32.1"}})  # a repeat
+    out = normalizer._normalize(_guardduty({"portProbeAction": {"portProbeDetails": probes}},
+                                           "Recon:EC2/PortProbeUnprotectedPort"))
+    assert out["indicators"]["ips"][:2] == ["45.33.32.1", "45.33.32.2"]
+    assert len(out["indicators"]["ips"]) == normalizer.MAX_INDICATORS
+
+
+def test_a_dns_request_keeps_the_domain_normalised(normalizer):
+    out = normalizer._normalize(_guardduty({"dnsRequestAction": {"domain": " Evil.Example.NET. "}},
+                                           "Backdoor:EC2/C&CActivity.B!DNS"))
+    assert out["indicators"] == {"domains": ["evil.example.net"]}
+
+
+def test_private_documentation_and_malformed_addresses_are_not_indicators(normalizer):
+    """A VPC-internal address names the victim's own network, not an attacker,
+    and the documentation ranges are what GuardDuty's sample findings use;
+    either would only spend threat-intelligence lookups on nothing."""
+    for address in ("10.0.0.5", "172.16.3.4", "192.168.1.1", "127.0.0.1", "169.254.169.254",
+                    "198.51.100.7", "203.0.113.9", "fe80::1", "not an ip", "", None):
+        out = normalizer._normalize(_guardduty({"networkConnectionAction": {"remoteIpDetails": {"ipAddressV4": address}}}))
+        assert out["indicators"] is None, address
+
+
+def test_a_finding_without_an_action_block_stores_no_indicators(normalizer):
+    out = normalizer._normalize(_guardduty({}))
+    assert out["indicators"] is None
+    # And the attribute is left off the item rather than stored as a null.
+    with mock.patch.object(normalizer, "_table") as table:
+        normalizer._persist(out)
+    assert "indicators" not in table.put_item.call_args.kwargs["Item"]
+
+
 def test_securityhub_event_is_normalized(normalizer):
     event = {
         "source": "aws.securityhub",

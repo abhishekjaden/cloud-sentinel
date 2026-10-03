@@ -203,6 +203,24 @@ def _incident_id(account, resource, first_seen):
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
 
 
+# How many of each kind of indicator an incident carries, across its findings.
+MAX_INDICATORS = 20
+
+
+def _indicators(findings):
+    """The public addresses and domains the incident's findings name, each
+    once, in the order the findings were seen: the normalizer extracts them
+    per finding, the enricher looks them up per incident."""
+    merged = {"ips": [], "domains": []}
+    for finding in findings:
+        found = finding.get("indicators") or {}
+        for kind in merged:
+            for value in found.get(kind) or []:
+                if value not in merged[kind] and len(merged[kind]) < MAX_INDICATORS:
+                    merged[kind].append(value)
+    return merged
+
+
 def _build_incident(account, resource, entries):
     findings = [item for _, item in entries]
     stages = {_stage(f.get("finding_type")) for f in findings}
@@ -228,6 +246,7 @@ def _build_incident(account, resource, entries):
         "finding_types": sorted({f.get("finding_type", "?") for f in findings}),
         "finding_ids": [f.get("finding_id") for f in findings][:50],
         "sources": sorted({f.get("source", "?") for f in findings}),
+        "indicators": _indicators(findings),
         "correlated_at": datetime.now(timezone.utc).isoformat(),
     }
 

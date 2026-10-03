@@ -258,3 +258,38 @@ def test_a_run_that_fails_publishes_nothing(correlator, capsys):
     with pytest.raises(RuntimeError):
         correlator.handler({}, None)
     assert _metric_lines(capsys) == []
+
+
+def test_an_incident_carries_its_findings_indicators_once_each(correlator):
+    """Every public address or domain the findings named, in the order seen,
+    each once: the enricher looks them up per incident, not per finding."""
+    probe = _finding(30, "Recon:EC2/PortProbeUnprotectedPort")
+    probe["indicators"] = {"ips": ["45.33.32.156", "185.220.101.4"]}
+    brute = _finding(20, "UnauthorizedAccess:EC2/SSHBruteForce")
+    brute["indicators"] = {"ips": ["185.220.101.4"]}
+    c2 = _finding(10, "Backdoor:EC2/C&CActivity.B!DNS")
+    c2["indicators"] = {"domains": ["evil.example.net"]}
+    plain = _finding(5, "Trojan:EC2/DropPoint")  # no indicators at all
+
+    entries = sorted(((correlator._parse_ts(f["created_at"]), f) for f in (probe, brute, c2, plain)),
+                     key=lambda e: e[0])
+    incident = correlator._build_incident("111122223333", "i-0abc", entries)
+    assert incident["indicators"] == {"ips": ["45.33.32.156", "185.220.101.4"],
+                                      "domains": ["evil.example.net"]}
+
+
+def test_an_incident_without_indicators_still_has_the_shape(correlator):
+    entries = [(correlator._parse_ts(f["created_at"]), f) for f in [_finding(5, "Trojan:EC2/DropPoint")]]
+    assert correlator._build_incident("111122223333", "i-0abc", entries)["indicators"] == {"ips": [], "domains": []}
+
+
+def test_indicators_are_capped_per_incident(correlator):
+    findings = []
+    for n in range(30):
+        f = _finding(30 - n, "Recon:EC2/PortProbeUnprotectedPort", finding_id=f"p{n}")
+        f["indicators"] = {"ips": [f"45.33.32.{n + 1}"]}
+        findings.append(f)
+    entries = [(correlator._parse_ts(f["created_at"]), f) for f in findings]
+    incident = correlator._build_incident("111122223333", "i-0abc", entries)
+    assert len(incident["indicators"]["ips"]) == correlator.MAX_INDICATORS
+    assert incident["indicators"]["ips"][0] == "45.33.32.1"
