@@ -2,119 +2,253 @@
 
 A self-assessment of CloudSentinel against the six pillars of the
 [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/).
-The intent is an honest evaluation — each pillar lists what the design does well
-*and* where it falls short, with remediation noted for the gaps. A review that
-only records strengths is not a review.
+Each pillar lists what the design does well *and* where it falls short, with
+the next step for each gap. A review that only records strengths is not a
+review.
 
-Reviewed at: end of build (~Day 27). Scope: the deployed CloudSentinel platform
-across the four-account organization.
+**Reviewed twice.** The first review was written at the end of the build
+(day 27). This second one, on 3 October 2026, records what changed since —
+most of the first review's gaps were closed by the hardening that followed it
+— and what the gaps are now. Where a v1 gap is closed, it is kept here with
+how, because a review that forgets its own history cannot show progress.
+
+Scope: the deployed platform across the four-account organisation, including
+the components added since v1: incident correlation, advisory triage by a
+language model, threat-intelligence enrichment, the incident report, the
+control-change watch and the honeypot.
 
 ---
 
 ## 1. Operational Excellence
 
 **Strengths**
-- All durable infrastructure is defined in AWS CDK (TypeScript) and version-controlled; environments are reproducible from code.
-- Architecture decisions are captured as ADRs, so the *why* behind non-obvious choices is documented, not just the *what*.
-- The ingestion pipeline emits structured logs (the normalizer records each `NORMALIZED_FINDING`), and remediation runs are fully traceable through Step Functions execution history.
-- Teardown/redeploy is a routine, proven operation — the ephemeral compute stack redeploys from code in ~7 minutes.
+- All durable infrastructure is AWS CDK in TypeScript, synthesised with
+  cdk-nag on every push; every accepted finding carries a written reason in
+  `cdk/lib/nag-suppressions.ts`.
+- Three test suites run in CI before anything deploys: 297 backend tests at a
+  93% coverage floor of 80%, 100 CDK assertion tests, 76 frontend tests. The
+  CDK tests pin security properties rather than resource counts: what each
+  function may touch, what the API may read and never write, that every
+  alarm is documented and every documented alarm exists.
+- Deployment is a GitHub Actions workflow under OIDC federation (no stored
+  AWS keys), with `cdk diff` printed before `cdk deploy` so each run's log
+  records what was about to change. Semgrep and gitleaks run on every push
+  and weekly.
+- Decisions are ADRs (six so far), objectives are `docs/slos.md` with a
+  "when it fires" response under each alarm, the threat model is STRIDE
+  across eight boundaries, and the evaluation of the one component whose
+  output comes from a model has a written protocol
+  (`docs/triage-eval-protocol.md`).
+- Every function publishes its own counts as Embedded Metric Format lines;
+  the SLO dashboard reads them, and a test checks that every metric the
+  dashboard reads is emitted by something deployed.
+- A post-deploy smoke test checks the deployed pieces reach each other —
+  written after a deploy once shipped a dashboard pointing at localhost
+  while every unit test passed.
 
-**Gaps / remediation**
-- No CI/CD pipeline yet; deploys are run manually from the CLI. A CodePipeline or GitHub Actions workflow with `cdk diff` gating would be the next step.
-- No automated tests around the Lambda normalizer or the API beyond manual validation. Unit tests on the schema-normalization logic would harden it.
-- Runbooks are informal (captured in notes rather than a published operations doc).
+**Closed since v1**
+- *No CI/CD* → the workflows above.
+- *No automated tests* → the three suites above.
+- *Informal runbooks* → `docs/slos.md` is the runbook, one response per
+  alarm.
+
+**Gaps / next step**
+- One environment. There is no staging stack; a change is tested by its
+  suites and `cdk diff`, then deployed to the only environment there is. A
+  second environment is a matter of a second account and a context flag,
+  and is deferred on cost.
+- The API stack deploys by hand, on demand. That is the cost decision below,
+  but it means the API's deploy path is exercised less often than the rest.
+- `scripts/measure.py` and `scripts/flood_findings.py` exist to measure
+  latency, cost and behaviour under load (`docs/evaluation.md`); the figures
+  they produce are not yet in this document.
 
 ---
 
 ## 2. Security
 
 **Strengths**
-- Multi-account isolation via AWS Organizations and Control Tower: security tooling is centralized in a dedicated Audit account, workloads are separated, and logs are archived in their own account.
-- Detection is broad and native: GuardDuty, Security Hub, and Inspector, aggregated organization-wide through delegated administration.
-- Least-privilege IAM: the API task role is scoped to exactly the DynamoDB table, model object, and state machine it needs.
-- Authentication is enforced at the API, not just the UI — every data route validates a Cognito-issued JWT against the pool's JWKS; unauthenticated calls receive 401. Self sign-up is disabled and the password policy requires 12+ characters.
-- The authorization-code + PKCE flow is used rather than the deprecated implicit grant.
-- TLS everywhere the platform is reachable: ACM certificate on the ALB, HTTP→HTTPS redirect, CloudFront serving the dashboard over HTTPS.
-- Remediation is human-gated — destructive playbooks pause for approval, preventing automated actions from causing damage.
+- Multi-account isolation under Control Tower: security tooling and the
+  platform in the Audit account, training in the Workload account, logs in
+  their own account, the organisation root alone in Management.
+- Detection is native and organisation-wide — GuardDuty, Security Hub and
+  Inspector under delegated administration — and the controls themselves are
+  watched: a change to the state machine, a rule, a key, GuardDuty, a
+  function, a role, a table or the alarms that did not come through the CDK
+  execution role is reported with the caller's identity and recorded for a
+  year (SLO 8). The rules cover their own names.
+- Least privilege written out action by action and pinned by tests: the API
+  reads findings only through named indexes and holds no `Scan` on them,
+  reads incidents and never writes them; the triage function can write only
+  its own notes; the enricher only its own cache; the remediation executor's
+  wildcard is the one accepted risk, recorded at the statement.
+- Authentication is enforced at the API (every data route validates a
+  Cognito JWT against the pool's JWKS), with authorization-code + PKCE, not
+  the deprecated implicit grant. CORS is restricted to the dashboard origin.
+- Human-gated remediation with the Step Functions task token held
+  server-side: an approval requires an authenticated API call and is
+  attributed to the operator who made it. Possession of a mailbox is not
+  authority.
+- A language model reads attacker-controlled text and is given no authority
+  (ADR 0005): finding data is escaped as untrusted, answers must fit one
+  validated schema, injection attempts are flagged, and the function's
+  permissions make an action impossible whatever the model says. Twenty-one
+  of twenty-one evaluation runs at the current prompt, with eighteen injection
+  attempts flagged.
+- Data at rest under a customer-managed KMS key for every table, usable only
+  through DynamoDB; TLS enforced on the queue and the topic; the API
+  container runs as a non-root user; findings text is escaped before it
+  reaches the PDF report, with a test that reads the PDF back.
+- The one component that sends anything outside the account — the enricher,
+  to two threat-intelligence feeds — sends only the indicator, over TLS with
+  verification, to two fixed hosts, and is recorded as a trust boundary
+  (B8). The honeypot that invites attack is built to be worthless to whoever
+  gets in: no credential, no login, no outbound rule, its own network.
 
-**Gaps / remediation**
-- The Cognito user base is a single administrator; there is no role/group separation (e.g. read-only analyst vs. approver). Cognito groups mapped to API scopes would add this.
-- MFA is available in the pool configuration but not enforced. It should be required before any real multi-user use.
-- Secrets are minimal (no long-lived credentials in the app; the task role supplies AWS access), but there is no formal secrets-rotation posture documented.
+**Closed since v1**
+- *No secrets-rotation posture* → the only secret is the pair of
+  third-party API keys, in Secrets Manager, rotated at the provider; the
+  rotation finding is accepted with its reason.
+- *Least privilege asserted, not tested* → tested, per function and per
+  table.
+
+**Gaps / next step**
+- Single administrator, no roles. Cognito groups mapped to API scopes
+  (analyst, approver) would separate reading from approving.
+- MFA is not enforced on the user pool. Required before any multi-user use.
+- Single-account blast radius: the Audit account's administrator reads every
+  finding and can disable the key (threat model, residual risk 1).
+- A change pushed *through* the deployment pipeline looks like a deploy; the
+  control-change watch does not see it (residual risk 2).
+- The normalizer trusts what reaches it; no schema validation at ingestion
+  (residual risk 3). No WAF (residual risk 4, accepted on cost).
 
 ---
 
 ## 3. Reliability
 
 **Strengths**
-- Serverless and managed services (Lambda, Kinesis, DynamoDB, Step Functions, Fargate behind an ALB) carry AWS-managed availability rather than hand-rolled HA.
-- The Fargate service runs behind an Application Load Balancer with health checks on `/health`; the ALB spans two Availability Zones.
-- DynamoDB and S3 provide durable storage with no single point of failure for the finding data.
-- Step Functions gives the remediation workflow built-in retry/catch semantics and durable execution state.
+- Managed services throughout — Lambda, Kinesis, DynamoDB, Step Functions,
+  Fargate behind an ALB — carry AWS-managed availability; the ALB spans two
+  Availability Zones and health-checks `/health`.
+- Nothing is dropped quietly. A finding the normalizer fails on is handed
+  back by sequence number and delivered again; only when retries are
+  exhausted is it reported to a failure queue, which is what the
+  findings-stored objective alarms on. Writes are keyed on the finding, so a
+  redelivery overwrites rather than duplicates.
+- Every table has point-in-time recovery. The failure queue and the alarm
+  topic enforce TLS; the queue is server-side encrypted.
+- The triage function asks a malformed answer again once, after measurement
+  showed the model malforms roughly one answer in twenty-one; the enricher
+  retries a failed provider within the hour rather than caching the failure
+  for a week.
+- Eight objectives, each with an alarm that notifies on firing and on
+  clearing, and a dashboard that graphs recoveries separately from losses.
+  Silence from the correlator is treated as a breach.
+- The ECS deployment uses a circuit breaker with rollback and never drops
+  below the running task count during a deploy.
 
-**Gaps / remediation**
-- The Fargate service currently runs a single task (desired count 1) — fine for a portfolio demo, but a production posture would run ≥2 tasks across AZs behind the ALB.
-- Kinesis runs a single shard; adequate for current volume but would need resharding under real load.
-- No disaster-recovery plan or cross-region strategy; the platform is single-region (us-east-1).
-- No automated backup/restore drill for DynamoDB (point-in-time recovery could be enabled).
+**Closed since v1**
+- *PITR could be enabled* → enabled on every table.
+- *No failure handling at ingestion* → partial batch failures, retries, the
+  failure queue, and the objective that watches it.
+
+**Gaps / next step**
+- Single Fargate task, single Kinesis shard, single Region. Appropriate for
+  the volume; named rather than hidden. A second task is a one-line change;
+  resharding is a capacity decision the flow metrics would signal.
+- No disaster-recovery drill. PITR is enabled but a restore has never been
+  rehearsed.
+- The chaos experiments in `docs/chaos-experiments.md` — malformed input, a
+  function denied its table, a schedule disabled, a flood — are written with
+  their expected signals but not yet run; their outcomes belong here.
 
 ---
 
 ## 4. Performance Efficiency
 
 **Strengths**
-- Compute is right-sized deliberately (ADR 0001): ECS Fargate rather than EKS, avoiding Kubernetes overhead for a single API service.
-- DynamoDB access on the findings path is entirely index-driven: a severity GSI for the severity filter and a source/time GSI for the newest-first listing, which is merged from one bounded query per source rather than read from the table and sorted in memory. `/stats` counts a partition at a time, so a summary transfers nothing. The API task role holds no `dynamodb:Scan` on the findings table, which is what keeps it that way.
-- The dashboard is a static SPA served from CloudFront, so global read latency is low and the origin bucket stays private behind Origin Access Control.
-- The ML model is a gradient-boosted tree (fast inference, small footprint) rather than a heavyweight network, matching the tabular-flow problem.
+- Compute is right-sized (ADR 0001): Fargate rather than EKS for one API
+  service; a gradient-boosted tree for tabular flows rather than a network.
+- The findings path is entirely index-driven: a severity index and a
+  source/time index, each read with a bounded query, `/stats` counting a
+  partition at a time. The API holds no `Scan` on findings, which keeps it
+  that way.
+- Threat-intelligence lookups are cached a week per indicator and bounded
+  to ten a run, so a flood of new addresses spreads its lookups over hours.
+- The dashboard is a static SPA on CloudFront behind Origin Access Control.
+- API latency is an objective (p95 under two seconds) with its own alarm
+  while the API is deployed.
 
-**Gaps / remediation**
-- Two paths still read a whole table: `/incidents` scans the incidents table, and the correlator scans the findings table on every run. Both are aggregates over everything — the correlator has to see findings together to group them — so an index would change how they read rather than how much, and the correlator's run time is graphed against its timeout for when that stops being true.
-- The frontend bundle is above the 500 kB warning threshold (Recharts is heavy); code-splitting would improve first-load performance.
-- No load testing has been completed to establish p95/p99 latency under concurrency (planned).
+**Gaps / next step**
+- Two whole-table reads remain: `/incidents` scans the incidents table and
+  the correlator scans the findings table each run. Both are aggregates over
+  everything, so an index would change how they read rather than how much;
+  the correlator's run time is graphed against its timeout for when that
+  stops being true.
+- The frontend bundle is above the 500 kB warning (Recharts); code-splitting
+  would improve first load.
+- Latency under load is unmeasured. The flood script drives the pipeline at
+  ten times its volume and the measurement script reads the result from the
+  tables' timestamps; the numbers are pending (`docs/evaluation.md`).
 
 ---
 
 ## 5. Cost Optimization
 
 **Strengths**
-- Teardown discipline is the primary cost lever: the expensive serving layer (ALB, NAT, Fargate) is destroyed when idle and redeployed on demand, keeping the idle baseline near $20/month.
-- Cost is actively measured, not assumed — a monthly AWS Budget with alerts at 50/80/100% is in place, and Cost Explorer was used to attribute spend by service.
-- An unused OpenSearch domain (~$25/month, no producers or consumers) was identified and decommissioned (ADR 0004) — a measured removal rather than resume-driven retention.
-- The persistent DNS/cert stack is separated from ephemeral compute, so redeploys don't re-validate certificates and don't leave costly resources behind.
+- Teardown is the primary lever: the serving layer (ALB, NAT, Fargate) is
+  destroyed between sessions and redeploys from code in about seven minutes.
+  The idle baseline is about $15–20 a month; the API adds about $1.60 a day
+  while up.
+- Cost is measured, not assumed: a monthly budget with alerts, Cost Explorer
+  attribution by service, and `scripts/measure.py` reporting cost per
+  thousand findings for a period.
+- Spend that bought nothing was removed when measured: an idle OpenSearch
+  domain (ADR 0004, ~$25 a month).
+- The additions since v1 cost almost nothing: the model triage well under a
+  dollar a month at current volume, the threat-intelligence feeds on free
+  tiers with a cache that keeps them there, the observability stack within
+  CloudWatch's free allowance but for a couple of dollars, the honeypot
+  about $3 a month while it exists.
 
-**Gaps / remediation**
-- The NAT gateway is the largest line item when the API is up (~$32/month while running). For a demo-only posture, a VPC endpoint or a NAT-instance alternative could reduce this.
-- No use of Savings Plans or Spot — appropriate at this scale, but noted.
-- Manual teardown is effective but depends on discipline; a scheduled auto-teardown (EventBridge → Lambda) would make idle-cost control automatic.
+**Gaps / next step**
+- The NAT gateway is the largest item while the API is up. VPC endpoints for
+  the services the task calls would remove most of its traffic.
+- Teardown depends on discipline. A scheduled teardown would make idle-cost
+  control automatic.
+- No Savings Plans or Spot; appropriate at this scale.
 
 ---
 
 ## 6. Sustainability
 
 **Strengths**
-- Serverless and on-demand compute means resources are consumed only when needed; the platform does not run idle server fleets.
-- Teardown-when-idle directly reduces energy footprint, not just cost.
-- Right-sized compute (small Fargate task, single-shard Kinesis, a lightweight tree model) avoids over-provisioning.
+- Serverless and on-demand: nothing runs idle but the small, persistent
+  pieces, and the serving layer exists only while in use.
+- Right-sized by default: a small Fargate task, one shard, a tree model, a
+  `t4g.nano` honeypot on Graviton.
 
-**Gaps / remediation**
-- Region selection (us-east-1) was driven by service availability, not carbon intensity; a lower-carbon region could be chosen where latency permits.
-- No measurement of the workload's actual resource-utilization efficiency (e.g. right-sizing the Fargate task from observed CPU/memory).
+**Gaps / next step**
+- Region chosen for service availability, not carbon intensity.
+- Fargate task size is not tuned from observed utilisation; the API's
+  metrics would show whether the task is oversized.
 
 ---
 
 ## Summary
 
-| Pillar | Posture |
-|--------|---------|
-| Operational Excellence | Strong IaC + ADRs; missing CI/CD and automated tests |
-| Security | Strong multi-account isolation, enforced auth, human-gated remediation; single-user, MFA not enforced |
-| Reliability | Managed-service backbone; single-task/single-shard/single-region for demo |
-| Performance Efficiency | Right-sized; findings served entirely from indexes; two whole-table aggregates and a heavy frontend bundle remain |
-| Cost Optimization | Actively measured and controlled; NAT is the main cost, teardown is manual |
-| Sustainability | On-demand and right-sized; region not carbon-optimized |
+| Pillar | v1 posture | v2 posture |
+|--------|-----------|-----------|
+| Operational Excellence | IaC + ADRs; no CI/CD, no tests | CI with three suites and cdk-nag, OIDC deploys, SLO runbook; single environment |
+| Security | Isolation, enforced auth, gated remediation; single user, no MFA | The above plus tested least privilege, server-side approval tokens, contained model triage, control-change alarms, a bounded egress boundary; single user, no MFA, pipeline-borne changes unseen |
+| Reliability | Managed backbone; single task/shard/Region | Retries and a failure queue with an objective on it, PITR everywhere, resampling and retry in the advisory components; single task/shard/Region, chaos experiments written but unrun |
+| Performance Efficiency | Right-sized; index-driven findings | The above plus a bounded, cached enrichment path; two whole-table aggregates, load figures pending |
+| Cost Optimization | Measured and controlled; NAT, manual teardown | The above with cost per thousand findings measurable; NAT, manual teardown |
+| Sustainability | On-demand, right-sized | On-demand, right-sized, Graviton where there is a choice |
 
-The recurring theme is deliberate: CloudSentinel is built to production-*grade* standards
-(isolation, IaC, enforced auth, human-gated response, measured cost) while making
-demo-appropriate simplifications (single task, single region, manual deploys) that are
-named here rather than hidden. Each gap has a concrete next step.
+The theme has not changed: production-*grade* standards — isolation, IaC,
+enforced auth, gated response, tested privilege, measured cost — with
+demo-appropriate simplifications named rather than hidden. What changed is
+that the first review's largest gaps, no pipeline and no tests, are the parts
+of the system a reviewer can now check most easily.

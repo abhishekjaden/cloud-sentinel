@@ -95,6 +95,10 @@ headline figures are inflated by documented feature leakage in CICIDS2017 — th
 Bot class, at 0.648 precision, is the one result the dataset does not make
 trivial.
 
+What has been measured, and what each number is allowed to mean, is in
+[`docs/evaluation.md`](docs/evaluation.md); the platform is reviewed against the
+six Well-Architected pillars, twice, in [`docs/well-architected-review.md`](docs/well-architected-review.md).
+
 The system is threat-modelled in [`docs/threat-model.md`](docs/threat-model.md),
 a STRIDE analysis across seven trust boundaries. It records mitigations where
 they exist and residual risks where they do not — that audit-account
@@ -133,7 +137,7 @@ backend/      FastAPI service (app/), Dockerfile
 frontend/     React + TypeScript SOC dashboard (Vite)
 ml/           CICIDS2017 processing, training, evaluation, models
 playbooks/    SOAR remediation playbook definitions
-scripts/      attack simulation + load testing
+scripts/      measurement, findings flood (load test), triage evaluation, smoke test
 docs/adr/     architecture decision records
 screenshots/  evidence captures
 ```
@@ -146,7 +150,7 @@ Built over ~27 working days. Everything described above is deployed and verified
 
 **Deferred / in progress:**
 - Evaluating the triage model on cases it did not grow up with. Its seven cases are written by the same hand as its prompt and are all synthetic; [`docs/triage-eval-protocol.md`](docs/triage-eval-protocol.md) is the procedure for the next set — cases written blind and labelled first, and real findings from an on-demand honeypot instance (`CloudSentinel-Honeypot`: no credential, no login, no egress) — and the results are not yet in ([ADR 0005](docs/adr/0005-advisory-llm-triage.md) records what has been measured so far: three runs of seven cases in September, 20 of 21, three more in October at the revised prompt, 21 of 21, all eighteen injection attempts flagged).
-- Formal Well-Architected review and cost report.
+- Running the measurements: `scripts/measure.py` reads latency and cost per thousand findings from the tables, `scripts/flood_findings.py` drives the pipeline at ten times its volume, and `docs/chaos-experiments.md` holds four experiments with their expected signals. One is run; the figures from the rest go in [`docs/evaluation.md`](docs/evaluation.md).
 - Final documentation and demo video.
 
 This is a production-*grade* portfolio project — screenshot-backed and conservatively described — not a commercial production service.
