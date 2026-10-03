@@ -137,6 +137,8 @@ def test_the_stage_table_is_the_correlator_s(app_module):
     correlator = _lambda("correlator")
     assert attack.STAGE_BY_PURPOSE == correlator.STAGE_BY_PURPOSE
     assert attack.STAGE_ORDER == correlator.STAGE_ORDER
+    # Every stage but the two that are not tactics places on the matrix.
+    assert set(attack.STAGE_ORDER) - set(attack.TACTICS) == {"policy-violation", "unknown"}
 
 
 def test_severity_buckets_are_the_normalizer_s(app_module):

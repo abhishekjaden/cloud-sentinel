@@ -79,13 +79,21 @@ STAGE_BY_PURPOSE = {
     "Policy": "policy-violation",
     "PenTest": "reconnaissance",
     "Stealth": "defense-evasion",
+    # The purposes GuardDuty's CloudTrail-derived detections use, named after
+    # ATT&CK tactics directly. "AttackSequence" is left out on purpose: such a
+    # finding summarises several stages, and the findings it summarises carry
+    # their own.
+    "InitialAccess": "initial-access",
+    "DefenseImpairment": "defense-evasion",
+    "LateralMovement": "lateral-movement",
+    "ResourceDevelopment": "resource-development",
 }
 
 STAGE_ORDER = [
-    "reconnaissance", "initial-access", "credential-access", "discovery",
-    "execution", "persistence", "privilege-escalation", "defense-evasion",
-    "command-and-control", "exfiltration", "impact", "policy-violation",
-    "unknown",
+    "reconnaissance", "resource-development", "initial-access", "credential-access",
+    "discovery", "execution", "persistence", "privilege-escalation", "defense-evasion",
+    "lateral-movement", "command-and-control", "exfiltration", "impact",
+    "policy-violation", "unknown",
 ]
 
 

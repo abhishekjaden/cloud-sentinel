@@ -1,6 +1,6 @@
 # Evaluating the triage model on cases it did not grow up with
 
-The seven cases in `scripts/triage_eval_cases.json` were written by the same
+The twelve cases in `scripts/triage_eval_cases.json` were written by the same
 hand that wrote the prompt, so they test what was anticipated ([ADR
 0005](adr/0005-advisory-llm-triage.md)). Passing them three times over is
 evidence that the containment holds on those cases and a measured rate for
@@ -132,7 +132,7 @@ not a detection rate, and the project does not quote one.
 
 | Source | Writer | Blind to the prompt | Label by |
 |---|---|---|---|
-| The seven existing cases | the prompt's author | no | the author |
+| The twelve existing cases | the prompt's author (for the last five, the project's author picked the finding types in the console; the scenarios and labels are still the prompt author's) | no | the author |
 | Hand-written set | the project's author, before re-reading the prompt | partly — they wrote it weeks ago | the writer; disagreements adjudicated with the project guide |
 | Honeypot incidents | nobody | yes | the project's author, then the guide |
 | Cases from a second person | a classmate or the guide, given this document | yes | the writer |

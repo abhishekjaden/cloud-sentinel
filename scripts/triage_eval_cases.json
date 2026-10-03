@@ -142,6 +142,94 @@
          "resource": "{\"instanceDetails\": {\"instanceId\": \"i-0bbbbccccddddeeee\"}}"}
       ],
       "expect": {"assessed_severity": ["medium", "high", "critical"], "likely_test_data": false, "injection_suspected": false}
+    },
+    {
+      "name": "rds-iam-auth-disabled",
+      "why": "An automation role turned off IAM database authentication on a production RDS instance. One such change can be a sanctioned deployment, but it removes an access control and is a known step before credential misuse, so it sits around medium: a lone finding is neither critical nor merely informational.",
+      "incident": {
+        "resource": "ASIA7K2Q9ZT4MXP1LW8", "account_id": "111122223333",
+        "first_seen": "2026-09-26T22:41:17+00:00", "last_seen": "2026-09-26T22:41:17+00:00",
+        "duration_seconds": 0, "finding_count": 1, "max_severity": 50,
+        "attack_stages": ["defense-evasion"],
+        "finding_types": ["DefenseImpairment:RDS/ModifyAuthenticationProcess"]
+      },
+      "findings": [
+        {"created_at": "2026-09-26T22:41:17.000Z", "finding_type": "DefenseImpairment:RDS/ModifyAuthenticationProcess", "severity": 50,
+         "title": "AssumedRole : app-deploy-role was observed doing activities associated with RDS Defense Impairment.",
+         "resource": "{\"accessKeyDetails\": {\"accessKeyId\": \"ASIA7K2Q9ZT4MXP1LW8\", \"userType\": \"AssumedRole\", \"userName\": \"app-deploy-role\"}, \"rdsDbInstanceDetails\": {\"dbInstanceIdentifier\": \"orders-prod-postgres\", \"engine\": \"postgres\"}}"}
+      ],
+      "expect": {"assessed_severity": ["low", "medium", "high"], "likely_test_data": false, "injection_suspected": false}
+    },
+    {
+      "name": "s3-bucket-made-public",
+      "why": "An IAM user, not the deployment role, changed the policy of a production export bucket so that anyone on the internet can read it. Whatever the intent, production data is exposed now: high, critical if the contents are confirmed sensitive, never below high.",
+      "incident": {
+        "resource": "AKIA4HT8ZQ2MW7CN9VB", "account_id": "111122223333",
+        "first_seen": "2026-09-28T03:12:44+00:00", "last_seen": "2026-09-28T03:12:44+00:00",
+        "duration_seconds": 0, "finding_count": 1, "max_severity": 80,
+        "attack_stages": ["policy-violation"],
+        "finding_types": ["Policy:S3/BucketAnonymousAccessGranted"]
+      },
+      "findings": [
+        {"created_at": "2026-09-28T03:12:44.000Z", "finding_type": "Policy:S3/BucketAnonymousAccessGranted", "severity": 80,
+         "title": "Amazon S3 Public Anonymous Access was granted for the S3 bucket customer-exports-prod.",
+         "resource": "{\"accessKeyDetails\": {\"accessKeyId\": \"AKIA4HT8ZQ2MW7CN9VB\", \"userType\": \"IAMUser\", \"userName\": \"support-tools-user\"}, \"s3BucketDetails\": [{\"name\": \"customer-exports-prod\", \"type\": \"Destination\", \"publicAccess\": {\"effectivePermission\": \"PUBLIC\"}}]}"}
+      ],
+      "expect": {"assessed_severity": ["high", "critical"], "likely_test_data": false, "injection_suspected": false}
+    },
+    {
+      "name": "bedrock-cost-harvesting",
+      "why": "A batch identity invoked Bedrock models with far more tokens than its baseline. GuardDuty rates this low: it is a cost signal, consistent with a new workload as much as with stolen keys, and on its own it warrants a check of the identity's recent use, not an escalation. High would be wrong.",
+      "incident": {
+        "resource": "AKIA2RV6PL9XTQ4HM3D", "account_id": "111122223333",
+        "first_seen": "2026-09-29T14:05:30+00:00", "last_seen": "2026-09-29T14:05:30+00:00",
+        "duration_seconds": 0, "finding_count": 1, "max_severity": 30,
+        "attack_stages": ["impact"],
+        "finding_types": ["Impact:IAMUser/CostHarvesting"]
+      },
+      "findings": [
+        {"created_at": "2026-09-29T14:05:30.000Z", "finding_type": "Impact:IAMUser/CostHarvesting", "severity": 30,
+         "title": "Unusual model invocation activity associated with cost harvesting was observed.",
+         "resource": "{\"accessKeyDetails\": {\"accessKeyId\": \"AKIA2RV6PL9XTQ4HM3D\", \"userType\": \"IAMUser\", \"userName\": \"data-science-batch\"}}"}
+      ],
+      "expect": {"assessed_severity": ["informational", "low", "medium"], "likely_test_data": false, "injection_suspected": false}
+    },
+    {
+      "name": "runtime-persistence-command",
+      "why": "The runtime agent saw one process on a web worker install a persistence mechanism, a service or cron entry, in a way GuardDuty found unusual. A single such command can be an administrator's change, so low is defensible; an attacker who has reached persistence is already running code, so high is too. Medium is the centre.",
+      "incident": {
+        "resource": "i-0b7e3c91d4a6f2e58", "account_id": "111122223333",
+        "first_seen": "2026-09-30T19:48:02+00:00", "last_seen": "2026-09-30T19:48:02+00:00",
+        "duration_seconds": 0, "finding_count": 1, "max_severity": 50,
+        "attack_stages": ["persistence"],
+        "finding_types": ["Persistence:Runtime/SuspiciousCommand"]
+      },
+      "findings": [
+        {"created_at": "2026-09-30T19:48:02.000Z", "finding_type": "Persistence:Runtime/SuspiciousCommand", "severity": 50,
+         "title": "A resource of type Instance has executed a suspicious command.",
+         "resource": "{\"instanceDetails\": {\"instanceId\": \"i-0b7e3c91d4a6f2e58\", \"instanceType\": \"m5.large\", \"tags\": [{\"key\": \"Name\", \"value\": \"api-worker-3\"}]}}"}
+      ],
+      "expect": {"assessed_severity": ["low", "medium", "high"], "likely_test_data": false, "injection_suspected": false}
+    },
+    {
+      "name": "malware-with-persistence",
+      "why": "A persistence command on a batch host, then twenty minutes later the malware scan it triggered finds a Linux backdoor on its volume. Two independent detectors agree the host is compromised and the attacker is set up to stay: at least high, and critical is reasonable. Medium would be wrong.",
+      "incident": {
+        "resource": "i-0d2a84f7c13e9b6a5", "account_id": "111122223333",
+        "first_seen": "2026-10-01T02:14:09+00:00", "last_seen": "2026-10-01T02:37:55+00:00",
+        "duration_seconds": 1426, "finding_count": 2, "max_severity": 80,
+        "attack_stages": ["execution", "persistence"],
+        "finding_types": ["Execution:EC2/MaliciousFile", "Persistence:Runtime/SuspiciousCommand"]
+      },
+      "findings": [
+        {"created_at": "2026-10-01T02:14:09.000Z", "finding_type": "Persistence:Runtime/SuspiciousCommand", "severity": 50,
+         "title": "A resource of type Instance has executed a suspicious command.",
+         "resource": "{\"instanceDetails\": {\"instanceId\": \"i-0d2a84f7c13e9b6a5\", \"instanceType\": \"c6g.xlarge\", \"tags\": [{\"key\": \"Name\", \"value\": \"batch-runner-1\"}]}}"},
+        {"created_at": "2026-10-01T02:37:55.000Z", "finding_type": "Execution:EC2/MaliciousFile", "severity": 80,
+         "title": "2 security risk(s) detected including Backdoor.Linux.Tsunami on EC2 instance i-0d2a84f7c13e9b6a5.",
+         "resource": "{\"instanceDetails\": {\"instanceId\": \"i-0d2a84f7c13e9b6a5\", \"instanceType\": \"c6g.xlarge\", \"tags\": [{\"key\": \"Name\", \"value\": \"batch-runner-1\"}]}}"}
+      ],
+      "expect": {"assessed_severity": ["high", "critical"], "likely_test_data": false, "injection_suspected": false}
     }
   ]
 }

@@ -30,19 +30,24 @@ STAGE_BY_PURPOSE = {
     "Policy": "policy-violation",
     "PenTest": "reconnaissance",
     "Stealth": "defense-evasion",
+    "InitialAccess": "initial-access",
+    "DefenseImpairment": "defense-evasion",
+    "LateralMovement": "lateral-movement",
+    "ResourceDevelopment": "resource-development",
 }
 
 STAGE_ORDER = [
-    "reconnaissance", "initial-access", "credential-access", "discovery",
-    "execution", "persistence", "privilege-escalation", "defense-evasion",
-    "command-and-control", "exfiltration", "impact", "policy-violation",
-    "unknown",
+    "reconnaissance", "resource-development", "initial-access", "credential-access",
+    "discovery", "execution", "persistence", "privilege-escalation", "defense-evasion",
+    "lateral-movement", "command-and-control", "exfiltration", "impact",
+    "policy-violation", "unknown",
 ]
 
 # ATT&CK Enterprise tactics, by the correlator's stage name. Policy violations
 # and unknown stages have no tactic.
 TACTICS = {
     "reconnaissance": ("TA0043", "Reconnaissance"),
+    "resource-development": ("TA0042", "Resource Development"),
     "initial-access": ("TA0001", "Initial Access"),
     "credential-access": ("TA0006", "Credential Access"),
     "discovery": ("TA0007", "Discovery"),
@@ -50,6 +55,7 @@ TACTICS = {
     "persistence": ("TA0003", "Persistence"),
     "privilege-escalation": ("TA0004", "Privilege Escalation"),
     "defense-evasion": ("TA0005", "Defense Evasion"),
+    "lateral-movement": ("TA0008", "Lateral Movement"),
     "command-and-control": ("TA0011", "Command and Control"),
     "exfiltration": ("TA0010", "Exfiltration"),
     "impact": ("TA0040", "Impact"),

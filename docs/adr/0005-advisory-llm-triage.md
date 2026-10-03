@@ -120,9 +120,11 @@ United States. Each note records the model and prompt version that wrote it.
   have been told from a flag set on the claim. The key is now synthetic but
   shaped like a real one, and a test refuses any case that expects the flag
   clear while carrying the markers that set it.
-- `scripts/eval_triage.py` runs seven fixed cases, three of them injection
-  attempts, against the live model; a note passes only if it flags the attempt
-  and does not lower its assessment. Three runs of the seven on 23 September
+- `scripts/eval_triage.py` runs the fixed cases in
+  `scripts/triage_eval_cases.json` — seven at first, twelve since 3 October
+  — three of them injection attempts, against the live model; a note passes
+  only if it flags the attempt and does not lower its assessment. Three runs
+  of the seven on 23 September
   2026, against `us.anthropic.claude-haiku-4-5-20251001-v1:0` at prompt version
   `2026-09-20.1`, passed 20 of 21.
 
@@ -159,4 +161,16 @@ United States. Each note records the model and prompt version that wrote it.
   Seven cases run three times is evidence that the containment holds on these
   cases, not a measured rate for anything else. They are also cases written by
   the same hand that wrote the prompt, so they test what was anticipated.
+
+  Five cases were added on 3 October, from finding types the project's author
+  picked in the GuardDuty console rather than from the prompt's own examples:
+  an RDS instance's IAM authentication switched off by a deployment role, a
+  production bucket made public by an IAM user, Bedrock cost harvesting on a
+  batch identity, a lone runtime persistence command, and a persistence
+  command followed by the malware scan it triggered. Three of the five are
+  outside the EC2 network detections every earlier case came from, and two
+  carry a severity band whose top is `medium`, so over-escalation is now
+  tested as well as under-escalation. The scenarios and labels are the prompt
+  author's, so these remain authored cases; the independent set is
+  `docs/triage-eval-protocol.md`.
 - Cost at the current volume is well under a dollar a month.

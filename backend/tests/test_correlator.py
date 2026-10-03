@@ -220,6 +220,25 @@ def test_stages_are_ordered_along_the_kill_chain_not_by_arrival(correlator):
     assert stages == ["reconnaissance", "command-and-control", "impact"]
 
 
+def test_the_cloudtrail_derived_purposes_have_a_stage(correlator):
+    """GuardDuty's newer detections name their purpose after the ATT&CK tactic
+    itself (InitialAccess, DefenseImpairment, LateralMovement); until these
+    were mapped, a disabled database authentication read as "unknown"."""
+    assert correlator._stage("DefenseImpairment:RDS/ModifyAuthenticationProcess") == "defense-evasion"
+    assert correlator._stage("InitialAccess:RDS/ExploitPublicFacingApplication") == "initial-access"
+    assert correlator._stage("LateralMovement:EC2/RemoteServices") == "lateral-movement"
+    assert correlator._stage("ResourceDevelopment:SES/CompromiseAccounts") == "resource-development"
+    # A sequence finding summarises several stages; it gets none of its own.
+    assert correlator._stage("AttackSequence:IAM/CompromisedCredentials") == "unknown"
+    # Every stage a purpose maps to has a place in the order, and the two new
+    # ones sit where the chain puts them: tooling before access, movement
+    # before the callback.
+    assert set(correlator.STAGE_BY_PURPOSE.values()) <= set(correlator.STAGE_ORDER)
+    order = correlator.STAGE_ORDER
+    assert order.index("resource-development") < order.index("initial-access")
+    assert order.index("defense-evasion") < order.index("lateral-movement") < order.index("command-and-control")
+
+
 # ------------------------------------------------------------------- liveness
 # The incidents-current alarm treats silence as failure: a run publishes one
 # count as its last act, and 45 minutes without one raises the alarm.
