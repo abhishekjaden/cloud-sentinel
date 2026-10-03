@@ -195,7 +195,7 @@ the findings key for deletion, replace a function's code, drop a table, or
 delete these alarms — and CloudTrail records every one.
 
 **Measured by** CloudTrail management events, as EventBridge delivers them,
-matched by eleven rules (`cloudsentinel-control-*`) that cover:
+matched by twelve rules (`cloudsentinel-control-*`) that cover:
 
 | Area | Calls |
 |---|---|
@@ -205,6 +205,7 @@ matched by eleven rules (`cloudsentinel-control-*`) that cover:
 | GuardDuty | detector deleted or updated, members or the administrator disassociated, organisation configuration or publishing destination changed, and a trusted-IP set or a filter created or updated — the two ways to silence findings without touching the detector |
 | The platform's functions (`CloudSentinel-*`) | code or configuration updated, function deleted, reserved concurrency set (zero disables a function); the normalizer's stream mapping updated or deleted |
 | The platform's tables (`cloudsentinel-*`) | `DeleteTable`, `UpdateTable`, `UpdateTimeToLive`, `UpdateContinuousBackups` |
+| The platform's IAM roles (`CloudSentinel-*`, as CloudFormation names them after their stacks) | `PutRolePolicy`, `DeleteRolePolicy`, `AttachRolePolicy`, `DetachRolePolicy`, `UpdateAssumeRolePolicy`, `PutRolePermissionsBoundary`, `DeleteRole` — the way a function is silenced without touching it: deny its role a write |
 | These alarms and their topic | `DeleteAlarms`, `DisableAlarmActions`, `PutMetricAlarm` on `cloudsentinel-slo-*`; `DeleteTopic`, `SetTopicAttributes`, `RemovePermission`, `Unsubscribe` on `cloudsentinel-alarms` |
 
 Each rule leaves out one caller: a session under the CDK bootstrap execution

@@ -78,6 +78,9 @@ describe('what counts as a change to a control', () => {
     ['aws.dynamodb', 'DeleteTable', { tableName: 'cloudsentinel-findings' }],
     ['aws.dynamodb', 'UpdateTimeToLive', { tableName: 'cloudsentinel-intel' }],
     ['aws.dynamodb', 'UpdateContinuousBackups', { tableName: 'cloudsentinel-incidents' }],
+    ['aws.iam', 'PutRolePolicy', { roleName: 'CloudSentinel-Ingestion-NormalizerServiceRole7A4B-1AB2C3', policyName: 'deny' }],
+    ['aws.iam', 'AttachRolePolicy', { roleName: 'CloudSentinel-Api-ApiServiceTaskDefTaskRole-X' }],
+    ['aws.iam', 'UpdateAssumeRolePolicy', { roleName: 'CloudSentinel-Remediation-ExecutorRole-Y' }],
     ['aws.monitoring', 'DeleteAlarms', { alarmNames: ['cloudsentinel-slo-findings-stored'] }],
     ['aws.monitoring', 'DisableAlarmActions', { alarmNames: ['x', 'cloudsentinel-slo-controls-unchanged'] }],
     ['aws.sns', 'DeleteTopic', { topicArn: topic }],
@@ -91,6 +94,7 @@ describe('what counts as a change to a control', () => {
     ['aws.lambda', 'UpdateFunctionCode20150331v2', { functionName: 'OtherTeam-Function' }],
     ['aws.dynamodb', 'DeleteTable', { tableName: 'other-table' }],
     ['aws.monitoring', 'DeleteAlarms', { alarmNames: ['other-alarm'] }],
+    ['aws.iam', 'PutRolePolicy', { roleName: 'SomeOtherRole', policyName: 'x' }],
     ['aws.states', 'DescribeStateMachine', { stateMachineArn: machine }],
   ])('%s %s on something else is not', (source, eventName, request) => {
     expect(watched(source, eventName, request)).toBe(false);

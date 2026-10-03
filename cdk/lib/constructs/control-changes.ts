@@ -12,7 +12,9 @@ import { ALARM_TOPIC_NAME, CDK_QUALIFIER, STATE_MACHINE_NAME } from '../names';
  *  it is emitted by a metric filter rather than by a handler. */
 export const CONTROL_CHANGES_METRIC = { namespace: 'CloudSentinel/Controls', metricName: 'ControlChanges' };
 
-/** Every platform function's name begins with this; the watch relies on it. */
+/** Every platform function's name begins with this, and so does every role
+ *  CloudFormation names after one of the platform's stacks; the watch relies
+ *  on both. */
 export const WATCHED_FUNCTION_PREFIX = 'CloudSentinel-';
 
 /** Where every out-of-band change is kept, one event each, for a year. */
@@ -144,6 +146,17 @@ export class ControlChanges extends Construct {
         id: 'Tables', what: "one of the platform's tables", source: 'aws.dynamodb',
         eventNames: ['DeleteTable', 'UpdateTable', 'UpdateTimeToLive', 'UpdateContinuousBackups'],
         requestParameters: { tableName: [{ prefix: 'cloudsentinel-' }] },
+      },
+      {
+        // CloudFormation names every role it creates after its stack, so the
+        // platform's roles share the prefix its stacks do. IAM is a global
+        // service; its CloudTrail events arrive in us-east-1, where this runs.
+        id: 'Roles', what: "one of the platform's IAM roles", source: 'aws.iam',
+        eventNames: [
+          'PutRolePolicy', 'DeleteRolePolicy', 'AttachRolePolicy', 'DetachRolePolicy',
+          'UpdateAssumeRolePolicy', 'PutRolePermissionsBoundary', 'DeleteRole',
+        ],
+        requestParameters: { roleName: [{ prefix: WATCHED_FUNCTION_PREFIX }] },
       },
       {
         id: 'Alarms', what: 'an objective alarm', source: 'aws.monitoring',
