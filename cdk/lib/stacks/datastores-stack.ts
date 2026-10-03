@@ -6,7 +6,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import { RemovalPolicy } from 'aws-cdk-lib/core';
 import { suppressLambdaBaseline } from '../nag-suppressions';
-import { TRIAGE_TABLE_NAME } from '../names';
+import { INTEL_TABLE_NAME, TRIAGE_TABLE_NAME } from '../names';
 
 export class DataStoresStack extends cdk.Stack {
   public readonly findingsTable: dynamodb.Table;
@@ -14,6 +14,7 @@ export class DataStoresStack extends cdk.Stack {
   public readonly approvalsTable: dynamodb.Table;
   public readonly incidentsTable: dynamodb.Table;
   public readonly triageTable: dynamodb.Table;
+  public readonly intelTable: dynamodb.Table;
   public readonly modelsBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -127,6 +128,22 @@ export class DataStoresStack extends cdk.Stack {
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: this.findingsKey,
+    });
+
+    // Threat-intelligence verdicts, one row per indicator (an address or a
+    // domain an incident names), written only by the enricher and read by the
+    // API, the report and the triage function. A cache as much as a record:
+    // rows expire a week after the lookup — or within the hour when a provider
+    // failed — so the free-tier feeds are asked about each indicator once.
+    this.intelTable = new dynamodb.Table(this, 'IntelTable', {
+      tableName: INTEL_TABLE_NAME,
+      partitionKey: { name: 'indicator', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: this.findingsKey,
+      timeToLiveAttribute: 'expires_at',
     });
 
     // Serving-side model artifacts. Models trained in the workload account are

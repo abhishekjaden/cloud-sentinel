@@ -22,6 +22,7 @@ import { IngestionStack } from '../lib/stacks/ingestion-stack';
 import { ObservabilityStack } from '../lib/stacks/observability-stack';
 import { RemediationStack } from '../lib/stacks/remediation-stack';
 import { TriageStack } from '../lib/stacks/triage-stack';
+import { IntelStack } from '../lib/stacks/intel-stack';
 
 const audit = { env: env(ACCOUNTS.audit) };
 // Synthesized with the app's own feature flags from cdk.json, as `cdk synth`
@@ -36,6 +37,7 @@ const stacks = {
   remediation: new RemediationStack(app, 'TestRemediation', audit),
   observability: new ObservabilityStack(app, 'TestObservability', audit),
   triage: new TriageStack(app, 'TestTriage', audit),
+  intel: new IntelStack(app, 'TestIntel', audit),
   api: (() => {
     const dns = new DnsStack(app, 'TestDns', audit);
     return new ApiStack(app, 'TestApi', { ...audit, apiZone: dns.apiZone, apiCertificate: dns.apiCertificate });
@@ -45,6 +47,7 @@ const ingestion = Template.fromStack(stacks.ingestion);
 const remediation = Template.fromStack(stacks.remediation);
 const observability = Template.fromStack(stacks.observability);
 const triage = Template.fromStack(stacks.triage);
+const intel = Template.fromStack(stacks.intel);
 const api = Template.fromStack(stacks.api);
 
 const LAMBDA_DIR = path.join(__dirname, '..', 'lambda');
@@ -83,7 +86,7 @@ function counted(alarm: Props): string[] {
 
 // ---------------------------------------------------------------- tracing
 describe('tracing', () => {
-  const functions = [ingestion, remediation, triage]
+  const functions = [ingestion, remediation, triage, intel]
     .flatMap((t) => resources(t, 'AWS::Lambda::Function'));
 
   test('every function records X-Ray traces', () => {
@@ -107,7 +110,7 @@ describe('tracing', () => {
     // a function is replaced, as renaming them did.
     const invokers = ['AWS::Lambda::EventSourceMapping', 'AWS::Events::Rule', 'AWS::StepFunctions::StateMachine'];
     let checked = 0;
-    for (const t of [ingestion, remediation, triage]) {
+    for (const t of [ingestion, remediation, triage, intel]) {
       const all = t.toJSON().Resources as Record<string, any>;
       // A function's log group is named "/aws/lambda/" joined to a Ref to it.
       const logGroupOf = new Map<string, string>();
@@ -129,9 +132,9 @@ describe('tracing', () => {
       }
     }
     // the stream mapping, the correlation schedule, the high-severity rule, the
-    // state machine once for each of the two functions it invokes, and the
-    // triage schedule
-    expect(checked).toBe(6);
+    // state machine once for each of the two functions it invokes, the
+    // triage schedule and the enrichment schedule
+    expect(checked).toBe(7);
   });
 
   test('every function has the fixed name the alarms look it up by', () => {
@@ -330,7 +333,7 @@ function dashboardMetrics(t: Template): MetricRef[] {
 }
 
 describe('every metric the objectives read is emitted by something deployed', () => {
-  const both = [ingestion, remediation, triage];
+  const both = [ingestion, remediation, triage, intel];
   const deployed = {
     functions: new Set(both.flatMap((t) => resources(t, 'AWS::Lambda::Function').map((r) => r.FunctionName))),
     rules: new Set(both.flatMap((t) => resources(t, 'AWS::Events::Rule').map((r) => r.Name))),
@@ -345,6 +348,7 @@ describe('every metric the objectives read is emitted by something deployed', ()
     normalizer: fs.readFileSync(path.join(LAMBDA_DIR, 'normalizer', 'handler.py'), 'utf8'),
     correlator: fs.readFileSync(path.join(LAMBDA_DIR, 'correlator', 'handler.py'), 'utf8'),
     triage: fs.readFileSync(path.join(LAMBDA_DIR, 'triage', 'handler.py'), 'utf8'),
+    enricher: fs.readFileSync(path.join(LAMBDA_DIR, 'enricher', 'handler.py'), 'utf8'),
   };
 
   function check(m: MetricRef) {

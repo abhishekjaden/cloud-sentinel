@@ -105,6 +105,7 @@ Architecture decisions are recorded as ADRs in [`docs/adr/`](docs/adr/):
 - **[0003 — SageMaker domain bootstrapped via console](docs/adr/0003-sagemaker-domain-console-bootstrap.md):** the domain is environment setup; the pipeline is the asset and lives in code.
 - **[0004 — Decommission OpenSearch](docs/adr/0004-decommission-opensearch.md):** it had no producers or consumers while costing ~$25/month, so it was measured and removed.
 - **[0005 — Language-model triage is advisory and contained](docs/adr/0005-advisory-llm-triage.md):** the model reads attacker-controlled text, so it may draft a note but can never cause or prevent an action.
+- **[0006 — Threat-intelligence enrichment is cached, bounded and advisory](docs/adr/0006-threat-intel-enrichment.md):** the addresses and domains incidents name are looked up once a week in two free feeds, ten a run, and the verdict informs but never acts.
 
 Other decisions worth naming:
 

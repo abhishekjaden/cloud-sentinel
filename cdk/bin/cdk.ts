@@ -17,6 +17,7 @@ import { AuthStack } from '../lib/stacks/auth-stack';
 import { CicdStack } from '../lib/stacks/cicd-stack';
 import { ObservabilityStack } from '../lib/stacks/observability-stack';
 import { TriageStack } from '../lib/stacks/triage-stack';
+import { IntelStack } from '../lib/stacks/intel-stack';
 
 const app = new cdk.App();
 
@@ -92,4 +93,10 @@ const triage = new TriageStack(app, 'CloudSentinel-Triage', {
 // The triage function finds its table by name, so nothing orders the two
 // stacks unless this does: its first scheduled run must not precede the table.
 triage.addDependency(dataStores);
+const intel = new IntelStack(app, 'CloudSentinel-Intel', {
+  env: env(ACCOUNTS.audit),
+  description: 'CloudSentinel: threat-intelligence enrichment of incident indicators (Audit account)',
+});
+// Same reason as triage: the enricher finds its cache table by name.
+intel.addDependency(dataStores);
 app.synth();

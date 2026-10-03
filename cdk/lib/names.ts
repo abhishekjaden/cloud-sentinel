@@ -16,6 +16,7 @@ export const FUNCTION_NAMES = {
   executor: 'CloudSentinel-RemediationExecutor',
   approvalRecorder: 'CloudSentinel-ApprovalRecorder',
   triage: 'CloudSentinel-Triage',
+  enricher: 'CloudSentinel-Enricher',
 } as const;
 
 export const FINDINGS_STREAM_NAME = 'cloudsentinel-findings';
@@ -36,6 +37,10 @@ export const INGESTION_RULE_NAMES = {
 
 export const REMEDIATION_RULE_NAME = 'cloudsentinel-highsev-remediation';
 export const TRIAGE_TABLE_NAME = 'cloudsentinel-triage';
+/** Threat-intelligence verdicts by indicator, written only by the enricher. */
+export const INTEL_TABLE_NAME = 'cloudsentinel-intel';
+/** The providers' API keys, as a JSON secret the operator fills in. */
+export const INTEL_SECRET_NAME = 'cloudsentinel/threat-intel';
 export const STATE_MACHINE_NAME = 'cloudsentinel-remediation';
 export const ALARM_TOPIC_NAME = 'cloudsentinel-alarms';
 

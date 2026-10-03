@@ -219,3 +219,22 @@ export function suppressModelInvocation(stack: Stack, foundationModel: string): 
     },
   ], true);
 }
+
+/**
+ * The threat-intelligence API keys are issued by third parties and rotated at
+ * the provider, by hand; AWS cannot rotate them.
+ */
+export function suppressThirdPartyKeyRotation(secret: IConstruct): void {
+  NagSuppressions.addResourceSuppressions(secret, [
+    {
+      id: 'AwsSolutions-SMG4',
+      reason:
+        'The secret holds API keys for AbuseIPDB and AlienVault OTX, which only ' +
+        'those providers can issue. Automatic rotation would need a rotation ' +
+        'function that logs in to each provider and mints a new key, which ' +
+        'neither offers an API for. The keys are rotated at the provider and ' +
+        'pasted in, and the enricher reads the secret once per container, so a ' +
+        'new value takes effect at the next cold start.',
+    },
+  ]);
+}

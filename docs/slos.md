@@ -212,15 +212,31 @@ twenty-one — and the second ask is normally good, so *answers asked for again*
 rising is the prompt or the model drifting, and it moves well before *answers
 given up on* does.
 
+## Threat-intelligence enrichment
+
+The enricher ([ADR 0006](adr/0006-threat-intel-enrichment.md)) has no objective
+either: a verdict informs an analyst, and an incident without one is still
+correlated, triaged and reported. Its runs — indicators looked up, answered
+from the cache, provider failures, function errors, indicators still waiting
+and providers configured — share the row below triage on the SLO dashboard.
+
+*Providers configured* is the line to glance at after a deploy. The stack
+creates the providers' secret with empty keys so it deploys before the operator
+has any; until the keys are filled in that line reads zero, every indicator
+waits, and no error reports it. *Indicators awaiting a lookup* climbing while
+*looked up* stays at ten a run is the per-run budget doing its job during a
+flood, not a fault.
+
 ## Cost
 
 | Item | Count | Free each month |
 |---|---|---|
 | Alarm metrics (a metric-math alarm is billed per metric it reads) | 11, plus 4 while the API is up | 10 |
-| Custom metrics (published by the handlers, 6 of them by triage) | 9 | 10 |
+| Custom metrics (published by the handlers, 6 by triage, 6 by the enricher) | 15 | 10 |
 | Dashboards | 2 | 3 |
 | X-Ray traces | a few thousand to tens of thousands | 100,000 |
 
 Within CloudWatch's free allowance — which an AWS Organization shares across its
-accounts — the objectives cost about $0.20 a month. With none of it available
-they would cost about $5 a month, most of it the dashboard.
+accounts — the objectives cost about $1.70 a month, the five custom metrics past
+the free ten accounting for most of it. With none of it available they would
+cost about $7 a month, most of it the dashboard.

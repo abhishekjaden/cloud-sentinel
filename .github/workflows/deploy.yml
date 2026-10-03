@@ -26,6 +26,7 @@ env:
     CloudSentinel-Remediation
     CloudSentinel-Observability
     CloudSentinel-Triage
+    CloudSentinel-Intel
     CloudSentinel-Auth
     CloudSentinel-Dns
     CloudSentinel-Dashboard

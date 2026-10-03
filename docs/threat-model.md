@@ -35,6 +35,7 @@ AWS's own control plane, and the security of the operator's endpoint device.
 | B5 | Operator → Step Functions | **Approval decisions authorising destructive actions** |
 | B6 | GitHub Actions → AWS | OIDC-federated deployment |
 | B7 | Incidents → language model (Bedrock) | Attacker-influenced finding text in; advisory triage notes out |
+| B8 | Platform → threat-intelligence providers (AbuseIPDB, AlienVault OTX) | The addresses and domains incidents name out; reputation verdicts in |
 
 B5 is the boundary that distinguishes this system from a passive dashboard: a
 human decision on one side causes irreversible change on the other.
@@ -112,6 +113,22 @@ names — are chosen by whoever caused the finding.
 | **I** | Finding data sent to a model | Stays within AWS; a US inference profile keeps processing in US Regions; the platform does not enable Bedrock invocation logging, so prompts are not stored | Account IDs and resource names are sent. |
 | **D** | Exhausting the model quota or budget | Re-triage only when an incident changes; five incidents a run; a throttled run stops | A flood of incidents delays notes; it does not raise cost beyond the cap. |
 | **E** | Model output gaining authority | The function cannot write incidents or findings, or touch Step Functions or SNS; the note is shown as advisory plain text beside the computed severity | None known: no path from a note to an action exists. |
+
+### B8 — Platform → threat-intelligence providers
+
+The enricher sends the public addresses and domains that open incidents name
+to AbuseIPDB and AlienVault OTX and keeps their verdicts
+([ADR 0006](adr/0006-threat-intel-enrichment.md)). This is the only boundary
+across which anything leaves the account to a party other than AWS.
+
+| Threat | Vector | Mitigation | Residual |
+|---|---|---|---|
+| **S** | A forged provider answer | TLS with certificate and hostname verification to two fixed hosts; each request carries the provider's API key | A provider's own data can be wrong or poisoned; a verdict is labelled indicative everywhere it appears and nothing acts on it. |
+| **T** | An indicator shaped to reach somewhere else | The value becomes part of a path, never a host or scheme; only a public address or a plain hostname (labels of letters, digits and inner hyphens) is sent, and the handler validates this itself rather than trusting the normalizer | None known. |
+| **R** | No record of what was asked | Every lookup is a row with the providers asked, the time and the expiry; runs log a summary and publish metrics | Rows expire after a week; there is no permanent log of lookups. |
+| **I** | Disclosure of what the organisation is seeing | Only the indicator is sent — no account, resource, finding or incident detail — and each indicator is sent once a week at most | The providers learn which addresses and domains appear in this organisation's findings. For a security operations platform that is the service; it is listed here because it is new. |
+| **D** | Exhausting the providers' free tiers | Ten lookups a run, a seven-day cache, a one-hour retry on failure; a flood spreads over hours rather than spending the day's quota | A sustained flood of new indicators delays verdicts. It does not raise cost: both feeds are free. |
+| **E** | A verdict gaining authority | The enricher writes only its own table and holds nothing that acts; the API, report and triage model read verdicts and act on none of them | None known: no path from a verdict to an action exists. |
 
 ---
 

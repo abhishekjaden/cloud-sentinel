@@ -339,6 +339,34 @@ export class ObservabilityStack extends cdk.Stack {
           }),
         ],
         [
+          new cloudwatch.GraphWidget({
+            title: 'Threat-intelligence enrichment — no objective: a verdict informs, it protects nothing',
+            width: 24, height: 5,
+            left: [
+              published('IntelLookups', 'enricher', 'indicators looked up', Duration.minutes(15)),
+              published('IntelCacheHits', 'enricher', 'answered from the cache', Duration.minutes(15)),
+              published('IntelProviderErrors', 'enricher', 'provider failures', Duration.minutes(15)),
+              errors(fn('enricher'), 'enricher errors'),
+            ],
+            right: [
+              new cloudwatch.Metric({
+                namespace: METRIC_NAMESPACE, metricName: 'IntelAwaitingLookup',
+                dimensionsMap: { Component: 'enricher' }, statistic: 'Maximum',
+                period: Duration.minutes(15), label: 'indicators awaiting a lookup',
+              }),
+              // Zero here means the keys were never filled in: every indicator
+              // then waits forever, which no error would report.
+              new cloudwatch.Metric({
+                namespace: METRIC_NAMESPACE, metricName: 'IntelProvidersConfigured',
+                dimensionsMap: { Component: 'enricher' }, statistic: 'Minimum',
+                period: Duration.minutes(15), label: 'providers configured',
+              }),
+            ],
+            leftYAxis: { min: 0, showUnits: false },
+            rightYAxis: { min: 0, showUnits: false },
+          }),
+        ],
+        [
           new cloudwatch.TextWidget({
             width: 24, height: 3,
             markdown: [
