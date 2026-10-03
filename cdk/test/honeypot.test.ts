@@ -7,7 +7,7 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Template } from 'aws-cdk-lib/assertions';
 import { ACCOUNTS, env } from '../lib/config';
-import { HONEYPOT_PORTS, HoneypotStack } from '../lib/stacks/honeypot-stack';
+import { HONEYPOT_PORTS, INSTANCE_GENERATION, HoneypotStack } from '../lib/stacks/honeypot-stack';
 
 const app = new cdk.App();
 const stack = new HoneypotStack(app, 'TestHoneypot', { env: env(ACCOUNTS.workload) });
@@ -39,6 +39,21 @@ describe('the honeypot instance', () => {
     const [root] = instance.BlockDeviceMappings;
     expect(root.Ebs).toEqual(expect.objectContaining({ Encrypted: true, DeleteOnTermination: true }));
     expect(instance.DisableApiTermination).toBeUndefined();
+  });
+
+  test('serves its lure page as nobody, with the one capability that binding port 80 needs', () => {
+    const script = Buffer.from(instance.UserData['Fn::Base64'], 'utf8').toString();
+    expect(script).toContain('http.server 80');
+    expect(script).toContain('User=nobody');
+    expect(script).toContain('AmbientCapabilities=CAP_NET_BIND_SERVICE');
+    expect(script).toContain('NoNewPrivileges=yes');
+    // The script never installs or downloads anything: there is no egress.
+    expect(script).not.toMatch(/dnf|yum|curl|wget|pip/);
+  });
+
+  test('is replaced, not merely updated, when its first-boot script changes', () => {
+    const [id] = Object.keys(t.findResources('AWS::EC2::Instance'));
+    expect(id).toBe(`Instance${INSTANCE_GENERATION}`);
   });
 
   test('lives in the workload account, never beside the platform', () => {

@@ -16,6 +16,13 @@ import { suppressLambdaBaseline } from '../nag-suppressions';
 export const HONEYPOT_PORTS = [22, 23, 80, 443, 3306, 3389, 5900, 8080];
 
 /**
+ * User data runs once, at an instance's first boot, so changing it does
+ * nothing to an instance that already exists. Bumping this replaces the
+ * instance, which is the only way a changed script takes effect.
+ */
+export const INSTANCE_GENERATION = 2;
+
+/**
  * HoneypotStack — deploys to the workload account (743181156000), on demand.
  *
  * One small instance that exists to be attacked, so the platform sees real
@@ -95,7 +102,10 @@ export class HoneypotStack extends cdk.Stack {
       "cat > /etc/systemd/system/lure-web.service <<'EOF'",
       '[Unit]', 'Description=honeypot web listener', 'After=network.target',
       '[Service]', 'ExecStart=/usr/bin/python3 -m http.server 80 --directory /srv/www',
-      'User=nobody', 'Restart=always',
+      // An unprivileged user cannot bind port 80 on its own; the one
+      // capability that allows it is granted, and nothing else.
+      'User=nobody', 'AmbientCapabilities=CAP_NET_BIND_SERVICE',
+      'CapabilityBoundingSet=CAP_NET_BIND_SERVICE', 'NoNewPrivileges=yes', 'Restart=always',
       '[Install]', 'WantedBy=multi-user.target',
       'EOF',
       'systemctl daemon-reload',
@@ -128,6 +138,7 @@ export class HoneypotStack extends cdk.Stack {
     // attachment must exist before the instance boots, or user data runs
     // before the subnet is reachable.
     instance.node.addDependency(vpc);
+    instance.overrideLogicalId(`Instance${INSTANCE_GENERATION}`);
     NagSuppressions.addResourceSuppressions(instance, [
       {
         id: 'AwsSolutions-EC28',
