@@ -122,6 +122,16 @@ describe('AuthStack', () => {
     });
   });
 
+  test('multi-factor authentication is required, by authenticator app only', () => {
+    // The Well-Architected review carried "MFA is not enforced" for two
+    // versions while the pool required it; the claim is pinned here so the
+    // documents and the pool cannot disagree again.
+    t.hasResourceProperties('AWS::Cognito::UserPool', {
+      MfaConfiguration: 'ON',
+      EnabledMfas: ['SOFTWARE_TOKEN_MFA'],
+    });
+  });
+
   test('the SPA client uses authorization-code flow, never the deprecated implicit grant', () => {
     t.hasResourceProperties('AWS::Cognito::UserPoolClient', {
       AllowedOAuthFlows: ['code'],

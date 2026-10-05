@@ -25,8 +25,8 @@ control-change watch and the honeypot.
 - All durable infrastructure is AWS CDK in TypeScript, synthesised with
   cdk-nag on every push; every accepted finding carries a written reason in
   `cdk/lib/nag-suppressions.ts`.
-- Three test suites run in CI before anything deploys: 297 backend tests at a
-  93% coverage floor of 80%, 100 CDK assertion tests, 76 frontend tests. The
+- Three test suites run in CI before anything deploys: 299 backend tests at a
+  93% coverage floor of 80%, 101 CDK assertion tests, 76 frontend tests. The
   CDK tests pin security properties rather than resource counts: what each
   function may touch, what the API may read and never write, that every
   alarm is documented and every documented alarm exists.
@@ -84,7 +84,10 @@ control-change watch and the honeypot.
   wildcard is the one accepted risk, recorded at the statement.
 - Authentication is enforced at the API (every data route validates a
   Cognito JWT against the pool's JWKS), with authorization-code + PKCE, not
-  the deprecated implicit grant. CORS is restricted to the dashboard origin.
+  the deprecated implicit grant, and TOTP multi-factor authentication required
+  on the pool — pinned by a CDK test, after this review carried "MFA is not
+  enforced" for two versions while the pool required it. CORS is restricted
+  to the dashboard origin.
 - Human-gated remediation with the Step Functions task token held
   server-side: an approval requires an authenticated API call and is
   attributed to the operator who made it. Possession of a mailbox is not
@@ -117,7 +120,6 @@ control-change watch and the honeypot.
 **Gaps / next step**
 - Single administrator, no roles. Cognito groups mapped to API scopes
   (analyst, approver) would separate reading from approving.
-- MFA is not enforced on the user pool. Required before any multi-user use.
 - Single-account blast radius: the Audit account's administrator reads every
   finding and can disable the key (threat model, residual risk 1).
 - A change pushed *through* the deployment pipeline looks like a deploy; the
@@ -251,7 +253,7 @@ control-change watch and the honeypot.
 | Pillar | v1 posture | v2 posture |
 |--------|-----------|-----------|
 | Operational Excellence | IaC + ADRs; no CI/CD, no tests | CI with three suites and cdk-nag, OIDC deploys, SLO runbook; single environment |
-| Security | Isolation, enforced auth, gated remediation; single user, no MFA | The above plus tested least privilege, server-side approval tokens, contained model triage, control-change alarms, a bounded egress boundary; single user, no MFA, pipeline-borne changes unseen |
+| Security | Isolation, enforced auth with required MFA, gated remediation; single user, no roles | The above plus tested least privilege, server-side approval tokens, contained model triage, control-change alarms, a bounded egress boundary; single user, no roles, pipeline-borne changes unseen |
 | Reliability | Managed backbone; single task/shard/Region | Retries and a failure queue with an objective on it, PITR everywhere, resampling and retry in the advisory components; single task/shard/Region, chaos experiments written but unrun |
 | Performance Efficiency | Right-sized; index-driven findings | The above plus a bounded, cached enrichment path; two whole-table aggregates, load figures pending |
 | Cost Optimization | Measured and controlled; NAT, manual teardown | The above with cost per thousand findings measurable; NAT, manual teardown |
