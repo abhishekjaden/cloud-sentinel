@@ -15,7 +15,7 @@ separate change with its own test.
 
 | # | Experiment | Objectives exercised | Status |
 |---|---|---|---|
-| E1 | A record the normalizer cannot read | 1 (stored), 8 (controls) | not yet run |
+| E1 | A record the normalizer cannot read | 1 (stored), 8 (controls) | **run, 7 October 2026** |
 | E2 | The normalizer denied its table | 1, 2 (fresh), 8 | not yet run |
 | E3 | The correlation schedule disabled | 3 (current), 8 | not yet run |
 | E4 | Ten times the volume | 1, 2, 3 | not yet run |
@@ -48,9 +48,49 @@ both: `python scripts/flood_findings.py --count 1 --rate 1`.
    within five minutes of it.
 4. No control-change message: nothing about the platform was changed.
 
-**Observed.** _(date, each signal's arrival time or "did not arrive")_
+**Observed, 7 October 2026** (times UTC; the run was 00:55–01:15 IST). Two
+garbage records were sent rather than one: the first at 19:25:3x on its own —
+the sender's venv was inactive, so the finding that should have followed it
+failed to send — and the second at 19:26:4x, with the finding ten seconds
+behind it.
 
-**Rollback.** Purge the queue and the alarm clears at the next period:
+1. Each record was attempted three times and then given up on — `retryAttempts:
+   2`, as configured — but the attempts were **0.2–0.4 s apart within one
+   invocation** (19:25:39.47, 39.66, 40.05 under one request ID; 19:26:50.13,
+   50.35, 50.81 under another), not ten seconds apart as expected: Lambda
+   retries a reported batch failure immediately. The expectation was wrong
+   about the spacing and right about the count. The finding
+   (`flood-dwbr-000000`) was normalized once, at 19:27:00, by a separate
+   invocation, and the table held exactly one record for the flood account
+   afterwards — so it was not in the record's batch (the batching window is
+   ten seconds; it arrived just outside), and the partial-batch claim is
+   evidenced only indirectly: a record being given up on did not hold the
+   shard, and the finding behind it was stored once.
+2. The failures appear in the log as `Failed to process record <sequence>:
+   JSONDecodeError`, six lines in all; `RecordsFailed` was not read from the
+   dashboard during the run.
+3. Two messages in `cloudsentinel-failed-findings`, one per record, the first
+   at about 19:25:40. The alarm went **OK → ALARM at 19:28:37**, three
+   minutes after the first message, and **ALARM → OK at 19:34:37** after one
+   quiet five-minute window — before the queue was purged, with both messages
+   still in it. The alarm counts losses per window, as objective 1 says it
+   should; it does not track the queue's depth, so its state says a loss
+   happened, and the dashboard's *batches awaiting recovery* line says
+   whether it is still unrecovered. The rollback text below, and E2's fifth
+   expectation, had this the wrong way round; both are corrected here, before
+   E2 runs.
+4. No control-change message: the `/cloudsentinel/control-changes` log group
+   had no entry for the hour.
+
+Two side findings. The correlator's 19:30 run had already built an incident
+from the flood finding before the purge removed both, so the finding was real
+to the pipeline, not only to the table. And the sender's clock was about
+twelve seconds ahead of AWS's (the script stamped the finding 19:27:09; the
+normalizer stored it at 19:27:00) — see the note on E4.
+
+**Rollback** (done 19:40). Purge the queue and remove the flood finding; the
+alarm has already cleared on its own by then, and clearing it is not what the
+purge is for — the purge is what takes the loss off the dashboard:
 ```bash
 aws sqs purge-queue --profile cs-audit --queue-url "$(aws sqs get-queue-url --profile cs-audit --queue-name cloudsentinel-failed-findings --query QueueUrl --output text)"
 python scripts/flood_findings.py --purge
@@ -91,7 +131,9 @@ Leave the denial in place for twelve minutes, then remove it.
    the batch's sequence range from the stream, which retains 24 hours.)
 5. After rollback, the flood findings written after the denial are stored
    within a minute; findings-fresh and controls-unchanged return to OK on
-   their own; findings-stored returns to OK once the queue is purged.
+   their own; findings-stored returns to OK after one quiet window whether or
+   not the queue has been purged (corrected after E1 — the queue's depth is
+   on the dashboard, not in the alarm).
 
 **Observed.** _(date, each signal's arrival time or "did not arrive")_
 
@@ -154,6 +196,12 @@ and the triage function have each run twice:
 ```bash
 python scripts/measure.py --since <start time> --json docs/evaluation-e4.json
 ```
+
+Read `stored` (Kinesis arrival → write, both on AWS clocks) as the ingestion
+figure for a flood. Synthetic findings carry the sending machine's clock in
+`event_time`, and E1 found that clock twelve seconds ahead of AWS's, which
+would make `queued` and `ingested` read twelve seconds short — or negative.
+Real findings carry AWS's own timestamps and are unaffected.
 
 **Expected signals.**
 1. `sent 10000` with few or no resends: one shard takes a thousand records a

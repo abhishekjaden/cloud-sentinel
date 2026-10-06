@@ -100,6 +100,9 @@ them and the findings have to come from the console of the service that raised
 them; the queue keeps its pointers for 14 days either way, so the loss stays on
 the record after the records are gone. Delete a message once it is dealt with —
 the dashboard's *batches awaiting recovery* line is what is still outstanding.
+The alarm itself clears after one quiet five-minute window whether or not the
+message has been dealt with (E1, 7 October 2026): its state says a loss
+happened; the dashboard line says whether it is still unrecovered.
 
 ## 2. Findings are stored promptly — `cloudsentinel-slo-findings-fresh`
 

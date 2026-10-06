@@ -24,6 +24,7 @@ nearest-rank percentiles with the count behind each.
 | correlated | first finding seen → incident made (includes the 15-minute schedule) | | | | | pending |
 | triaged | incident made → note written (includes the schedule and the model) | | | | | pending |
 | control change reported | API call → message on the topic | 2 | < 1 min | < 1 min | < 1 min | 3 Oct 2026, E5 |
+| loss reported | failure-queue message → alarm | 1 | 3 min | 3 min | 3 min | 7 Oct 2026, E1 |
 
 The first three are filled from a normal week's traffic once the stamps have
 been in place for one (they were added on 3 October 2026), and again under
@@ -120,7 +121,8 @@ written blind and honeypot incidents — is the next row, when it exists.
 | Experiment | Objective | Result |
 |---|---|---|
 | E5, a control changed by hand | 8 | every expected signal, within a minute (`docs/chaos-experiments.md`) |
-| E1–E4 | 1, 2, 3, 8 | written, not yet run |
+| E1, a record the normalizer cannot read | 1, 8 | every expected signal; retries immediate rather than spaced, and the alarm clears itself after one quiet window — both recorded |
+| E2–E4 | 1, 2, 3, 8 | written, not yet run |
 
 ## 5. What the numbers are not
 
