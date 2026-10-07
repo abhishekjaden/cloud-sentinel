@@ -95,8 +95,10 @@ still admits only the load balancer), and replace the shard with a queue
 relies on). Both together bring always-on to about $50 net. Each is a
 decision, not a fix, and gets an ADR if taken.
 
-The honeypot, deployed 3 October, adds about $6.70 a month: $3.05 for the
-instance and $3.65 for its public address. The model triage stays well under
+The honeypot ran from 3 to 8 October — about ₹115 for four and a half days,
+half of it the public address — and was destroyed after raising no GuardDuty
+finding at all (`docs/triage-eval-protocol.md`, section 1). While it exists
+it costs about $6.70 a month. The model triage stays well under
 a dollar a month at current volume; the threat-intelligence feeds are free.
 
 ## 3. The advisory model
@@ -115,7 +117,8 @@ case against the live model:
 | 3 Oct 2026 | 2026-10-03.3 | 12 | 36/36 | 9/9 | rerun on the adjudicated band the same evening; every one of the 36 answers identical to the run before |
 
 These cases were written by the prompt's author. The independent set — cases
-written blind and honeypot incidents — is the next row, when it exists.
+written blind and honeypot incidents — is the next row, when it exists; the
+first honeypot run (3–8 October) produced no incidents to label.
 
 ## 4. The controls
 

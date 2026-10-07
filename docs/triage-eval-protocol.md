@@ -38,6 +38,21 @@ tables into the case format — the incident as `/incidents` returns it, the
 findings as the triage function reads them — and label it as below. The
 account ID stays; it is this project's.
 
+**First run, 3–8 October 2026: no findings.** The instance was up for four
+and a half days (deployed 07:14Z on the 3rd, destroyed 19:38Z on the 8th)
+with sshd listening on 22, password login off, a web lure on 80 and six more
+ports open with nothing behind them. GuardDuty raised nothing against it in
+that time — not a port probe, not a brute-force attempt — and it was
+destroyed rather than kept at about ₹25 a day; the run cost about ₹115.
+The result is recorded as the null it is. Plausible reasons, none confirmed:
+GuardDuty's brute-force detections key on sustained connection attempts in
+the flow data, and an sshd that refuses every password at the key exchange
+gives scanners little reason to persist; the port-probe finding needs the
+prober to be on GuardDuty's threat lists at the time; and four days may just
+be short. A second run, if one is wanted, should let brute force happen —
+sshd accepting password attempts against an account that has none — and run
+for at least a week.
+
 ## 2. The label comes first
 
 A case's `expect` block is written **before** the model is run on it, and is
