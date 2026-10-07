@@ -114,8 +114,17 @@ seconds, the batching window.
 backlog, not one retried batch. With no records arriving nothing is waiting, so
 missing data is not a breach.
 
-**When it fires.** The normalizer is falling behind or failing. Check its errors
-and duration, and the stream's write throttling, on the dashboard.
+**When it fires.** The normalizer is falling behind — slow writes, a long
+duration, write throttling on the stream. Check those on the dashboard.
+
+**What does not fire it.** A normalizer that *fails* rather than slows.
+Experiment E2 (`docs/chaos-experiments.md`) denied the normalizer its table for
+sixteen minutes: each batch was given up on within a second after its two
+retries, so iterator age never passed eleven seconds and this alarm stayed
+OK while objective 1 fired and every finding of the period went to the
+failure queue. Under the current retry policy a failing dependency is
+objective 1's event, not this one's; whether that should change is an open
+decision recorded with the experiment.
 
 ## 3. Incidents stay current — `cloudsentinel-slo-incidents-current`
 

@@ -163,9 +163,15 @@ control-change watch and the honeypot.
   resharding is a capacity decision the flow metrics would signal.
 - No disaster-recovery drill. PITR is enabled but a restore has never been
   rehearsed.
-- The chaos experiments in `docs/chaos-experiments.md` — malformed input, a
-  function denied its table, a schedule disabled, a flood — are written with
-  their expected signals but not yet run; their outcomes belong here.
+- Two of the four chaos experiments in `docs/chaos-experiments.md` have run.
+  E1 (malformed input) behaved as designed. E2 (the normalizer denied its
+  table) found that the ingestion retry policy — two immediate retries, then
+  the failure queue — loses every finding of a dependency outage to manual
+  recovery: sixteen minutes cost 200 of 200, recoverable only by replaying
+  the stream by hand. Retrying until a record is an hour old would hold the
+  shard and self-heal instead, at the price of a poison record blocking its
+  shard for an hour. The choice is open and belongs in an ADR; E3 and E4 are
+  still to run.
 
 ---
 

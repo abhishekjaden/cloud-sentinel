@@ -16,7 +16,7 @@ separate change with its own test.
 | # | Experiment | Objectives exercised | Status |
 |---|---|---|---|
 | E1 | A record the normalizer cannot read | 1 (stored), 8 (controls) | **run, 7 October 2026** |
-| E2 | The normalizer denied its table | 1, 2 (fresh), 8 | not yet run |
+| E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026** |
 | E3 | The correlation schedule disabled | 3 (current), 8 | not yet run |
 | E4 | Ten times the volume | 1, 2, 3 | not yet run |
 | E5 | A control changed by hand | 8 | **run, 3 October 2026** |
@@ -135,9 +135,51 @@ Leave the denial in place for twelve minutes, then remove it.
    not the queue has been purged (corrected after E1 — the queue's depth is
    on the dashboard, not in the alarm).
 
-**Observed.** _(date, each signal's arrival time or "did not arrive")_
+**Observed, 8 October 2026** (times UTC; 00:35–00:58 IST). The denial lasted
+15 min 42 s — `PutRolePolicy` at 19:05:41, `DeleteRolePolicy` at 19:21:23 —
+and 200 flood findings (run `klwt`) were sent under it at 19:07:29–19:07:39. A
+first 200 (run `56ou`) had gone through at 19:05:03–19:05:13, before the
+denial, by mistake; they were stored normally and serve as the control.
 
-**Rollback.**
+1. The watch reported `PutRolePolicy` and the alarm went to ALARM at 19:06:54 —
+   **73 seconds** after the API call. The `DeleteRolePolicy` of the rollback
+   was reported too, and the alarm, which had returned to OK at 19:21:54,
+   went back to ALARM at 19:22:54 — 91 seconds. Both messages carried the
+   operator's session identity.
+2. The normalizer's log held 603 `AccessDeniedException` lines for the run:
+   200 records × 3 immediate attempts, as E1 predicted, plus the odd line.
+3. **Iterator age peaked at 11.4 seconds** (one-minute maxima 0.8 s, 3.0 s,
+   9.3 s, 11.4 s) and findings-fresh never fired. The hypothesis expected
+   the age to climb for ten minutes; it could not, because the poller gave
+   each failed batch up within a second and moved on.
+4. Every denied record reached the failure queue: **3 messages, one per
+   batch**, covering all 200. findings-stored went to ALARM at 19:10:37 —
+   about three minutes after the first message — and back to OK at 19:17:37
+   after one quiet window, as E1 found.
+5. After the rollback, 10 fresh findings (run `3hxr`, 19:23:00) were stored
+   within the batching window. The denied 200 were not: the flood account's
+   count read 210 = 200 before the denial + 10 after it. The hypothesis's
+   "nothing is lost while the denial lasts" was wrong under the current retry
+   policy; the records were recoverable only by replaying the three sequence
+   ranges from the stream by hand, within its 24-hour retention, and the
+   purge below removed them with the rest instead.
+
+The side finding is the important one. The ingestion retry policy — two
+immediate retries, then the failure queue — is tuned to isolate a poison
+record (E1) at the price of losing every finding during a dependency outage
+to manual recovery (E2): a sixteen-minute denial cost 200 of 200. The
+alternative, retrying a record until it is an hour old, would hold the shard
+instead, so iterator age climbs, findings-fresh fires, and everything stores
+itself when the dependency returns — at the price of a poison record blocking
+its shard for up to an hour. Neither is free; which to prefer is a decision for
+an ADR, not a fix made here. Until it is taken, objective 2 describes a
+failure mode that cannot occur in this configuration, and is marked so.
+
+The correlator's 19:15 run built 50 incidents from the control findings
+before the purge removed them, one per flood instance: the pipeline behind
+the normalizer was unaffected throughout.
+
+**Rollback** (done 19:21:23 for the policy, 19:28 for the data).
 ```bash
 aws iam delete-role-policy --profile cs-audit --role-name "$ROLE" --policy-name chaos-deny-write
 ```
