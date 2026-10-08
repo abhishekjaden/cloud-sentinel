@@ -124,8 +124,10 @@ within a second, iterator age never passed eleven seconds, this alarm stayed
 OK, and every finding of the period went to the failure queue. ADR 0007
 changed the policy to retry for an hour so that a failing dependency holds
 the shard and is reported here, at ten minutes, while the records wait to be
-stored rather than leaving. The E2 re-run that checks this is in the chaos
-log.
+stored rather than leaving. The E2 re-run of 8 October confirmed it: a 25-minute
+denial held every record, iterator age climbed to 24 minutes, this alarm
+fired 10 min 30 s after the flood was sent, and all 50 findings were
+stored when the denial was lifted (`docs/chaos-experiments.md`).
 
 ## 3. Incidents stay current — `cloudsentinel-slo-incidents-current`
 

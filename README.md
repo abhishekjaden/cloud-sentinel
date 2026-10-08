@@ -151,7 +151,7 @@ Built over ~27 working days. Everything described above is deployed and verified
 
 **Deferred / in progress:**
 - Evaluating the triage model on cases it did not grow up with. Its twelve cases are written by the same hand as its prompt and are all synthetic; [`docs/triage-eval-protocol.md`](docs/triage-eval-protocol.md) is the procedure for the next set — cases written blind and labelled first, and real findings from an on-demand honeypot instance (`CloudSentinel-Honeypot`: no credential, no login, no egress) — and the results are not yet in ([ADR 0005](docs/adr/0005-advisory-llm-triage.md) records what has been measured so far: three runs of seven cases in September, 20 of 21, three more in October at the revised prompt, 21 of 21, all eighteen injection attempts flagged).
-- Running the measurements: `scripts/measure.py` reads latency and cost per thousand findings from the tables, `scripts/flood_findings.py` drives the pipeline at ten times its volume, and `docs/chaos-experiments.md` holds four experiments with their expected signals. One is run; the figures from the rest go in [`docs/evaluation.md`](docs/evaluation.md).
+- Running the measurements: `scripts/measure.py` reads latency and cost per thousand findings from the tables, `scripts/flood_findings.py` drives the pipeline at ten times its volume, and `docs/chaos-experiments.md` holds five experiments with their expected signals. Three are run, one of them twice — before and after the decision it forced (ADR 0007); the figures go in [`docs/evaluation.md`](docs/evaluation.md).
 - Final documentation and demo video.
 
 This is a production-*grade* portfolio project — screenshot-backed and conservatively described — not a commercial production service.

@@ -16,7 +16,7 @@ separate change with its own test.
 | # | Experiment | Objectives exercised | Status |
 |---|---|---|---|
 | E1 | A record the normalizer cannot read | 1 (stored), 8 (controls) | **run, 7 October 2026** |
-| E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026** |
+| E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day** |
 | E3 | The correlation schedule disabled | 3 (current), 8 | not yet run |
 | E4 | Ten times the volume | 1, 2, 3 | not yet run |
 | E5 | A control changed by hand | 8 | **run, 3 October 2026** |
@@ -190,6 +190,60 @@ aws iam delete-role-policy --profile cs-audit --role-name "$ROLE" --policy-name 
 This is itself reported by the watch — a second message, `DeleteRolePolicy` —
 which is the watch working, not a second incident. Then purge the queue and
 the flood findings as in E1.
+
+**Re-run under ADR 0007, 8 October 2026** (times UTC; 17:30–18:03 IST). The
+new policy — no retry count, a record retried until it is an hour old — was
+deployed that afternoon and the experiment repeated against it, with 50
+findings rather than 200: the question was no longer how many are lost but
+whether any are. Under the new policy the expectations change in two places.
+Signal 4 should *not* arrive — no batch exhausts inside an hour, so the queue
+stays empty and findings-stored stays OK — and signal 5 becomes the point:
+every record held in the stream is stored once the denial is lifted. Signal 1
+was not re-measured; the watch had reported both policy calls in the first
+run and nothing about it changed.
+
+The denial lasted 25 min 17 s — `PutRolePolicy` at 12:00:05, `DeleteRolePolicy`
+at 12:25:22 — and the 50 findings (run `q76h`) were sent under it at 12:03:45.
+
+2. The batch was handed back and delivered again for the whole of the
+   denial, and not continuously: the normalizer's per-minute iterator-age
+   samples show one failed delivery about every minute — twenty-two in
+   twenty-four minutes, with three minutes in which none came — after a
+   burst of immediate attempts in the first minute. Lambda's documentation
+   gives no interval for these retries, so this is an observation, not a
+   guarantee; it corrects the ADR's guess at what an hour of retries costs
+   (some sixty failed invocations, not ten thousand). The log was not read
+   this time; the age samples are the evidence, since a batch given up on
+   would have let the age fall.
+3. **Iterator age climbed for as long as the denial lasted**: 15 s in the
+   flood's first minute, 428 s at 12:10, 638 s when the alarm fired, 1,235 s
+   at 12:24 and **1,425 s (23 min 45 s) at 12:27**, the last delivery that
+   failed — the age of the flood's own records, held on the shard behind the
+   failing write. `cloudsentinel-slo-findings-fresh` went **OK → ALARM at
+   12:14:15**, 10 min 30 s after the flood was sent: two five-minute windows
+   over the threshold, as objective 2 was written. In the first run the same
+   alarm had never left OK.
+4. Did not arrive, as now expected: the failure queue held no message at any
+   point and findings-stored stayed OK throughout. Nothing went anywhere it
+   would have to be recovered from.
+5. After the rollback the held batch stored itself. The last failed delivery
+   was at about 12:27:25, two minutes after `DeleteRolePolicy` — IAM took
+   that long to propagate the deletion to the table's authorizer — and the
+   next one wrote: the flood account's count read 49 on one read and 50 on
+   the next, **50 of 50**, where the first run had stored 0 of 200.
+   findings-fresh returned to OK on its own at 12:33:15, 7 min 53 s after
+   the rollback, once the drained shard had been under the threshold for its
+   quiet windows.
+
+The price the ADR accepted is visible in the same figures: for twenty-four
+minutes the normalizer failed the same batch, once a minute, and anything
+behind it on the shard waited with it. That is what a dependency outage is
+meant to look like now — an alarm at ten minutes, a backlog that drains
+itself, and nothing to replay.
+
+**Rollback** (done 12:25:22 for the policy; the data stayed in place and was
+removed by the purge before E4). The same `delete-role-policy` as above; the
+queue had nothing to purge.
 
 ---
 

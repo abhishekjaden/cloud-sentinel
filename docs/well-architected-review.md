@@ -170,8 +170,10 @@ control-change watch and the honeypot.
   recovery: sixteen minutes cost 200 of 200, recoverable only by replaying
   the stream by hand. ADR 0007 changed the policy to retry until a record is
   an hour old, which holds the shard and self-heals at the price of a poison
-  record blocking its shard for an hour; the re-run that verifies it is in
-  the chaos log. E3 and E4 are still to run.
+  record blocking its shard for an hour. The same-day re-run verified it: a
+  25-minute denial lost nothing, findings-fresh fired at ten and a half minutes,
+  and all 50 findings stored when the denial was lifted. E3 and E4 are still
+  to run.
 
 ---
 

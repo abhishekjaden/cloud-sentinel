@@ -2,8 +2,10 @@
 
 ## Status
 Accepted, 2026-10-08, on the evidence of two chaos experiments
-(`docs/chaos-experiments.md`, E1 and E2). The re-run of E2 that verifies the
-change is recorded there.
+(`docs/chaos-experiments.md`, E1 and E2). Verified the same day by a re-run
+of E2, recorded there: a 25-minute denial of the table held all 50 findings on
+the shard, findings-fresh fired at 10 min 30 s, the failure queue stayed
+empty, and all 50 were stored when the denial was lifted.
 
 ## Context
 The normalizer reads the findings stream in batches and reports, per record,
@@ -18,8 +20,8 @@ Two experiments measured what the setting actually does.
 
 - **E1, a record that is not a finding.** Three attempts in under a second,
   one queue message, the findings around it unaffected. The isolation works,
-  and Lambda's retries for a stream source are immediate: there is no
-  backoff, so "two retries" means "two more tries in the same second".
+  and Lambda's first retries for a stream source are immediate, so "two
+  retries" means "two more tries in the same second".
 - **E2, the table denied for sixteen minutes.** Every batch of the period was
   given up on within a second of arriving. Iterator age never passed eleven
   seconds; the findings-fresh objective, written for exactly this failure,
@@ -54,10 +56,12 @@ stay as they were.
   poison record for longer; shorter would turn more outages into losses.
   The stream's 24-hour retention and the queue's 14-day pointers are
   unchanged, so recovery past the hour works as before.
-- Retrying is cheap. Lambda re-invokes immediately on failure, so an hour of
-  a denied table is on the order of ten thousand failed invocations: cents
-  of compute, a few megabytes of log, and a `RecordsFailed` line on the
-  dashboard that reads as retries rather than losses — which is what it is.
+- Retrying is cheap. The re-run showed Lambda delivering the failed batch
+  again about once a minute after a first burst of immediate attempts, so an
+  hour of a denied table is some sixty failed invocations (this decision as
+  first written guessed ten thousand, from E1's immediate retries): cents of
+  compute, a little log, and a `RecordsFailed` line on the dashboard that
+  reads as retries rather than losses — which is what it is.
 
 ## Consequences
 - Objective 2 (findings fresh) measures what it was written to measure.

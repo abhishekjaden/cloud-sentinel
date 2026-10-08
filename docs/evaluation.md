@@ -26,6 +26,7 @@ nearest-rank percentiles with the count behind each.
 | control change reported | API call → message on the topic | 2 | < 1 min | < 1 min | < 1 min | 3 Oct 2026, E5 |
 | control change alarmed | API call → alarm in ALARM | 2 | 1.4 min | 1.5 min | 1.5 min | 8 Oct 2026, E2 (73 s and 91 s) |
 | loss reported | failure-queue message → alarm | 1 | 3 min | 3 min | 3 min | 7 Oct 2026, E1 |
+| outage alarmed | first finding held by a failing write → findings-fresh in ALARM | 1 | 10.5 min | 10.5 min | 10.5 min | 8 Oct 2026, E2 re-run (ADR 0007) |
 
 The first three are filled from a normal week's traffic once the stamps have
 been in place for one (they were added on 3 October 2026), and again under
@@ -126,7 +127,7 @@ first honeypot run (3–8 October) produced no incidents to label.
 |---|---|---|
 | E5, a control changed by hand | 8 | every expected signal, within a minute (`docs/chaos-experiments.md`) |
 | E1, a record the normalizer cannot read | 1, 8 | every expected signal; retries immediate rather than spaced, and the alarm clears itself after one quiet window — both recorded |
-| E2, the normalizer denied its table | 1, 2, 8 | the denial reported in 73 s; but a 16-minute outage sent all 200 findings to the failure queue after immediate retries, iterator age peaked at 11 s and findings-fresh never fired — the retry policy isolates poison records at the cost of outages, now an open decision |
+| E2, the normalizer denied its table | 1, 2, 8 | the denial reported in 73 s; but a 16-minute outage sent all 200 findings to the failure queue after immediate retries, iterator age peaked at 11 s and findings-fresh never fired — the retry policy isolated poison records at the cost of outages. ADR 0007 changed it to an hour of retries; **re-run the same day**, a 25-minute denial lost nothing: iterator age climbed to 24 min, findings-fresh fired at 10.5 min, the queue stayed empty, and all 50 findings stored on rollback |
 | E3–E4 | 3, 1, 2 | written, not yet run |
 
 ## 5. What the numbers are not
