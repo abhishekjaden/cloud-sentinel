@@ -53,8 +53,8 @@ is gone:
 - batches Lambda gave up on (`NumberOfMessagesSent` on the
   `cloudsentinel-failed-findings` queue). The normalizer hands back the sequence
   number of every record it could not store, and Lambda rewinds the shard and
-  delivers those records again; only when the retries are exhausted does it
-  report the batch to that queue and move on.
+  delivers those records again, for up to an hour (ADR 0007); only when a
+  record is an hour old does it report the batch to that queue and move on.
 
 **What is not counted.** A record the normalizer fails on. It is retried, so a
 DynamoDB throttle or a slow write costs a retry rather than a finding, and
@@ -117,14 +117,15 @@ missing data is not a breach.
 **When it fires.** The normalizer is falling behind — slow writes, a long
 duration, write throttling on the stream. Check those on the dashboard.
 
-**What does not fire it.** A normalizer that *fails* rather than slows.
-Experiment E2 (`docs/chaos-experiments.md`) denied the normalizer its table for
-sixteen minutes: each batch was given up on within a second after its two
-retries, so iterator age never passed eleven seconds and this alarm stayed
-OK while objective 1 fired and every finding of the period went to the
-failure queue. Under the current retry policy a failing dependency is
-objective 1's event, not this one's; whether that should change is an open
-decision recorded with the experiment.
+**A normalizer that fails rather than slows.** Experiment E2
+(`docs/chaos-experiments.md`) denied the normalizer its table for sixteen
+minutes under the original two-retry policy: each batch was given up on
+within a second, iterator age never passed eleven seconds, this alarm stayed
+OK, and every finding of the period went to the failure queue. ADR 0007
+changed the policy to retry for an hour so that a failing dependency holds
+the shard and is reported here, at ten minutes, while the records wait to be
+stored rather than leaving. The E2 re-run that checks this is in the chaos
+log.
 
 ## 3. Incidents stay current — `cloudsentinel-slo-incidents-current`
 

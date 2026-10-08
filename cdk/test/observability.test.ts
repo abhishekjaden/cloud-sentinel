@@ -246,11 +246,15 @@ describe('a record the normalizer fails on is retried, and kept if it still fail
     expect(mapping.FunctionResponseTypes).toEqual(['ReportBatchItemFailures']);
   });
 
-  test('a batch that fails every retry is reported rather than discarded', () => {
+  test('a record that cannot be stored is retried for an hour, then reported rather than discarded', () => {
     const [queueId] = Object.keys(ingestion.findResources('AWS::SQS::Queue'));
     expect(mapping.DestinationConfig?.OnFailure?.Destination)
       .toEqual({ 'Fn::GetAtt': [queueId, 'Arn'] });
-    expect(mapping.MaximumRetryAttempts).toBe(2);
+    // ADR 0007: no retry count, so the record's age is the only limit. Two
+    // immediate retries (the setting before) lost every finding of a
+    // dependency outage to the queue — experiment E2, 200 of 200.
+    expect(mapping.MaximumRetryAttempts).toBeUndefined();
+    expect(mapping.MaximumRecordAgeInSeconds).toBe(3600);
   });
 
   test('the failure queue is named, encrypted, TLS-only and outlives the stream', () => {

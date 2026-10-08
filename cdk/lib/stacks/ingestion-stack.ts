@@ -81,13 +81,24 @@ export class IngestionStack extends cdk.Stack {
       startingPosition: StartingPosition.LATEST,
       batchSize: 100,
       maxBatchingWindow: Duration.seconds(10),
-      retryAttempts: 2,
+      // A record that cannot be stored is retried until it is an hour old,
+      // then reported. The setting before ADR 0007 was two retries, which
+      // Lambda makes immediately: experiment E1 showed that isolates a poison
+      // record in under a second, and experiment E2 showed the price — a
+      // sixteen-minute denial of the table sent every finding of the period
+      // to the failure queue, recoverable only by hand. Retrying for an hour
+      // holds the shard instead: iterator age climbs, the findings-fresh
+      // objective fires at ten minutes, and the records store themselves
+      // when the dependency returns. A poison record now blocks its shard for
+      // up to an hour, which the same alarm reports. No retry count is set,
+      // so the only limit is the record's age.
+      maxRecordAge: Duration.hours(1),
       // Without this, the checkpoint advances past every record the handler
       // returned from, whether or not it stored them, and a finding that failed
       // on a throttle or a timeout was simply gone. With it, the handler names
       // the records it could not store and Lambda delivers them again.
       reportBatchItemFailures: true,
-      // And when the retries run out, the batch is reported rather than
+      // And when a record ages out, the batch is reported rather than
       // discarded silently. This is the only signal that a finding was lost,
       // so the findings-stored objective is measured from it (docs/slos.md).
       onFailure: new SqsDlq(failedFindings),

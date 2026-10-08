@@ -34,7 +34,7 @@ control-change watch and the honeypot.
   AWS keys), with `cdk diff` printed before `cdk deploy` so each run's log
   records what was about to change. Semgrep and gitleaks run on every push
   and weekly.
-- Decisions are ADRs (six so far), objectives are `docs/slos.md` with a
+- Decisions are ADRs (seven so far), objectives are `docs/slos.md` with a
   "when it fires" response under each alarm, the threat model is STRIDE
   across eight boundaries, and the evaluation of the one component whose
   output comes from a model has a written protocol
@@ -168,10 +168,10 @@ control-change watch and the honeypot.
   table) found that the ingestion retry policy — two immediate retries, then
   the failure queue — loses every finding of a dependency outage to manual
   recovery: sixteen minutes cost 200 of 200, recoverable only by replaying
-  the stream by hand. Retrying until a record is an hour old would hold the
-  shard and self-heal instead, at the price of a poison record blocking its
-  shard for an hour. The choice is open and belongs in an ADR; E3 and E4 are
-  still to run.
+  the stream by hand. ADR 0007 changed the policy to retry until a record is
+  an hour old, which holds the shard and self-heals at the price of a poison
+  record blocking its shard for an hour; the re-run that verifies it is in
+  the chaos log. E3 and E4 are still to run.
 
 ---
 

@@ -114,6 +114,7 @@ Architecture decisions are recorded as ADRs in [`docs/adr/`](docs/adr/):
 - **[0004 — Decommission OpenSearch](docs/adr/0004-decommission-opensearch.md):** it had no producers or consumers while costing ~$25/month, so it was measured and removed.
 - **[0005 — Language-model triage is advisory and contained](docs/adr/0005-advisory-llm-triage.md):** the model reads attacker-controlled text, so it may draft a note but can never cause or prevent an action.
 - **[0006 — Threat-intelligence enrichment is cached, bounded and advisory](docs/adr/0006-threat-intel-enrichment.md):** the addresses and domains incidents name are looked up once a week in two free feeds, ten a run, and the verdict informs but never acts.
+- **[0007 — A finding that cannot be stored is retried for an hour, not twice](docs/adr/0007-ingestion-retry-policy.md):** two chaos experiments showed the old two immediate retries isolated a poison record but lost every finding of a dependency outage to manual recovery; an hour of retries holds the shard and self-heals, with the findings-fresh alarm reporting either case.
 
 Other decisions worth naming:
 

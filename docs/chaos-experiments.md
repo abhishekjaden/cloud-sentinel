@@ -37,7 +37,11 @@ aws kinesis put-record --profile cs-audit --stream-name cloudsentinel-findings \
 Then, within the same minute, send one real-shaped finding so the batch holds
 both: `python scripts/flood_findings.py --count 1 --rate 1`.
 
-**Expected signals, in order.**
+**Expected signals, in order.** _(As written before the first run. Under
+ADR 0007 the garbage record is retried for an hour instead of twice, so on a
+re-run signals 1–3 change: the failures repeat for an hour, the records
+behind the garbage wait with it, `cloudsentinel-slo-findings-fresh` fires at
+ten minutes, and the queue message and findings-stored follow after the hour.)_
 1. The normalizer's log shows `Failed to process record … JSONDecodeError`
    for the garbage three times (the first attempt and two retries), about ten
    seconds apart, and the flood finding stored once.
@@ -172,8 +176,8 @@ alternative, retrying a record until it is an hour old, would hold the shard
 instead, so iterator age climbs, findings-fresh fires, and everything stores
 itself when the dependency returns — at the price of a poison record blocking
 its shard for up to an hour. Neither is free; which to prefer is a decision for
-an ADR, not a fix made here. Until it is taken, objective 2 describes a
-failure mode that cannot occur in this configuration, and is marked so.
+an ADR, not a fix made here. ADR 0007 took it the next day: retry for an
+hour. The re-run below is the check.
 
 The correlator's 19:15 run built 50 incidents from the control findings
 before the purge removed them, one per flood instance: the pipeline behind
