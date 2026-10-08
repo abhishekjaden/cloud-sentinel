@@ -17,8 +17,8 @@ separate change with its own test.
 |---|---|---|---|
 | E1 | A record the normalizer cannot read | 1 (stored), 8 (controls) | **run, 7 October 2026** |
 | E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day** |
-| E3 | The correlation schedule disabled | 3 (current), 8 | not yet run |
-| E4 | Ten times the volume | 1, 2, 3 | not yet run |
+| E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; fix pending a re-run |
+| E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
 | E5 | A control changed by hand | 8 | **run, 3 October 2026** |
 
 ---
@@ -269,13 +269,56 @@ Wait fifty minutes.
 4. Notes and verdicts keep being written for incidents that already exist:
    triage and enrichment do not depend on the correlator running.
 
-**Observed.** _(date, each signal's arrival time or "did not arrive")_
+**Observed, 8 October 2026** (times UTC; 23:07–00:20 IST). `DisableRule` at
+17:41:29, with the flood's 100 incidents left in place from E4 so that the
+fourth signal had something to show; `EnableRule` at 18:32:30, 51 minutes
+later. The correlator's last run before the disable completed at 17:37:04.
 
-**Rollback.**
+1. The watch reported `DisableRule` — the message carried the SSO
+   administrator role, the source address and `md/command#events.disable-rule`
+   in the user agent — and `cloudsentinel-slo-controls-unchanged` went **OK →
+   ALARM at 17:42:54, 85 seconds** after the call. It returned to OK at
+   17:57:54; the `EnableRule` of the rollback was reported too.
+2. `CorrelationRunsCompleted` stopped: one at 17:37, then nothing until the
+   rollback.
+3. **Did not arrive.** `cloudsentinel-slo-incidents-current` stayed OK through
+   a gap of **56 minutes** between completed runs (17:37:04 → 18:33). The
+   alarm is one 45-minute period, missing data breaching — and CloudWatch
+   aligns a period to the clock, so tonight's boundaries fell at 17:15, 18:00
+   and 18:45. The 17:15–18:00 period held two runs; the 18:00–18:45 period
+   would have been empty, and would have fired at about 18:46, had the
+   rollback not put a run into it at 18:33. The objective promises "none in
+   45 minutes"; what the alarm measures is "a whole clock-aligned 45-minute
+   window empty", which a gap satisfies only when it is positioned to — in
+   general somewhere between 45 and 90 minutes after the last run, and never
+   for a gap that straddles a boundary with a run on each side, as this one
+   did. The promise and the arithmetic disagree, and a disabled schedule of
+   nearly an hour went unreported.
+4. Notes kept being written: `IncidentsAwaitingTriage` read 5 in the 17:30
+   bucket and 0 from 17:45 — the last five flood incidents were triaged by
+   the 17:52 and 18:07 triage runs while the correlator was off. Triage does
+   not depend on the correlator running.
+
+Side finding: on `EnableRule` the correlator ran within a minute (18:33 for
+an 18:32:30 enable), so EventBridge restarts a rate schedule from the enable
+time rather than resuming its old phase. The schedule's phase moved from
+:07/:22/:37/:52 to :03/:18/:33/:48. Anyone timing an experiment against the
+schedule should read the phase from the metric, not assume it.
+
+By the rule of the exercise the alarm was not touched during the run. The
+fix is a separate change with its own test: three 15-minute windows, three of
+three, missing data still breaching, so that a 45-minute gap is reported
+between 45 and 60 minutes after the last run whatever the clock says. E3 is
+to be re-run against it; until then the row above says what was found.
+
+**Rollback** (done 18:32:30; the flood data purged at 18:50 after E4's last
+measurement).
 ```bash
 aws events enable-rule --profile cs-audit --name cloudsentinel-correlation
 ```
-The next run completes within fifteen minutes and the alarm clears.
+The next run completed within a minute of the enable, not within fifteen —
+see the side finding — and the alarm, which had never fired, had nothing to
+clear.
 
 ---
 
@@ -317,9 +360,74 @@ Real findings carry AWS's own timestamps and are unaffected.
 6. Cost: the triage notes for a hundred incidents, a few tens of cents; the
    table writes, cents.
 
-**Observed.** _(date, the figures)_
+**Observed, 8 October 2026** (times UTC; 18:29–23:12 IST). Run `dfnl`:
+10,000 findings across 100 instances, sent 12:59:13–13:00:03. The pipeline
+was measured at +35 minutes as the steps say, and again at +4 h 43 min, by
+which time the triage budget had reached almost every incident.
 
-**Rollback.**
+1. **`sent 10000 in 50.0s (200/s), 0 resent`** — the shard took the whole
+   burst without a throttle.
+2. **Iterator age peaked at 149 s** (one-minute maxima 50.2 s, 96.3 s,
+   140.2 s, 149.0 s) and the shard was drained by the fourth minute — two and
+   a half minutes against the five-minute threshold. findings-fresh stayed
+   OK; it had returned to OK from E2's re-run at 12:33:15 and did not move.
+3. `RecordsReceived` 10,000 and `RecordsFailed` 0 for the window; the
+   failure queue held nothing; findings-stored stayed OK. The flood account's
+   count read 10,000.
+4. The correlator's next run, 13:07:04, reported `incidents: 107,
+   multi_stage: 6, findings_correlated: 10434` — the flood's 100, one per
+   instance, beside the 7 real incidents — in **6.1 s** against a five-minute
+   timeout; the two following runs reported the same counts in 5.6 s.
+5. `measure.py` at +35 min (n = 9,438; see the clock note below): `stored`
+   p50 1.4 min, p95 2.4 min, max 2.5 min; `ingested` p50 1.5 min, p95 2.8
+   min, max 3.0 min; `correlated` 7.8 min for all 100 incidents, which were
+   made in one run; `triaged` n = 11, p50 18.3 min, p95 33.3 min — two
+   triage runs of five, and `IncidentsAwaitingTriage` read 95 then 90 on the
+   dashboard, which is the budget doing its job. Re-measured at 17:42 with
+   the start a minute earlier (n = 10,075: the 10,000 plus 75 real findings
+   stored in the period): `queued` p50 2.2 s, p95 24.7 s, max 27.2 s;
+   `stored` p50 1.3 min, p95 2.4 min, max 2.5 min; `ingested` p50 1.4 min,
+   p95 2.8 min, max 3.0 min; `correlated` unchanged; **`triaged` n = 95, p50
+   2.3 h, p95 4.6 h, max 4.6 h** — five a run, twenty an hour, a hundred
+   incidents in five hours, the budget's drain rate measured end to end.
+   `detected` carried a max of 2,694 h from a real finding Security Hub
+   re-reported, which is the caveat on that measure, not a latency.
+6. Cost is read from Cost Explorer a day later. By the evaluation harness's
+   measured cost per model call (₹60 for 36 asks), the 95 notes cost about
+   ₹160 — five times the hypothesis's "a few tens of cents", because the
+   hypothesis priced a hundred notes at a figure it never worked out.
+
+Two expectations were wrong, and the record says so. **Expectation 5's
+"`ingested` p95 under a minute" was never possible:** the normalizer stores
+about fifty records a second — one invocation at a time on one shard, a
+hundred records each, with a DynamoDB write per record — so a burst of two
+hundred a second queues on the shard for the length of the burst and drains
+at the consumer's rate: 10,000 records in about 200 s, which is the 2.5-minute
+peak and the 2.8-minute p95. The arithmetic was available before the run and
+should have been done. The threshold was two and a half minutes away; a
+burst twice this size would fire findings-fresh, correctly, since the backlog
+would be real. **"Every flood incident triaged within an hour at the
+five-per-run budget" was arithmetically impossible** — a hundred incidents at
+twenty an hour take five hours — and the hypothesis's own alternative, the
+queue climbing on the dashboard, is what happened: 95 → 90 → … → 5 over the
+afternoon, at exactly five a run.
+
+**The sender's clock.** `measure.py --since` filters on `stored_at`, which is
+AWS's clock, against a start time from the laptop's clock, which a direct
+check during the run put **20 seconds ahead** of AWS (`date -u` 17:42:34
+against the `Date` header 17:42:14 from `sts.amazonaws.com`), up from the
+twelve seconds E1 inferred two days earlier. So the first measurement
+excluded the 562 findings stored in the flood's first twenty seconds, and
+`queued`, `ingested` and `correlated` — every measure with the laptop's stamp
+at one end — read twenty seconds short of the truth: `queued` p95 is nearer
+45 s than 25 s, `ingested` p95 nearer 3.1 min than 2.8. `stored` and `triaged`
+are AWS clocks at both ends and are exact. The script's usage note now says
+to start the window a minute early; a synthetic flood should not be trusted
+for `queued` until the sender stamps records from a time source rather than
+its own clock.
+
+**Rollback** (the data stayed in place for E3, which wants incidents for the
+triage function to work on, and was purged after it).
 ```bash
 python scripts/flood_findings.py --purge
 ```

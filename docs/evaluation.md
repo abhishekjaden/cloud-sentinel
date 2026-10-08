@@ -20,17 +20,22 @@ nearest-rank percentiles with the count behind each.
 
 | Measure | Meaning | n | p50 | p95 | max | Measured |
 |---|---|---|---|---|---|---|
-| ingested | EventBridge event → stored | | | | | pending |
-| correlated | first finding seen → incident made (includes the 15-minute schedule) | | | | | pending |
-| triaged | incident made → note written (includes the schedule and the model) | | | | | pending |
-| control change reported | API call → message on the topic | 2 | < 1 min | < 1 min | < 1 min | 3 Oct 2026, E5 |
-| control change alarmed | API call → alarm in ALARM | 2 | 1.4 min | 1.5 min | 1.5 min | 8 Oct 2026, E2 (73 s and 91 s) |
+| queued | EventBridge event → stream arrival | 10,075 | 2.2 s | 24.7 s | 27.2 s | 8 Oct 2026, E4 — a 200/s flood; the sender's clock was 20 s ahead, so read these 20 s short |
+| stored | stream arrival → written | 10,075 | 1.3 min | 2.4 min | 2.5 min | 8 Oct 2026, E4 — the single shard's consumer draining a burst at about 50 records a second |
+| ingested | EventBridge event → stored | 10,075 | 1.4 min | 2.8 min | 3.0 min | 8 Oct 2026, E4; 20 s short, as `queued` |
+| correlated | first finding seen → incident made (includes the 15-minute schedule) | 100 | 7.8 min | 7.8 min | 7.8 min | 8 Oct 2026, E4 — all 100 incidents in one run |
+| triaged | incident made → note written (includes the schedule, the five-per-run budget and the model) | 95 | 2.3 h | 4.6 h | 4.6 h | 8 Oct 2026, E4 — a hundred incidents at twenty an hour: the budget's drain rate |
+| control change reported | API call → message on the topic | 4 | < 1 min | < 1 min | < 1 min | 3 Oct 2026, E5; 8 Oct 2026, E2 and E3 |
+| control change alarmed | API call → alarm in ALARM | 3 | 1.4 min | 1.5 min | 1.5 min | 8 Oct 2026, E2 (73 s and 91 s) and E3 (85 s) |
 | loss reported | failure-queue message → alarm | 1 | 3 min | 3 min | 3 min | 7 Oct 2026, E1 |
 | outage alarmed | first finding held by a failing write → findings-fresh in ALARM | 1 | 10.5 min | 10.5 min | 10.5 min | 8 Oct 2026, E2 re-run (ADR 0007) |
 
-The first three are filled from a normal week's traffic once the stamps have
-been in place for one (they were added on 3 October 2026), and again under
-load (E4).
+The first five rows are the flood of E4, which is the pipeline under ten
+times its volume, not a normal day; they are filled again from a normal
+week's traffic once the stamps, added on 3 October 2026, have been in place
+for one. Under normal traffic `stored` should read seconds, since a batch
+that is not queued behind nine thousand others is written within its
+ten-second window.
 
 ## 2. Cost
 
@@ -128,7 +133,8 @@ first honeypot run (3–8 October) produced no incidents to label.
 | E5, a control changed by hand | 8 | every expected signal, within a minute (`docs/chaos-experiments.md`) |
 | E1, a record the normalizer cannot read | 1, 8 | every expected signal; retries immediate rather than spaced, and the alarm clears itself after one quiet window — both recorded |
 | E2, the normalizer denied its table | 1, 2, 8 | the denial reported in 73 s; but a 16-minute outage sent all 200 findings to the failure queue after immediate retries, iterator age peaked at 11 s and findings-fresh never fired — the retry policy isolated poison records at the cost of outages. ADR 0007 changed it to an hour of retries; **re-run the same day**, a 25-minute denial lost nothing: iterator age climbed to 24 min, findings-fresh fired at 10.5 min, the queue stayed empty, and all 50 findings stored on rollback |
-| E3–E4 | 3, 1, 2 | written, not yet run |
+| E4, ten times the volume | 1, 2, 3 | 10,000 findings in 50 s, nothing lost, iterator age peaked at 2.5 min against the 5-minute threshold, the correlator made all 100 incidents in one 6-second run; the hypothesis's "ingested under a minute" was never possible for a 200/s burst into a 50/s consumer, and is recorded as such |
+| E3, the correlation schedule disabled | 3, 8 | the disable reported in 85 s and the triage function unaffected; but a 56-minute gap between correlation runs never fired incidents-current, whose single clock-aligned 45-minute window measures "a whole window empty", not "none in 45 minutes" — the alarm is being re-defined as three 15-minute windows and E3 re-run |
 
 ## 5. What the numbers are not
 

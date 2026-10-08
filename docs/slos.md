@@ -148,6 +148,17 @@ so run time grows with it.
 **On first deploy** the alarm can fire once before the correlator's first run
 publishes the metric, then clears within 15 minutes.
 
+**What E3 found (8 October 2026).** With the schedule disabled for 51
+minutes and 56 minutes between completed runs, this alarm never fired. It was
+defined as one 45-minute period, and CloudWatch aligns a period to the clock,
+so it breaches only when a whole aligned window is empty — somewhere between
+45 and 90 minutes after the last run, and not at all for a gap that has a
+run on each side of a boundary, as that one did. The promise above and the
+alarm's arithmetic disagreed. The definition is being changed to three
+15-minute windows, three of three, so that a 45-minute gap fires within 60
+minutes of the last run whatever the clock says; the re-run that verifies it
+is in the chaos log.
+
 ## 4. Remediation steps run — `cloudsentinel-slo-remediation-runs`
 
 **Measured by** Lambda errors of the router, the approval recorder and the

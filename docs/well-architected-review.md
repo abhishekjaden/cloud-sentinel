@@ -172,8 +172,12 @@ control-change watch and the honeypot.
   an hour old, which holds the shard and self-heals at the price of a poison
   record blocking its shard for an hour. The same-day re-run verified it: a
   25-minute denial lost nothing, findings-fresh fired at ten and a half minutes,
-  and all 50 findings stored when the denial was lifted. E3 and E4 are still
-  to run.
+  and all 50 findings stored when the denial was lifted. E4 (ten times the
+  volume) stored all 10,000 findings with a 2.5-minute peak backlog and no
+  alarm. E3 (the schedule disabled) found that the incidents-current alarm's
+  single 45-minute window, clock-aligned, let a 56-minute gap pass unreported;
+  the alarm is being re-defined as three 15-minute windows and the experiment
+  re-run.
 
 ---
 

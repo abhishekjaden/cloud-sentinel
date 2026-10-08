@@ -17,7 +17,8 @@ incidents the correlator built from them, and the notes the triage model
 wrote about them. Those notes cost a few cents a hundred — the one real cost
 of a flood, since the tables are billed per request.
 
-Measure the run with scripts/measure.py --since <the start time it prints>.
+Measure the run with scripts/measure.py --since <the time it prints — a minute
+before the start, because the sender's clock runs ahead of AWS's>.
 
 Usage:
     python scripts/flood_findings.py --count 10000 --rate 200     # ~10x a busy day, in 50 seconds
@@ -30,7 +31,7 @@ import random
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 PROFILE = "cs-audit"
 REGION = "us-east-1"
@@ -173,8 +174,13 @@ def main():
           f"from {started.isoformat(timespec='seconds')}")
     sent, resent, elapsed = put_all(session.client("kinesis"), events, args.rate)
     print(f"sent {sent} in {elapsed:.1f}s ({sent / max(elapsed, 0.001):.0f}/s), {resent} resent after throttling")
+    # A minute before the start: --since filters on the normalizer's stamp,
+    # which is AWS's clock, and this machine's clock has run twenty seconds
+    # ahead of it (E4, 8 October 2026). A window that starts exactly at the
+    # sender's start time loses the first records stored.
+    since = (started - timedelta(minutes=1)).replace(microsecond=0)
     print(f"\nmeasure it once the correlator and triage have run (15 minutes each):\n"
-          f"  python scripts/measure.py --since {started.isoformat(timespec='seconds')}\n"
+          f"  python scripts/measure.py --since {since.isoformat(timespec='seconds')}\n"
           f"then remove every trace:\n  python scripts/flood_findings.py --purge")
     sys.exit(0 if sent == args.count else 1)
 
