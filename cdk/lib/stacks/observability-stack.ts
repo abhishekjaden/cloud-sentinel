@@ -95,6 +95,7 @@ export class ObservabilityStack extends cdk.Stack {
       comparisonOperator: cloudwatch.ComparisonOperator;
       treatMissingData: cloudwatch.TreatMissingData;
       evaluationPeriods?: number;
+      datapointsToAlarm?: number;
     }) => {
       const alarm = new cloudwatch.Alarm(this, `Slo-${name}`, {
         alarmName: `cloudsentinel-slo-${name}`,
@@ -169,16 +170,27 @@ export class ObservabilityStack extends cdk.Stack {
     //    publishes a count only once a run has finished, so the count is a
     //    heartbeat: a run that crashes, times out or never starts publishes
     //    nothing, and silence is the breach.
+    //
+    //    Three 15-minute windows, all three empty, rather than one 45-minute
+    //    window. CloudWatch aligns a window to the clock, and experiment E3
+    //    (8 October 2026) let a 56-minute gap pass unreported because a single
+    //    45-minute window breaches only when a whole aligned window is empty:
+    //    the gap straddled a boundary with a run on each side. Three
+    //    consecutive 15-minute windows cover any gap of 45 minutes within 60
+    //    minutes of the last run, whatever the clock says, and one run that
+    //    drifts across a boundary leaves one window empty, not three.
     const correlationRuns = published('CorrelationRunsCompleted', 'correlator',
-      'completed runs', Duration.minutes(45));
+      'completed runs', Duration.minutes(15));
     slo('incidents-current',
-      'No correlation run has completed in 45 minutes; the correlator is scheduled every 15. ' +
-      'Incidents on the dashboard are going stale. Check the correlator\'s log and the ' +
-      'cloudsentinel-correlation schedule.', {
+      'No correlation run has completed in three consecutive 15-minute windows; the ' +
+      'correlator is scheduled every 15. Incidents on the dashboard are going stale. Check ' +
+      'the correlator\'s log and the cloudsentinel-correlation schedule.', {
         metric: correlationRuns,
         threshold: 1,
         comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
         treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+        evaluationPeriods: 3,
+        datapointsToAlarm: 3,
       });
 
     // 4. Remediation steps run. Lambda errors rather than failed executions:

@@ -26,7 +26,7 @@ control-change watch and the honeypot.
   cdk-nag on every push; every accepted finding carries a written reason in
   `cdk/lib/nag-suppressions.ts`.
 - Three test suites run in CI before anything deploys: 299 backend tests at a
-  93% coverage floor of 80%, 101 CDK assertion tests, 76 frontend tests. The
+  93% coverage floor of 80%, 102 CDK assertion tests, 76 frontend tests. The
   CDK tests pin security properties rather than resource counts: what each
   function may touch, what the API may read and never write, that every
   alarm is documented and every documented alarm exists.

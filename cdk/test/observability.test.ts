@@ -206,6 +206,23 @@ describe('objectives', () => {
     });
   });
 
+  test('a silent correlator is reported within an hour whatever the clock says', () => {
+    // E3 (8 October 2026): one clock-aligned 45-minute window let a 56-minute
+    // gap between runs pass unreported, because the window breaches only when
+    // the whole of it is empty. Three 15-minute windows, three of three, cover
+    // any 45-minute gap within 60 minutes of the last run.
+    const alarm = byName(pipelineAlarms).get('cloudsentinel-slo-incidents-current')!;
+    // The metric is a labelled MetricStat, so the period sits inside it.
+    expect(alarm.Metrics).toHaveLength(1);
+    expect(alarm.Metrics[0].MetricStat.Metric.MetricName).toBe('CorrelationRunsCompleted');
+    expect(alarm.Metrics[0].MetricStat.Period).toBe(15 * 60);
+    expect(alarm.EvaluationPeriods).toBe(3);
+    expect(alarm.DatapointsToAlarm).toBe(3);
+    expect(alarm.Threshold).toBe(1);
+    expect(alarm.ComparisonOperator).toBe('LessThanThreshold');
+    expect(alarm.TreatMissingData).toBe('breaching');
+  });
+
   test('a finding counts as lost only once it can no longer be retried', () => {
     // The normalizer hands a failed record back and Lambda delivers it again.
     // Alarming on that count — which this alarm used to do, when a failed

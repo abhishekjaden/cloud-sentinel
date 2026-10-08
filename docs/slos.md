@@ -33,7 +33,7 @@ Then confirm from the email AWS sends.
 |---|---|---|---|---|---|
 | 1 | Findings are stored | `findings-stored` | findings lost between EventBridge and the findings table | 99.9% of findings, 28 days | any loss in 5 minutes |
 | 2 | Findings are stored promptly | `findings-fresh` | normalizer iterator age | under 5 minutes in 99% of 5-minute windows | over 5 minutes, two windows running |
-| 3 | Incidents stay current | `incidents-current` | completed correlation runs | a run at least every 45 minutes | none in 45 minutes |
+| 3 | Incidents stay current | `incidents-current` | completed correlation runs | a run at least every 45 minutes | none in three consecutive 15-minute windows |
 | 4 | Remediation steps run | `remediation-runs` | router, recorder and executor errors | no step fails | any error in 5 minutes |
 | 5 | Approvals are decided | `approvals-decided` | workflows that timed out | every approval decided within 24 hours | any expiry |
 | 6 | The API is available | `api-available` | server errors over requests | 99.5% of requests, 28 days | over 5% failing for 15 minutes |
@@ -134,11 +134,14 @@ stored when the denial was lifted (`docs/chaos-experiments.md`).
 **Measured by** `CorrelationRunsCompleted`, which the correlator publishes as
 the last thing a run does, after every incident has been written.
 
-**Alarm.** No completed run in 45 minutes — three schedule intervals, so one
-failed run does not fire it. Missing data *is* a breach: that is what makes the
-count a heartbeat. A run that crashes, times out, or never starts because the
-schedule was disabled publishes nothing, and nothing has to report the failure
-for it to be noticed.
+**Alarm.** No completed run in three consecutive 15-minute windows — three
+schedule intervals, so one failed run does not fire it, and a run that drifts
+across a window boundary leaves one window empty, not three. Missing data *is*
+a breach: that is what makes the count a heartbeat. A run that crashes, times
+out, or never starts because the schedule was disabled publishes nothing, and
+nothing has to report the failure for it to be noticed. A 45-minute gap is
+reported between 45 and 60 minutes after the last run, whatever the clock
+says.
 
 **When it fires.** Check `/aws/lambda/CloudSentinel-Correlator` and that the
 `cloudsentinel-correlation` EventBridge rule is enabled. The dashboard graphs
@@ -154,10 +157,10 @@ defined as one 45-minute period, and CloudWatch aligns a period to the clock,
 so it breaches only when a whole aligned window is empty — somewhere between
 45 and 90 minutes after the last run, and not at all for a gap that has a
 run on each side of a boundary, as that one did. The promise above and the
-alarm's arithmetic disagreed. The definition is being changed to three
-15-minute windows, three of three, so that a 45-minute gap fires within 60
-minutes of the last run whatever the clock says; the re-run that verifies it
-is in the chaos log.
+alarm's arithmetic disagreed. The definition above is the corrected one —
+three 15-minute windows, three of three — so that a 45-minute gap fires
+within 60 minutes of the last run whatever the clock says; the re-run that
+verifies it is in the chaos log.
 
 ## 4. Remediation steps run — `cloudsentinel-slo-remediation-runs`
 
