@@ -158,9 +158,17 @@ so it breaches only when a whole aligned window is empty — somewhere between
 45 and 90 minutes after the last run, and not at all for a gap that has a
 run on each side of a boundary, as that one did. The promise above and the
 alarm's arithmetic disagreed. The definition above is the corrected one —
-three 15-minute windows, three of three — so that a 45-minute gap fires
-within 60 minutes of the last run whatever the clock says; the re-run that
-verifies it is in the chaos log.
+three 15-minute windows, three of three — so that a 45-minute gap would
+fire within 60 minutes of the last run whatever the clock says.
+
+**What the re-run found (11 October 2026).** It did not. With the last run at
+06:03 UTC and the schedule disabled at 06:05, the three windows after the
+run's own were empty by 07:00, but the alarm fired at 07:19:51, 77 minutes
+after the last run. On its default sliding window CloudWatch retrieves more
+data points than the evaluation periods and judges on the real ones it finds
+before treating missing ones as breaching, so the 06:03 run kept the alarm OK
+until it left that range. The same rule made the 8 October arithmetic wrong.
+The second correction, and the run that verifies it, are in the chaos log.
 
 ## 4. Remediation steps run — `cloudsentinel-slo-remediation-runs`
 

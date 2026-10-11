@@ -17,7 +17,7 @@ separate change with its own test.
 |---|---|---|---|
 | E1 | A record the normalizer cannot read | 1 (stored), 8 (controls) | **run, 7 October 2026** |
 | E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day** |
-| E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; fix pending a re-run |
+| E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** against the fix — it fired, 77 minutes after the last run; second fix pending a third run |
 | E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
 | E5 | A control changed by hand | 8 | **run, 3 October 2026** |
 
@@ -319,6 +319,56 @@ aws events enable-rule --profile cs-audit --name cloudsentinel-correlation
 The next run completed within a minute of the enable, not within fifteen —
 see the side finding — and the alarm, which had never fired, had nothing to
 clear.
+
+**Re-run, 11 October 2026, against three 15-minute windows** (times UTC;
+11:32–13:08 IST). The fix promised the alarm 45 to 60 minutes after the last
+completed run, whatever the clock says; that was the hypothesis.
+
+1. A first attempt is not the experiment: the rule was disabled at 06:02:34
+   and, by mistake, enabled again 32 seconds later, at 06:03:06. The watch
+   reported both calls, and `cloudsentinel-slo-controls-unchanged` went OK →
+   ALARM at 06:03:52, **78 seconds** after the disable. The enable made the
+   correlator run at once (06:03), as the side finding above predicts.
+2. `DisableRule` at 06:05:04. The last completed run was the 06:03 one.
+   Controls-unchanged, already in ALARM from the first attempt, returned to OK
+   at 06:20:52.
+3. The three 15-minute windows after the one holding the last run (06:15,
+   06:30, 06:45) were all empty by 07:00. **The alarm did not fire then.** It
+   went OK → ALARM at **07:19:51**: 76 min 51 s after the last completed run,
+   74 min 47 s after the disable, and after a fourth empty window had closed.
+4. `EnableRule` at 07:21:39. The correlator ran within the minute (07:21),
+   the alarm returned to OK at 07:22:51, 72 seconds after the enable, and the
+   watch reported the enable too: controls-unchanged OK → ALARM at 07:22:52
+   (**73 seconds**) and back to OK at 07:37:52. The schedule's phase moved
+   again, to :06/:21/:36/:51.
+
+**What it found.** The fix assumed the alarm judges the three windows it
+names. By default it does not. An alarm's evaluation window slides, and on
+each evaluation CloudWatch retrieves more data points than the alarm's
+evaluation periods (its *evaluation range*) and evaluates on the real data
+points it finds before filling any gap with the missing-data setting — it
+"uses missing data points only as few times as possible", in AWS's words, and
+AWS's own example is this case: one healthy data point followed by missing
+ones stays OK, even with missing data treated as breaching, until the healthy
+point leaves the range. The 06:03 run was a healthy point inside the range
+until about 07:15, and the alarm fired at the first evaluation after it left.
+So the alarm now reports a silent correlator every time, which the one of 8
+October did not, but about an hour or more after the last run, depending on
+where that run falls in its window, not within the 45 minutes the objective
+promises; a 56-minute gap like 8 October's would still pass unreported. The
+arithmetic of 8 October was wrong in the same way: the statement above that
+the empty 18:00–18:45 window "would have fired at about 18:46" ignores the
+range, and with the 17:15–18:00 window's two runs inside it, it would not
+have.
+
+By the rule of the exercise nothing was changed during the run. The second
+fix, separate and with its own test, judges the alarm on a wall-clock
+evaluation window, which retrieves exactly the aligned periods it evaluates
+and nothing older. A wall-clock window accepts 5-minute periods but not
+15-minute ones, so the alarm becomes nine 5-minute windows, nine of nine,
+missing data breaching: on schedule every 45 minutes holds three runs, and
+nine empty windows mean no completed run for 45 to 50 minutes. E3 is to be
+run a third time against it.
 
 ---
 
