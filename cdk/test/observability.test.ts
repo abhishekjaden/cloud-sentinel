@@ -206,21 +206,33 @@ describe('objectives', () => {
     });
   });
 
-  test('a silent correlator is reported within an hour whatever the clock says', () => {
-    // E3 (8 October 2026): one clock-aligned 45-minute window let a 56-minute
-    // gap between runs pass unreported, because the window breaches only when
-    // the whole of it is empty. Three 15-minute windows, three of three, cover
-    // any 45-minute gap within 60 minutes of the last run.
+  test('a silent correlator is reported 45 to 50 minutes after its last run', () => {
+    // E3 (8 October 2026): one 45-minute window let a 56-minute gap pass
+    // unreported. E3 re-run (11 October): three 15-minute windows fired 77
+    // minutes after the last run, because a sliding window evaluates on older
+    // real data points before it treats missing ones as breaching. A
+    // wall-clock window evaluates exactly the aligned periods, so nine empty
+    // 5-minute windows (the shortest period a wall-clock window accepts that
+    // divides the schedule) are what decide.
     const alarm = byName(pipelineAlarms).get('cloudsentinel-slo-incidents-current')!;
     // The metric is a labelled MetricStat, so the period sits inside it.
     expect(alarm.Metrics).toHaveLength(1);
     expect(alarm.Metrics[0].MetricStat.Metric.MetricName).toBe('CorrelationRunsCompleted');
-    expect(alarm.Metrics[0].MetricStat.Period).toBe(15 * 60);
-    expect(alarm.EvaluationPeriods).toBe(3);
-    expect(alarm.DatapointsToAlarm).toBe(3);
+    expect(alarm.Metrics[0].MetricStat.Period).toBe(5 * 60);
+    expect(alarm.EvaluationPeriods).toBe(9);
+    expect(alarm.DatapointsToAlarm).toBe(9);
+    expect(alarm.EvaluationWindow).toEqual({ WallClockWindow: { Timezone: 'UTC' } });
     expect(alarm.Threshold).toBe(1);
     expect(alarm.ComparisonOperator).toBe('LessThanThreshold');
     expect(alarm.TreatMissingData).toBe('breaching');
+  });
+
+  test('only the incidents-current alarm changes its evaluation window', () => {
+    // The other objectives are meant to see recent data as it arrives; a
+    // wall-clock window reflects a data point only once its period has ended.
+    const others = pipelineAlarms.filter(a => a.AlarmName !== 'cloudsentinel-slo-incidents-current');
+    expect(others.length).toBeGreaterThan(0);
+    for (const alarm of others) expect(alarm.EvaluationWindow).toBeUndefined();
   });
 
   test('a finding counts as lost only once it can no longer be retried', () => {

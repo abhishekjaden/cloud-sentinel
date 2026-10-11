@@ -171,27 +171,44 @@ export class ObservabilityStack extends cdk.Stack {
     //    heartbeat: a run that crashes, times out or never starts publishes
     //    nothing, and silence is the breach.
     //
-    //    Three 15-minute windows, all three empty, rather than one 45-minute
-    //    window. CloudWatch aligns a window to the clock, and experiment E3
-    //    (8 October 2026) let a 56-minute gap pass unreported because a single
-    //    45-minute window breaches only when a whole aligned window is empty:
-    //    the gap straddled a boundary with a run on each side. Three
-    //    consecutive 15-minute windows cover any gap of 45 minutes within 60
-    //    minutes of the last run, whatever the clock says, and one run that
-    //    drifts across a boundary leaves one window empty, not three.
+    //    Nine 5-minute windows, all nine empty, evaluated on a wall-clock
+    //    window. Two experiments shaped this:
+    //
+    //    - E3 (8 October 2026): one 45-minute window let a 56-minute gap pass
+    //      unreported. That alarm was replaced by three 15-minute windows.
+    //    - E3 re-run (11 October 2026): the three windows were empty by 12:30
+    //      and the alarm fired at 12:49, 77 minutes after the last run. By
+    //      default (a sliding window) CloudWatch retrieves more data points
+    //      than the evaluation periods and evaluates on the real ones it finds
+    //      before filling any gap with the missing-data setting, so an older
+    //      run kept the alarm OK until it aged out of that wider range.
+    //
+    //    A wall-clock window retrieves exactly the aligned periods it
+    //    evaluates and nothing older, so silence is judged on those nine
+    //    windows alone. It accepts 5-minute periods but not 15-minute ones,
+    //    hence nine of five rather than three of fifteen. On schedule every
+    //    window of 45 minutes holds three runs; nine empty five-minute windows
+    //    mean no completed run for 45 to 50 minutes.
     const correlationRuns = published('CorrelationRunsCompleted', 'correlator',
-      'completed runs', Duration.minutes(15));
-    slo('incidents-current',
-      'No correlation run has completed in three consecutive 15-minute windows; the ' +
+      'completed runs', FIVE_MINUTES);
+    const incidentsCurrent = slo('incidents-current',
+      'No correlation run has completed in the last nine 5-minute windows (45 minutes); the ' +
       'correlator is scheduled every 15. Incidents on the dashboard are going stale. Check ' +
       'the correlator\'s log and the cloudsentinel-correlation schedule.', {
         metric: correlationRuns,
         threshold: 1,
         comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
         treatMissingData: cloudwatch.TreatMissingData.BREACHING,
-        evaluationPeriods: 3,
-        datapointsToAlarm: 3,
+        evaluationPeriods: 9,
+        datapointsToAlarm: 9,
       });
+    // The construct library does not model the evaluation window yet; the
+    // CloudFormation property is EvaluationWindow, a union of SlidingWindow
+    // (the default) and WallClockWindow. The time zone is named because
+    // synthesis drops an empty object, and with it the whole override;
+    // 5-minute boundaries fall at the same moments in UTC and IST.
+    (incidentsCurrent.node.defaultChild as cloudwatch.CfnAlarm)
+      .addPropertyOverride('EvaluationWindow', { WallClockWindow: { Timezone: 'UTC' } });
 
     // 4. Remediation steps run. Lambda errors rather than failed executions:
     //    an operator rejecting an approval also fails the execution, and a

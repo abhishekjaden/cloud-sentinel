@@ -33,7 +33,7 @@ Then confirm from the email AWS sends.
 |---|---|---|---|---|---|
 | 1 | Findings are stored | `findings-stored` | findings lost between EventBridge and the findings table | 99.9% of findings, 28 days | any loss in 5 minutes |
 | 2 | Findings are stored promptly | `findings-fresh` | normalizer iterator age | under 5 minutes in 99% of 5-minute windows | over 5 minutes, two windows running |
-| 3 | Incidents stay current | `incidents-current` | completed correlation runs | a run at least every 45 minutes | none in three consecutive 15-minute windows |
+| 3 | Incidents stay current | `incidents-current` | completed correlation runs | a run at least every 45 minutes | none in nine consecutive 5-minute windows, on a wall-clock window |
 | 4 | Remediation steps run | `remediation-runs` | router, recorder and executor errors | no step fails | any error in 5 minutes |
 | 5 | Approvals are decided | `approvals-decided` | workflows that timed out | every approval decided within 24 hours | any expiry |
 | 6 | The API is available | `api-available` | server errors over requests | 99.5% of requests, 28 days | over 5% failing for 15 minutes |
@@ -134,14 +134,19 @@ stored when the denial was lifted (`docs/chaos-experiments.md`).
 **Measured by** `CorrelationRunsCompleted`, which the correlator publishes as
 the last thing a run does, after every incident has been written.
 
-**Alarm.** No completed run in three consecutive 15-minute windows — three
-schedule intervals, so one failed run does not fire it, and a run that drifts
-across a window boundary leaves one window empty, not three. Missing data *is*
-a breach: that is what makes the count a heartbeat. A run that crashes, times
-out, or never starts because the schedule was disabled publishes nothing, and
-nothing has to report the failure for it to be noticed. A 45-minute gap is
-reported between 45 and 60 minutes after the last run, whatever the clock
-says.
+**Alarm.** No completed run in nine consecutive 5-minute windows, judged on
+a wall-clock evaluation window. On schedule every 45 minutes holds three
+runs, so one failed run does not fire it, and nine empty windows mean no
+completed run for 45 to 50 minutes. Missing data *is* a breach: that is what
+makes the count a heartbeat. A run that crashes, times out, or never starts
+because the schedule was disabled publishes nothing, and nothing has to report
+the failure for it to be noticed. The window is wall-clock rather than
+CloudWatch's default sliding one because a sliding evaluation retrieves older
+data points than the windows it names and judges on the real ones first, so
+a run from an hour before kept the alarm OK (the E3 re-run, below); a
+wall-clock window retrieves exactly the nine periods and nothing older. It
+accepts 5-minute periods but not 15-minute ones, hence nine of five rather
+than three of fifteen.
 
 **When it fires.** Check `/aws/lambda/CloudSentinel-Correlator` and that the
 `cloudsentinel-correlation` EventBridge rule is enabled. The dashboard graphs
@@ -149,7 +154,7 @@ run time against the 5-minute timeout: each run scans the whole findings table,
 so run time grows with it.
 
 **On first deploy** the alarm can fire once before the correlator's first run
-publishes the metric, then clears within 15 minutes.
+publishes the metric, then clears once that run's 5-minute window has closed.
 
 **What E3 found (8 October 2026).** With the schedule disabled for 51
 minutes and 56 minutes between completed runs, this alarm never fired. It was
@@ -168,7 +173,8 @@ after the last run. On its default sliding window CloudWatch retrieves more
 data points than the evaluation periods and judges on the real ones it finds
 before treating missing ones as breaching, so the 06:03 run kept the alarm OK
 until it left that range. The same rule made the 8 October arithmetic wrong.
-The second correction, and the run that verifies it, are in the chaos log.
+The definition above is the second correction; the run that verifies it is
+in the chaos log.
 
 ## 4. Remediation steps run — `cloudsentinel-slo-remediation-runs`
 
