@@ -173,8 +173,12 @@ after the last run. On its default sliding window CloudWatch retrieves more
 data points than the evaluation periods and judges on the real ones it finds
 before treating missing ones as breaching, so the 06:03 run kept the alarm OK
 until it left that range. The same rule made the 8 October arithmetic wrong.
-The definition above is the second correction; the run that verifies it is
-in the chaos log.
+The definition above is the second correction.
+
+**What the third run found (11 October 2026).** With the last run at 08:36
+UTC, the alarm fired at 09:25:41: 49 min 41 s after it, and 41 seconds after
+the ninth empty window closed. It cleared 41 seconds after the first window
+holding a run closed. The definition is verified.
 
 ## 4. Remediation steps run — `cloudsentinel-slo-remediation-runs`
 

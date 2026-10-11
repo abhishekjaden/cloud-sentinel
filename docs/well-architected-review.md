@@ -178,9 +178,9 @@ control-change watch and the honeypot.
   single 45-minute window, clock-aligned, let a 56-minute gap pass unreported.
   Re-defined as three 15-minute windows, it fired in the 11 October re-run,
   but 77 minutes after the last run, because the default sliding evaluation
-  judges on older real data points before missing ones; it is now judged on a
-  wall-clock window of nine 5-minute periods, and E3 is to be run a third
-  time.
+  judges on older real data points before missing ones. Judged now on a
+  wall-clock window of nine 5-minute periods, it fired 49 minutes 41 seconds
+  after the last run in the third run, inside the designed 45 to 50.
 
 ---
 

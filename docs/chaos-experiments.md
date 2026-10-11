@@ -17,7 +17,7 @@ separate change with its own test.
 |---|---|---|---|
 | E1 | A record the normalizer cannot read | 1 (stored), 8 (controls) | **run, 7 October 2026** |
 | E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day** |
-| E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** against the fix — it fired, 77 minutes after the last run; second fix pending a third run |
+| E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** — it fired, but 77 minutes after the last run; **third run 11 October**, on a wall-clock window — fired 49 min 41 s after the last run, as designed |
 | E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
 | E5 | A control changed by hand | 8 | **run, 3 October 2026** |
 
@@ -369,6 +369,36 @@ and nothing older. A wall-clock window accepts 5-minute periods but not
 missing data breaching: on schedule every 45 minutes holds three runs, and
 nine empty windows mean no completed run for 45 to 50 minutes. E3 is to be
 run a third time against it.
+
+**Third run, 11 October 2026, against nine 5-minute windows on a wall-clock
+window** (times UTC; 14:06–18:34 IST). Hypothesis: the alarm fires 45 to 50
+minutes after the last completed run, plus CloudWatch's evaluation delay.
+Before the run, `aws cloudcontrol get-resource` showed the deployed alarm
+carrying `"EvaluationWindow":{"WallClockWindow":{"Timezone":"UTC"}}`;
+`describe-alarms` in AWS CLI 2.35.4 does not print the field.
+
+1. The last completed run was at 08:36. `DisableRule` at 08:46:58;
+   controls-unchanged OK → ALARM at 08:47:52 (**54 seconds**) and OK at
+   09:02:52.
+2. The nine 5-minute windows from 08:40 to 09:25 were empty, and the alarm
+   went OK → ALARM at **09:25:41**: 41 seconds after the ninth closed and
+   **49 min 41 s after the last completed run** (38 min 43 s after the
+   disable). The hypothesis held.
+3. The schedule then stayed off for four hours while the operator was away,
+   and the alarm stayed in ALARM throughout, without flapping. `EnableRule` at
+   12:46:43 (and a redundant second one at 12:47:22). The correlator ran at
+   once (12:46), and the alarm returned to OK at 12:50:41, 41 seconds after
+   the 5-minute window holding that run closed: a wall-clock window reflects a
+   data point only once its period has ended. Controls-unchanged went OK →
+   ALARM at 12:47:52 (**69 seconds**) and OK at 13:03:52. The schedule's
+   phase is now :01/:16/:31/:46.
+
+**Result.** The objective's promise and its alarm now agree: no completed run
+for 45 minutes is reported 45 to 50 minutes after the last run, plus under a
+minute of evaluation. E3 is closed. It found two defects in the same alarm,
+each by the run that was meant to verify the previous fix — the first in
+the window's alignment, the second in how CloudWatch fills a window it
+cannot see.
 
 ---
 
