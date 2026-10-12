@@ -20,7 +20,7 @@ export const HONEYPOT_PORTS = [22, 23, 80, 443, 3306, 3389, 5900, 8080];
  * nothing to an instance that already exists. Bumping this replaces the
  * instance, which is the only way a changed script takes effect.
  */
-export const INSTANCE_GENERATION = 2;
+export const INSTANCE_GENERATION = 3;
 
 /**
  * HoneypotStack — deploys to the workload account (743181156000), on demand.
@@ -30,8 +30,11 @@ export const INSTANCE_GENERATION = 2;
  * wrote, and the enricher gets addresses that are in the feeds
  * (docs/triage-eval-protocol.md).
  *
- * It is built to be worthless to whoever gets in. No key pair and no password
- * login, so SSH cannot succeed; no instance role, so there is no credential
+ * It is built to be worthless to whoever gets in. No key pair, and every
+ * password locked: sshd takes password attempts — that is what makes brute
+ * force happen where GuardDuty can see it — but root is refused and the only
+ * user allowed to log in does not exist, so no attempt can succeed. No
+ * instance role, so there is no credential
  * to steal; IMDSv2 required, so the metadata service cannot be read through a
  * web bug; no outbound rule at all, so a compromised instance could not reach
  * the internet, the rest of the account, or anything else — the security
@@ -39,7 +42,12 @@ export const INSTANCE_GENERATION = 2;
  * of the platform's shares a network with it.
  *
  * Run it for a week or two, then `cdk destroy CloudSentinel-Honeypot`. About
- * $3 a month while it exists.
+ * ₹25 a day while it exists.
+ *
+ * The first run (3–8 October 2026) refused password login at the key
+ * exchange and drew no findings in four and a half days; scanners have little
+ * reason to persist against an sshd that will not even ask
+ * (docs/triage-eval-protocol.md). From the second run it asks, and fails.
  */
 export class HoneypotStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -89,9 +97,8 @@ export class HoneypotStack extends cdk.Stack {
     }]);
 
     // Amazon Linux 2023 on Graviton: the cheapest instance that runs it, with
-    // sshd listening and password login off by default. The web listener is
-    // the standard library's, so nothing has to be installed — the instance
-    // could not download anything anyway.
+    // sshd listening. The web listener is the standard library's, so nothing
+    // has to be installed — the instance could not download anything anyway.
     const image = ec2.MachineImage.latestAmazonLinux2023({ cpuType: ec2.AmazonLinuxCpuType.ARM_64 });
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
@@ -110,6 +117,27 @@ export class HoneypotStack extends cdk.Stack {
       'EOF',
       'systemctl daemon-reload',
       'systemctl enable --now lure-web.service',
+      // SSH takes password attempts, so brute force happens, and lets none
+      // succeed. Every password is locked (the image sets none; locking
+      // makes it explicit), root is refused, keys are off, and the only user
+      // allowed to log in does not exist. sshd uses the first value it reads
+      // for each keyword, and this drop-in is read before the image's own.
+      'passwd -l root',
+      'passwd -l ec2-user',
+      "cat > /etc/ssh/sshd_config.d/00-honeypot.conf <<'EOF'",
+      'PasswordAuthentication yes',
+      'KbdInteractiveAuthentication no',
+      'PermitEmptyPasswords no',
+      'PermitRootLogin no',
+      'PubkeyAuthentication no',
+      'AllowUsers honeypot-no-such-user',
+      'MaxAuthTries 3',
+      'LoginGraceTime 20',
+      'EOF',
+      'sshd -t && systemctl restart sshd',
+      // The settings in force, on the serial console, so they can be read
+      // with get-console-output without ever logging in.
+      "sshd -T | grep -E '^(passwordauthentication|permitrootlogin|pubkeyauthentication|allowusers) ' | sed 's/^/honeypot-sshd: /' > /dev/console",
     );
 
     // The L1 construct rather than ec2.Instance, which would create an

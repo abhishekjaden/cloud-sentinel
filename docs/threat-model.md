@@ -44,9 +44,13 @@ One deliberate attack surface sits outside every boundary above. The honeypot
 (`CloudSentinel-Honeypot`, deployed on demand in the workload account) is an
 instance that exists to be attacked, so the platform sees real findings. It
 is built to be worthless to whoever gets in: its own VPC with one subnet and
-no NAT, no instance role and no key pair, password login off, IMDSv2 required,
-and a security group with no outbound rule, so a compromised instance could
-reach nothing — not the internet, not the account, not the platform. The
+no NAT, no instance role and no key pair, IMDSv2 required, and a security
+group with no outbound rule, so a compromised instance could reach nothing —
+not the internet, not the account, not the platform. From its second run
+(October 2026) sshd takes password attempts, so that brute force happens where
+GuardDuty can see it, but every password is locked, root is refused, keys are
+off and the only user allowed to log in does not exist: no attempt can
+succeed. The
 tests in `cdk/test/honeypot.test.ts` hold each of those properties.
 
 ---

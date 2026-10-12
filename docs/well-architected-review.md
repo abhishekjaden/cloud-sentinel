@@ -26,7 +26,7 @@ control-change watch and the honeypot.
   cdk-nag on every push; every accepted finding carries a written reason in
   `cdk/lib/nag-suppressions.ts`.
 - Three test suites run in CI before anything deploys: 299 backend tests at a
-  93% coverage floor of 80%, 103 CDK assertion tests, 76 frontend tests. The
+  93% coverage floor of 80%, 104 CDK assertion tests, 76 frontend tests. The
   CDK tests pin security properties rather than resource counts: what each
   function may touch, what the API may read and never write, that every
   alarm is documented and every documented alarm exists.
@@ -108,7 +108,7 @@ control-change watch and the honeypot.
   to two threat-intelligence feeds — sends only the indicator, over TLS with
   verification, to two fixed hosts, and is recorded as a trust boundary
   (B8). The honeypot that invites attack is built to be worthless to whoever
-  gets in: no credential, no login, no outbound rule, its own network.
+  gets in: no credential, no login that can succeed, no outbound rule, its own network.
 
 **Closed since v1**
 - *No secrets-rotation posture* → the only secret is the pair of

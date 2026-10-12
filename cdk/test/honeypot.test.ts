@@ -1,8 +1,8 @@
 /**
  * The honeypot is attacked on purpose, so what matters is what an attacker who
  * succeeds would get: nothing. These tests pin the properties that make it
- * worthless — no credential, no login, no way out — and keep it in its own
- * network, away from everything the platform owns.
+ * worthless — no credential, no login that can succeed, no way out — and keep
+ * it in its own network, away from everything the platform owns.
  */
 import * as cdk from 'aws-cdk-lib/core';
 import { Template } from 'aws-cdk-lib/assertions';
@@ -49,6 +49,25 @@ describe('the honeypot instance', () => {
     expect(script).toContain('NoNewPrivileges=yes');
     // The script never installs or downloads anything: there is no egress.
     expect(script).not.toMatch(/dnf|yum|curl|wget|pip/);
+  });
+
+  test('takes SSH password attempts, so brute force happens, and lets none succeed', () => {
+    // The first run refused passwords at the key exchange and drew no findings
+    // in four and a half days. Asking for a password is what keeps a scanner
+    // trying; every way an attempt could succeed is closed separately.
+    const script = Buffer.from(instance.UserData['Fn::Base64'], 'utf8').toString();
+    expect(script).toContain('/etc/ssh/sshd_config.d/00-honeypot.conf');
+    expect(script).toContain('PasswordAuthentication yes');
+    expect(script).toContain('PermitEmptyPasswords no');
+    expect(script).toContain('PermitRootLogin no');
+    expect(script).toContain('PubkeyAuthentication no');
+    expect(script).toContain('AllowUsers honeypot-no-such-user');
+    expect(script).toContain('passwd -l root');
+    expect(script).toContain('passwd -l ec2-user');
+    // Nothing gives any account a password, and no account is created.
+    expect(script).not.toMatch(/chpasswd|useradd|adduser|passwd (?!-l )/);
+    // A config that fails validation never replaces the running one.
+    expect(script).toContain('sshd -t && systemctl restart sshd');
   });
 
   test('is replaced, not merely updated, when its first-boot script changes', () => {

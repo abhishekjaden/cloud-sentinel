@@ -18,7 +18,7 @@ cases, or any note the model has written.
 
 **From the honeypot.** `CloudSentinel-Honeypot` is an instance in the workload
 account that exists to be attacked (`cdk/lib/stacks/honeypot-stack.ts`). It
-holds nothing, allows no login and has no outbound rule; it is reachable from
+holds nothing, allows no login that can succeed and has no outbound rule; it is reachable from
 the internet on eight commonly scanned ports. Within hours GuardDuty reports
 the probes and brute-force attempts against it, the correlator turns them into
 incidents, and each incident is a case nobody wrote. The addresses in those
@@ -52,6 +52,13 @@ prober to be on GuardDuty's threat lists at the time; and four days may just
 be short. A second run, if one is wanted, should let brute force happen —
 sshd accepting password attempts against an account that has none — and run
 for at least a week.
+
+**Second run, from 12 October 2026.** The instance is replaced (generation 3)
+and sshd now takes password attempts: every password locked, root refused,
+keys off, and the only user allowed to log in one that does not exist, so
+brute force can happen and no attempt can succeed. The settings in force are
+written to the serial console at boot and read with `aws ec2
+get-console-output`, without logging in. It runs for ten days, to 22 October.
 
 ## 2. The label comes first
 
