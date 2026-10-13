@@ -3,6 +3,7 @@ import { Duration } from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as sns from 'aws-cdk-lib/aws-sns';
@@ -45,6 +46,24 @@ export class ObservabilityStack extends cdk.Stack {
       displayName: 'CloudSentinel SLO alarms',
       enforceSSL: true,
     });
+    // enforceSSL gives the topic a resource policy, and a topic's policy
+    // replaces the default one SNS creates — which is what lets CloudWatch
+    // publish to a topic in its own account. The only allow added since was
+    // EventBridge's, for the control-change messages. So from the topic's
+    // creation on 20 September every alarm changed state but its notification
+    // was refused ("CloudWatch Alarms is not authorized to perform:
+    // SNS:Publish"), a refusal recorded only in the alarm's own history and
+    // found on 13 October (docs/slos.md, "Receiving alarms"). CloudWatch may
+    // publish for this account's alarms and no one else's.
+    topic.addToResourcePolicy(new iam.PolicyStatement({
+      sid: 'CloudWatchAlarmsPublish',
+      principals: [new iam.ServicePrincipal('cloudwatch.amazonaws.com')],
+      actions: ['sns:Publish'],
+      resources: [topic.topicArn],
+      conditions: {
+        ArnLike: { 'aws:SourceArn': `arn:${this.partition}:cloudwatch:${this.region}:${this.account}:alarm:*` },
+      },
+    }));
     const notify = new cwActions.SnsAction(topic);
 
     // ------------------------------------------------------------ what we watch

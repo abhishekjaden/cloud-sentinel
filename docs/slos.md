@@ -27,6 +27,36 @@ aws sns subscribe --profile cs-audit --region us-east-1 \
 
 Then confirm from the email AWS sends.
 
+**No notification was delivered before 13 October.** The topic enforces TLS
+through a resource policy, and a topic's policy replaces the default one SNS
+creates, which is what lets CloudWatch publish to a topic in its own account.
+The only other statement the policy gained was EventBridge's, for the
+control-change messages, which did arrive. So from the topic's creation on
+20 September every alarm changed state as designed, and every notification was
+refused: each alarm's history reads `Failed to execute action … CloudWatch
+Alarms is not authorized to perform: SNS:Publish`. Nothing else recorded it,
+and every experiment's expected signals checked an alarm's state rather than
+its delivery, so every run passed. Found on 13 October, in the history behind
+E1's third run. The topic's policy now allows CloudWatch to publish for this
+account's alarms (`observability-stack.ts`, and a test).
+
+**Check, expected signals** (written before the check). Deploy the
+Observability stack, then force one alarm and let it clear:
+
+```bash
+aws cloudwatch set-alarm-state --profile cs-audit --alarm-name cloudsentinel-slo-findings-stored \
+  --state-value ALARM --state-reason "Delivery check after the topic-policy fix"
+```
+
+1. The alarm's history shows the state change and, in the same second,
+   `Successfully executed action arn:aws:sns:…:cloudsentinel-alarms` instead
+   of the refusal.
+2. One email arrives at each confirmed subscription within a minute.
+3. At its next evaluation the alarm returns to OK, as its metric is zero, and
+   a second email follows.
+4. The forced change is a call that changes no control, so
+   controls-unchanged stays OK.
+
 ## Summary
 
 | # | Objective | Alarm (`cloudsentinel-slo-…`) | Measured by | Target | Fires when |

@@ -26,7 +26,7 @@ control-change watch and the honeypot.
   cdk-nag on every push; every accepted finding carries a written reason in
   `cdk/lib/nag-suppressions.ts`.
 - Three test suites run in CI before anything deploys: 316 backend tests at a
-  93% coverage floor of 80%, 105 CDK assertion tests, 76 frontend tests. The
+  93% coverage floor of 80%, 106 CDK assertion tests, 76 frontend tests. The
   CDK tests pin security properties rather than resource counts: what each
   function may touch, what the API may read and never write, that every
   alarm is documented and every documented alarm exists.
@@ -148,7 +148,11 @@ control-change watch and the honeypot.
   for a week.
 - Eight objectives, each with an alarm that notifies on firing and on
   clearing, and a dashboard that graphs recoveries separately from losses.
-  Silence from the correlator is treated as a breach.
+  Silence from the correlator is treated as a breach. Until 13 October the
+  notifications were not delivered: the alarm topic's TLS-only policy had
+  replaced the default that lets CloudWatch publish to it, and every alarm
+  action failed, recorded only in each alarm's history. The policy now
+  admits CloudWatch for this account's alarms (`docs/slos.md`).
 - The ECS deployment uses a circuit breaker with rollback and never drops
   below the running task count during a deploy.
 

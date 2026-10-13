@@ -180,6 +180,25 @@ describe('objectives', () => {
     }
   });
 
+  test('CloudWatch may publish to the alarm topic, for this account\'s alarms only', () => {
+    // An alarm action names the topic, but the topic's policy decides whether
+    // the notification is accepted. The policy enforceSSL attaches replaces
+    // SNS's default one, so CloudWatch needs its own statement: without it
+    // every alarm above changed state and told nobody, from 20 September to
+    // 13 October, and the only record was each alarm's history.
+    const statements = resources(observability, 'AWS::SNS::TopicPolicy')
+      .flatMap((p) => p.PolicyDocument.Statement as Props[]);
+    const allow = statements.filter((s) => s.Effect === 'Allow'
+      && s.Principal?.Service === 'cloudwatch.amazonaws.com');
+    expect(allow).toHaveLength(1);
+    expect(allow[0].Action).toBe('sns:Publish');
+    expect(JSON.stringify(allow[0].Condition.ArnLike['aws:SourceArn']))
+      .toContain(`:cloudwatch:us-east-1:${ACCOUNTS.audit}:alarm:*`);
+    // and the TLS requirement is still there
+    expect(statements.some((s) => s.Effect === 'Deny'
+      && s.Condition?.Bool?.['aws:SecureTransport'] === 'false')).toBe(true);
+  });
+
   test('the API alarms notify the same topic, found by name', () => {
     const topicArn = `arn:aws:sns:us-east-1:${ACCOUNTS.audit}:${ALARM_TOPIC_NAME}`;
     expect(apiAlarms.length).toBe(2);
