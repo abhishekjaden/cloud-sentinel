@@ -91,9 +91,13 @@ The graph shows `ClassifyFinding` routing a C&C/exfiltration finding down the `e
 
 Both classifiers are documented in [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md), which
 reports test-split results per class with support counts and explains why the
-headline figures are inflated by documented feature leakage in CICIDS2017 — the
-Bot class, at 0.648 precision, is the one result the dataset does not make
-trivial.
+headline figures are inflated by documented feature leakage in CICIDS2017. It
+also re-evaluates them on the corrected release: corrected labels raise the
+scores, including the Bot class's 0.648 precision, which turned out to be
+mostly labelling error, while a day held out of training shows the detector
+missing every flow of an attack family it had not seen, and the corrected
+CSE-CIC-IDS-2018, 63 million flows from another network, shows it barely
+better than chance (AUC 0.58).
 
 What has been measured, and what each number is allowed to mean, is in
 [`docs/evaluation.md`](docs/evaluation.md); the platform is reviewed against the

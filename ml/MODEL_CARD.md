@@ -145,6 +145,9 @@ spurious alerts against 340,000 benign flows.
 This is the number worth discussing, because it is the only one not inflated by
 leakage.
 
+*October 2026: it was mostly the labels. On the corrected release Bot's F1 is
+0.996 (Section 6.1).*
+
 ### Infiltration is six samples
 
 Precision 1.000 and recall 0.833 describe five correct predictions and one miss.
@@ -180,26 +183,145 @@ use where a false positive carries direct cost without human review.
 - Trained on 2017 traffic. Attack techniques have moved on.
 - Network-flow features only. No cloud control-plane signal — API calls, IAM
   activity and storage misconfiguration are invisible to it.
-- Evaluated on the uncorrected CICIDS2017, with the leakage described above.
+- The served models were trained and evaluated on the uncorrected CICIDS2017,
+  with the leakage described above. Retrained on the corrected release they
+  score higher on a random split, but miss an attack family absent from
+  training entirely (Section 6.2), and on a second network they are barely
+  better than chance (AUC 0.58, Section 6.3).
 - Bot and Infiltration are supported by too little data to be relied on.
 - No drift monitoring. Performance on traffic unlike the training distribution
   is unmeasured.
 
 ---
 
-## 6. Future work
+## 6. Re-evaluation on corrected data (October 2026)
 
-- Retrain and re-evaluate on Engelen et al.'s corrected dataset, and report the
-  difference. That difference is itself a result worth publishing.
-- Evaluate against UNSW-NB15 as an independent dataset, to separate what the
-  model learned from what CICIDS2017 leaked.
-- Collect labelled flows from the platform's own environment for a small
-  in-domain evaluation set.
-- Add drift monitoring so degradation is detected rather than assumed absent.
+The served models are unchanged; this section is a measurement. Engelen, Rimmer
+and Joosen's corrected CICIDS2017, released alongside a corrected
+CSE-CIC-IDS-2018 (Liu, Engelen, Lynar, Essam and Joosen, *Error Prevalence in
+NIDS Datasets: A Case Study on CIC-IDS-2017 and CSE-CIC-IDS-2018*, IEEE CNS
+2022), re-extracts every flow with a fixed CICFlowMeter and relabels it:
+2,099,976 flows and 83 features once identifiers are removed. Two of its labels
+need a decision, and both follow its authors:
+
+- **Attempted attacks** — 11,979 flows from an attack tool that carried no
+  attack, among them 4,067 of the 4,803 botnet flows and 1,952 of the 2,056
+  web-attack flows — are counted as BENIGN.
+- **The infiltrated host's port scan** — 71,767 flows the original release
+  labelled benign — is counted as PortScan.
+
+`ml/evaluation/retrain_corrected.py` uses the served models' families,
+stratified 70/15/15 split, settings and seed, and drops the five rows with
+missing or infinite values, as serving does.
+
+### 6.1 Same split and settings
+
+| | Original (served) | Corrected |
+|---|---|---|
+| Binary AUC | 0.999963 | > 0.99999 |
+| Binary F1 | 0.9977 | 0.9999 |
+| Binary precision | 0.9959 | 0.9999 |
+| Binary recall | 0.9996 | 0.9999 |
+| Multiclass macro-F1 | 0.9586 | 0.9797 |
+| Multiclass weighted F1 | 0.9990 | 0.9999 |
+
+| Class | F1 original (test flows) | F1 corrected (test flows) |
+|---|---|---|
+| BENIGN | 0.999 (340,701) | 1.000 (239,181) |
+| Bot | 0.779 (293) | 0.996 (110) |
+| BruteForce | 1.000 (2,075) | 1.000 (1,040) |
+| DDoS | 1.000 (19,204) | 1.000 (14,271) |
+| DoS | 0.999 (37,758) | 1.000 (25,747) |
+| Infiltration | 0.909 (6) | 0.909 (6) |
+| PortScan | 0.996 (23,821) | 1.000 (34,625) |
+| WebAttack | 0.986 (327) | 0.933 (16) |
+
+Correcting the labels raised the scores. Section 4 called Bot's precision of
+0.648 the one result the dataset does not make trivial; it was mostly the
+labels. Most flows the original release called botnet were attempted
+connections that carried no botnet traffic and look benign, so a model taught
+to call them Bot called benign flows Bot too. Counted as benign, they leave Bot
+with an F1 of 0.996. WebAttack fell to 0.933, on 16 test flows — too few to
+read. A random split puts flows of the same attack session on both sides of it,
+so scores this close to 1 show that the classes are separable within one
+capture, not that the model generalises.
+
+### 6.2 A day held out of training
+
+The binary model, trained on Monday to Thursday (85% of them; the rest for
+validation) and tested on all of Friday, whose botnet and DDoS traffic occur on
+no other day:
+
+| Friday | Flows | Flagged as attack | In training |
+|---|---|---|---|
+| BENIGN | 292,611 | 0.002% | yes |
+| DDoS | 95,144 | 99.5% | no |
+| PortScan | 159,066 | 99.0% | only the infiltrated host's scan |
+| Bot | 736 | **0.0%** | no |
+
+AUC 0.999876, F1 0.9945, precision 1.0000, recall 0.9891. The detector found
+the DDoS flows, close to the denial-of-service traffic it had seen, and missed
+every botnet flow. Botnet traffic is 0.3% of Friday's attack flows, so the
+aggregate F1 hides a complete miss on the one family unlike anything in
+training.
+
+### 6.3 Another dataset: CSE-CIC-IDS-2018
+
+The binary model, trained on all five corrected 2017 days, scored on all
+63,195,088 flows of the corrected CSE-CIC-IDS-2018: the same fixed
+CICFlowMeter, a different network, built on AWS in 2018. All 83 features
+matched; 57 benign flows with missing or infinite values were dropped, as in
+serving. Attempted attacks count as benign, as above.
+
+| | Value |
+|---|---|
+| Flows (attack) | 63,195,088 (3,535,422) |
+| AUC | 0.577 |
+| F1 / precision / recall | 0.082 / 0.133 / 0.059 |
+| False-positive rate | 2.27% (1,355,578 of 59,659,666 benign) |
+
+| Attack (2018 label) | Flows | Flagged as attack |
+|---|---|---|
+| DoS Hulk | 1,803,160 | 0.0% |
+| DDoS HOIC | 1,082,293 | 0.0% |
+| DDoS LOIC-HTTP | 289,328 | 41.5% |
+| Botnet Ares | 142,921 | 0.6% |
+| SSH brute force | 94,197 | 4.3% |
+| Infiltration: nmap port scan | 89,374 | 79.1% |
+| DoS GoldenEye | 22,560 | 16.6% |
+| DoS Slowloris | 8,490 | 97.0% |
+| DDoS LOIC-UDP | 2,527 | 0.0% |
+| Infiltration: other | 289 | 0.0% |
+| Web attacks | 283 | 0.0% |
+
+Barely better than chance. DoS Hulk, which the model separated almost
+perfectly within 2017 (DoS F1 1.000 in 6.1), is missed entirely on the new
+network; Slowloris and the nmap scan, whose flows look alike on any network,
+mostly carry over. Of the false positives, 298,874 are attempted FTP
+brute-force connections, counted as benign and flagged almost without
+exception; flows labelled benign alone are flagged at 1.78%, which on this
+dataset is still about a million false alerts. The model learned the 2017
+network as much as the attacks in it. `ml/models/cross_dataset_2018.json`
+holds every label's counts and score histogram; `cross_dataset.py --report`
+prints the tables again, under another label mapping if need be, without
+reading the data.
 
 ---
 
-## 7. Reproducing
+## 7. Future work
+
+- Evaluate against UNSW-NB15, whose features come from different tools
+  (Argus and Bro) and would have to be mapped or the models retrained.
+- Collect labelled flows from the platform's own environment for a small
+  in-domain evaluation set: Section 6.3 says a model trained on one network
+  cannot be trusted on another.
+- Add drift monitoring so degradation is detected rather than assumed absent.
+- Serve a model trained on the corrected data. Its 83 features are not the
+  served models' 78, so `/predict`'s input changes with it.
+
+---
+
+## 8. Reproducing
 
 ```bash
 # Preprocess the raw CSVs into stratified splits. run_processing.py launches a
@@ -217,3 +339,18 @@ python ml/evaluation/evaluate.py
 
 Training job `cicids-xgb-2026-09-13-17-36-23-826`: 616 billable seconds.
 Full metrics in `ml/models/test_metrics.json`.
+
+The re-evaluation in Section 6 runs on a laptop, from the corrected releases at
+`https://intrusion-detection.distrinet-research.be/CNS2022/Datasets/`:
+`CICIDS2017_improved.zip` (328 MB) unzipped into PATH, and
+`CSECICIDS2018_improved.zip` (9.7 GB), which is read straight from the zip.
+
+```bash
+# 6.1, about 5 minutes; and 6.2, about 2 minutes
+python ml/evaluation/retrain_corrected.py --data PATH --out ml/models/corrected_metrics.json
+python ml/evaluation/retrain_corrected.py --data PATH --holdout-day friday --out ml/models/holdout_metrics.json
+
+# 6.3: train on all of the 2017 release, score the 2018 release
+python ml/evaluation/cross_dataset.py --train PATH --test CSECICIDS2018_improved.zip \
+    --model ml/models/cross_model.ubj --workers 2 --out ml/models/cross_dataset_2018.json
+```

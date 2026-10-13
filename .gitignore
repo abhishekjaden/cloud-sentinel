@@ -181,3 +181,8 @@ cdk/nag.txt
 ml/data/
 ml/models/model.tar.gz
 ml/models/*_model.json
+
+# Re-evaluation by-products (ml/MODEL_CARD.md, Section 6): the cross-dataset
+# model is retrained in minutes, and the trial is superseded by the full run
+ml/models/*.ubj
+ml/models/cross_trial.json
