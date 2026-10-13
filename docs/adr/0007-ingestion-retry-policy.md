@@ -101,4 +101,4 @@ The decision stands for what it was made for: a dependency that fails and
 recovers still holds the shard and heals without loss (E2). What changes is
 that a record which cannot be read must not reach this policy at all. The
 normalizer now reports it to the failure queue itself rather than handing it
-back: ADR 0008, to be verified by a third run of E1.
+back: ADR 0008, verified by E1's third run on 13 October.

@@ -15,7 +15,7 @@ separate change with its own test.
 
 | # | Experiment | Objectives exercised | Status |
 |---|---|---|---|
-| E1 | A record the normalizer cannot read | 1 (stored), 2 (fresh), 8 (controls) | **run, 7 October 2026**; **re-run under ADR 0007, 12 October** — the record held the shard for an hour, and the finding 4.6 seconds behind it was lost with it |
+| E1 | A record the normalizer cannot read | 1 (stored), 2 (fresh), 8 (controls) | **run, 7 October 2026**; **re-run under ADR 0007, 12 October** — the record held the shard for an hour, and the finding 4.6 seconds behind it was lost with it; **third run under ADR 0008, 13 October** — rejected on first sight, 11 seconds after it arrived, and the finding behind it stored by the same invocation |
 | E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day** |
 | E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** — it fired, but 77 minutes after the last run; **third run 11 October**, on a wall-clock window — fired 49 min 41 s after the last run, as designed |
 | E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
@@ -201,6 +201,50 @@ it.
    table for the purge to remove.
 5. No control-change message: the deploy went through CloudFormation's
    execution role, and the run changes nothing else.
+
+**Observed, 13 October 2026** (times UTC; 18:37–19:00 IST). The two stacks
+were deployed at 13:07–13:08. The Ingestion stack changed the normalizer's
+code and environment and nothing else: the function could already send to
+the queue, through its event source's failure destination, so the deploy
+changed no permission. The Observability stack changed the findings-stored
+alarm's description and the dashboard. Before the run the queue was empty, the three alarms
+were OK, and the normalizer's environment named the queue. The garbage
+reached the stream at 13:14:52.129 as sequence number
+`49677756101047019183198925932849496986771209039816687618`;
+the finding — run `3xgg`, `flood-3xgg-000000` — one to four seconds behind
+it. The sender's clock again read 21 seconds ahead of the stream's.
+
+1. **Rejected on first sight.** One invocation (request `fb1340dc`) received
+   both records — `RecordsReceived` 2 — at 13:15:03, eleven seconds after
+   the garbage arrived, which is the ten-second batching window. It logged
+   `Rejected record 4967…7618, which can never be stored: JSONDecodeError:
+   Expecting value: line 1 column 1 (char 0)` at 13:15:03.304. There was no
+   `Failed to process record` line: `RecordsFailed` 0, `RecordsRejected` 1.
+2. **Reported at once.** The message reached `cloudsentinel-failed-findings`
+   at 13:15:03.291, 11.2 seconds after the garbage reached the stream:
+   condition `RecordRejected`, the exception as its reason, and the garbage's
+   sequence number at both ends of a batch of one. `NumberOfMessagesSent`
+   read 1, and the queue held one message until the purge. (The check that
+   read it, made with a visibility timeout of zero so as not to hide it, got
+   it back three times in one call; the depth and the sent count say one.)
+   **findings-stored went OK → ALARM at 13:18:18.8**, 3 min 16 s after the
+   message, and **back to OK at 13:23:18.8**, one quiet window later.
+3. **Nothing was held.** Iterator age peaked at 10.9 seconds, in the minute
+   of the send, and findings-fresh did not change state.
+4. **The finding behind it was stored once**, by the same invocation, at
+   13:15:03.451 — 0.15 seconds after the rejection. Before the purge the
+   correlator had built an incident from it, as on 7 October.
+5. No control-change message: controls-unchanged did not change state,
+   during the run or for the deploy before it.
+
+Every expected signal held. The record that held the shard for 60 minutes on
+12 October, and took the finding behind it when it went, is now reported in
+eleven seconds, and the finding behind it is stored in the same invocation.
+The hour-long retry still applies to writes that fail for a reason that can
+heal, which is what E2 measured it for.
+
+**Rollback** (done 13:30). The queue was purged and the flood purge removed
+the one finding and the incident built from it.
 
 ---
 

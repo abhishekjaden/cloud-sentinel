@@ -2,8 +2,8 @@
 
 ## Status
 Accepted, 2026-10-13, on the evidence of experiment E1's re-run under ADR 0007
-(`docs/chaos-experiments.md`, 12 October). To be verified by E1's third run,
-whose expected signals are written there before it runs.
+(`docs/chaos-experiments.md`, 12 October). Verified the same day by E1's
+third run, which met every expected signal written there before it ran.
 
 ## Context
 ADR 0007 made the normalizer's failures retry until a record is an hour old,
@@ -78,7 +78,11 @@ SQS-managed encryption because no finding content is in it.
 - E1 is run a third time. Expected: one queue message within a minute,
   condition `RecordRejected`; no hold, so iterator age stays at seconds and
   findings-fresh stays OK; the finding sent behind the garbage stored once;
-  findings-stored in ALARM about three minutes after the message.
+  findings-stored in ALARM about three minutes after the message. Observed
+  on 13 October: one message 11.2 s after the record reached the stream;
+  iterator age at most 10.9 s and findings-fresh unchanged; the finding
+  behind it stored once, by the same invocation; findings-stored in ALARM
+  3 min 16 s after the message and OK one window later.
 - Rejected: validating each source's full schema, since the mapping already
   degrades missing fields to defaults and a strict schema would refuse
   findings that are merely new; and `bisectBatchOnError`, which isolates a bad

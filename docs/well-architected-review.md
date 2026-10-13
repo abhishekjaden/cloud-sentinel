@@ -178,7 +178,9 @@ control-change watch and the honeypot.
   malformed record held the shard for 60 minutes, nothing behind it was
   delivered until it was dropped, and the finding 4.6 seconds behind it was
   dropped with it — lost, not delayed. ADR 0008 now rejects unreadable records
-  before they reach the retry policy; E1's third run is the check. E4 (ten
+  before they reach the retry policy, and E1's third run (13 October)
+  confirmed it: the record was reported in 11 seconds, and nothing was held
+  or lost. E4 (ten
   times the volume) stored all 10,000 findings with a 2.5-minute peak backlog
   and no alarm. E3 (the schedule disabled) found that the incidents-current alarm's
   single 45-minute window, clock-aligned, let a 56-minute gap pass unreported.

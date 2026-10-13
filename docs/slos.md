@@ -148,8 +148,11 @@ the finding 4.6 seconds behind it was dropped with it at the hour — a loss
 objective 1 reported 2 min 52 s later. The alarm then took 15 min 49 s to
 clear rather than one window: with nothing arriving, it went on judging its
 last two high samples until they left its evaluation range. ADR 0008 now
-rejects such a record on first sight, so it should never reach this alarm;
-E1's third run is the check. Should one ever hold the shard again, it looks
+rejects such a record on first sight, so it never reaches this alarm: in
+E1's third run (13 October) the record was reported to the failure queue 11
+seconds after it arrived, the finding behind it was stored by the same
+invocation, and this alarm did not change state. Should one ever hold the
+shard again, it looks
 like this alarm firing while the normalizer's log names the same sequence
 number, with the same exception, about once a minute.
 
