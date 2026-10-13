@@ -1,0 +1,177 @@
+{
+  "dataset": "CICIDS2017, corrected (Engelen, Rimmer and Joosen, 2021)",
+  "attempted": "benign",
+  "infiltration_portscan": "portscan",
+  "sample": 1.0,
+  "params": {
+    "n_estimators": 300,
+    "max_depth": 8,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8
+  },
+  "rows": 2099971,
+  "features": 83,
+  "split": "stratified 70/15/15, seed 42 (as served)",
+  "binary": {
+    "auc": 1.0,
+    "f1": 0.9999,
+    "precision": 0.9999,
+    "recall": 0.9999,
+    "false_positive_rate": 2.1e-05,
+    "n_test": 314996,
+    "n_attack": 75815,
+    "n_benign": 239181,
+    "scale_pos_weight": 3.155
+  },
+  "multiclass": {
+    "macro_f1": 0.9797,
+    "weighted_f1": 0.9999,
+    "accuracy": 0.9999,
+    "per_class": {
+      "BENIGN": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 239181
+      },
+      "Bot": {
+        "precision": 0.991,
+        "recall": 1.0,
+        "f1": 0.9955,
+        "support": 110
+      },
+      "BruteForce": {
+        "precision": 0.999,
+        "recall": 1.0,
+        "f1": 0.9995,
+        "support": 1040
+      },
+      "DDoS": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 14271
+      },
+      "DoS": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 25747
+      },
+      "Infiltration": {
+        "precision": 1.0,
+        "recall": 0.8333,
+        "f1": 0.9091,
+        "support": 6
+      },
+      "PortScan": {
+        "precision": 0.9998,
+        "recall": 1.0,
+        "f1": 0.9999,
+        "support": 34625
+      },
+      "WebAttack": {
+        "precision": 1.0,
+        "recall": 0.875,
+        "f1": 0.9333,
+        "support": 16
+      }
+    },
+    "confusion": {
+      "labels": [
+        "BENIGN",
+        "Bot",
+        "BruteForce",
+        "DDoS",
+        "DoS",
+        "Infiltration",
+        "PortScan",
+        "WebAttack"
+      ],
+      "matrix": [
+        [
+          239170,
+          1,
+          1,
+          0,
+          1,
+          0,
+          8,
+          0
+        ],
+        [
+          0,
+          110,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1040,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          14271,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          25746,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          34624,
+          0
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          14
+        ]
+      ]
+    }
+  },
+  "minutes": 5.0
+}

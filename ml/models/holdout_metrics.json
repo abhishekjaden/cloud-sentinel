@@ -1,0 +1,50 @@
+{
+  "dataset": "CICIDS2017, corrected (Engelen, Rimmer and Joosen, 2021)",
+  "attempted": "benign",
+  "infiltration_portscan": "portscan",
+  "sample": 1.0,
+  "params": {
+    "n_estimators": 300,
+    "max_depth": 8,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8
+  },
+  "rows": 2099971,
+  "features": 83,
+  "split": "held-out day: friday",
+  "binary": {
+    "auc": 0.999876,
+    "f1": 0.9945,
+    "precision": 1.0,
+    "recall": 0.9891,
+    "false_positive_rate": 2.1e-05,
+    "n_test": 547557,
+    "n_attack": 254946,
+    "n_benign": 292611,
+    "scale_pos_weight": 5.198
+  },
+  "by_family_on_held_out_day": {
+    "BENIGN": {
+      "n": 292611,
+      "flagged_as_attack": 0.0,
+      "seen_in_training": true
+    },
+    "Bot": {
+      "n": 736,
+      "flagged_as_attack": 0.0,
+      "seen_in_training": false
+    },
+    "DDoS": {
+      "n": 95144,
+      "flagged_as_attack": 0.9946,
+      "seen_in_training": false
+    },
+    "PortScan": {
+      "n": 159066,
+      "flagged_as_attack": 0.9903,
+      "seen_in_training": true
+    }
+  },
+  "minutes": 1.3
+}
