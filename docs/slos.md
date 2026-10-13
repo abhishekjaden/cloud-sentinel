@@ -52,9 +52,11 @@ is gone:
   retries (`FailedInvocations` on the three ingestion rules);
 - batches Lambda gave up on (`NumberOfMessagesSent` on the
   `cloudsentinel-failed-findings` queue). The normalizer hands back the sequence
-  number of every record it could not store, and Lambda rewinds the shard and
-  delivers those records again, for up to an hour (ADR 0007); only when a
-  record is an hour old does it report the batch to that queue and move on.
+  number of every record it could not store, and Lambda delivers the batch
+  again from the first of them, for up to an hour (ADR 0007), reading nothing
+  further from the shard in the meantime; only when a record is an hour old
+  does it report it to that queue and move on — taking with it anything behind
+  it that has also passed the hour by then (E1 re-run, 12 October 2026).
 
 **What is not counted.** A record the normalizer fails on. It is retried, so a
 DynamoDB throttle or a slow write costs a retry rather than a finding, and
@@ -128,6 +130,18 @@ stored rather than leaving. The E2 re-run of 8 October confirmed it: a 25-minute
 denial held every record, iterator age climbed to 24 minutes, this alarm
 fired 10 min 30 s after the flood was sent, and all 50 findings were
 stored when the denial was lifted (`docs/chaos-experiments.md`).
+
+**A record that can never be stored.** The E1 re-run of 12 October put one
+record that is not a finding on the stream under the same policy, and it held
+the shard for the whole hour: this alarm fired 12 min 06 s after the record
+arrived, the 93 findings that arrived behind it waited up to 13 minutes, and
+the finding 4.6 seconds behind it was dropped with it at the hour — a loss
+objective 1 reported 2 min 52 s later. The alarm then took 15 min 49 s to
+clear rather than one window: with nothing arriving, it went on judging its
+last two high samples until they left its evaluation range. A record that
+cannot be read is to be reported before it reaches the retry policy; until
+then, a poison record looks like this alarm firing while the normalizer's log
+names the same sequence number, with the same exception, about once a minute.
 
 ## 3. Incidents stay current — `cloudsentinel-slo-incidents-current`
 

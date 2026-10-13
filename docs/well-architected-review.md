@@ -163,8 +163,9 @@ control-change watch and the honeypot.
   resharding is a capacity decision the flow metrics would signal.
 - No disaster-recovery drill. PITR is enabled but a restore has never been
   rehearsed.
-- Two of the four chaos experiments in `docs/chaos-experiments.md` have run.
-  E1 (malformed input) behaved as designed. E2 (the normalizer denied its
+- All five chaos experiments in `docs/chaos-experiments.md` have run.
+  E1 (malformed input) behaved as designed under the first retry policy.
+  E2 (the normalizer denied its
   table) found that the ingestion retry policy — two immediate retries, then
   the failure queue — loses every finding of a dependency outage to manual
   recovery: sixteen minutes cost 200 of 200, recoverable only by replaying
@@ -172,7 +173,12 @@ control-change watch and the honeypot.
   an hour old, which holds the shard and self-heals at the price of a poison
   record blocking its shard for an hour. The same-day re-run verified it: a
   25-minute denial lost nothing, findings-fresh fired at ten and a half minutes,
-  and all 50 findings stored when the denial was lifted. E4 (ten times the
+  and all 50 findings stored when the denial was lifted. E1, re-run under the
+  new policy on 12 October, measured that price and found it higher: the
+  malformed record held the shard for 60 minutes, nothing behind it was
+  delivered until it was dropped, and the finding 4.6 seconds behind it was
+  dropped with it — lost, not delayed. Reporting unreadable records before they
+  reach the retry policy is the next change. E4 (ten times the
   volume) stored all 10,000 findings with a 2.5-minute peak backlog and no
   alarm. E3 (the schedule disabled) found that the incidents-current alarm's
   single 45-minute window, clock-aligned, let a 56-minute gap pass unreported.

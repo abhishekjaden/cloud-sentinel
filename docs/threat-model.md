@@ -87,6 +87,7 @@ tests in `cdk/test/honeypot.test.ts` hold each of those properties.
 | **R** | No record of what was ingested | Normalizer logs every normalized finding to CloudWatch | Retention is CloudWatch's default; no immutable archive. |
 | **I** | Reading the findings store | Customer-managed KMS key; `kms:Decrypt` scoped by `kms:ViaService` to DynamoDB only | Anyone with the audit account's admin role reads everything. Single-account blast radius. |
 | **D** | Flooding the stream | Provisioned shard sustains 1,000 records/second against an observed ~950/day. Throttled writes are graphed; the `findings-fresh` alarm fires when findings wait over five minutes, and `findings-stored` when one is lost for good ([SLOs](slos.md)) | A sustained flood would still throttle ingestion. The alarms report it; nothing prevents it. |
+| **D** | One record the normalizer cannot read | Writing to the stream needs `kinesis:PutRecord` in the audit account, held by the ingestion rules' EventBridge role and the account's administrative roles; `findings-fresh` reports the hold at about twelve minutes | Measured in E1's re-run (12 October): under the hour-long retry policy one such record held every finding behind it for an hour and lost the one directly behind it. Until unreadable records are reported before they reach that policy, one write an hour keeps ingestion stalled. |
 | **E** | Normalizer role misuse | Role limited to Kinesis read, DynamoDB write, KMS use through DynamoDB, and sending to its own failure queue | None known. |
 
 ### B5 — Operator → Step Functions (approval)
@@ -155,7 +156,9 @@ across which anything leaves the account to a party other than AWS.
    CloudFormation's CDK execution role ([SLO 8](slos.md)). A change that does
    arrive that way — a malicious commit on `main`, a stolen GitHub deploy
    role — looks like a deploy, and the run log's diff is the only record.
-3. **Unvalidated ingestion input.** The normalizer trusts whatever reaches it.
+3. **Unvalidated ingestion input.** The normalizer trusts whatever reaches it,
+   and since ADR 0007 a record it cannot read holds the shard for an hour and
+   loses the findings directly behind it (E1 re-run, 12 October 2026).
 4. **No WAF or rate limiting.** Accepted deliberately on cost grounds.
 
 ## 4. What this analysis changed

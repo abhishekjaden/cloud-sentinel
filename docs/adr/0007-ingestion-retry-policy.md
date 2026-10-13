@@ -5,7 +5,9 @@ Accepted, 2026-10-08, on the evidence of two chaos experiments
 (`docs/chaos-experiments.md`, E1 and E2). Verified the same day by a re-run
 of E2, recorded there: a 25-minute denial of the table held all 50 findings on
 the shard, findings-fresh fired at 10 min 30 s, the failure queue stayed
-empty, and all 50 were stored when the denial was lifted.
+empty, and all 50 were stored when the denial was lifted. Re-examined
+2026-10-13, after a re-run of E1 measured what it costs for a record that can
+never be stored: see the last section.
 
 ## Context
 The normalizer reads the findings stream in batches and reports, per record,
@@ -76,3 +78,27 @@ stay as they were.
 - Rejected: `bisectBatchOnError`, which the partial-batch report makes
   redundant; and a larger retry count, which with immediate retries only
   changes how many times a batch fails in the same few seconds.
+
+## Re-examined, 13 October 2026
+The re-run of E1 (`docs/chaos-experiments.md`, 12 October) put one record that
+is not a finding on the stream under this policy. It cost more than the hour
+of delay the rationale above accepted, in two ways.
+
+- **The hold is total.** Lambda delivered the one-record batch it had first
+  read 69 times in the hour and read nothing past it, so the handler's
+  storing of the good records in a batch never reached the findings behind
+  it. Ninety-three findings arrived behind the record and were stored within
+  two seconds of its being dropped, having waited up to 13.3 minutes; they
+  waited no longer only because none had arrived earlier in the hour.
+- **The hold ends in a loss.** The record was dropped 60 min 17 s after it
+  arrived. A finding that had arrived 4.6 seconds behind it was past an hour
+  old by then too, and was dropped with it, never delivered — the outcome
+  this decision exists to prevent, for the findings nearest the poison. The
+  window is the gap between the poison turning an hour old and the retry
+  that drops it: up to a minute at the retry pacing measured.
+
+The decision stands for what it was made for: a dependency that fails and
+recovers still holds the shard and heals without loss (E2). What changes is
+that a record which cannot be read must not reach this policy at all. The
+normalizer should report it to the failure queue itself rather than hand it
+back; that is the next change, and E1 is to be run a third time against it.

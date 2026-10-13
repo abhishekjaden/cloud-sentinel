@@ -15,7 +15,7 @@ separate change with its own test.
 
 | # | Experiment | Objectives exercised | Status |
 |---|---|---|---|
-| E1 | A record the normalizer cannot read | 1 (stored), 8 (controls) | **run, 7 October 2026** |
+| E1 | A record the normalizer cannot read | 1 (stored), 2 (fresh), 8 (controls) | **run, 7 October 2026**; **re-run under ADR 0007, 12 October** — the record held the shard for an hour, and the finding 4.6 seconds behind it was lost with it |
 | E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day** |
 | E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** — it fired, but 77 minutes after the last run; **third run 11 October**, on a wall-clock window — fired 49 min 41 s after the last run, as designed |
 | E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
@@ -99,6 +99,87 @@ purge is for — the purge is what takes the loss off the dashboard:
 aws sqs purge-queue --profile cs-audit --queue-url "$(aws sqs get-queue-url --profile cs-audit --queue-name cloudsentinel-failed-findings --query QueueUrl --output text)"
 python scripts/flood_findings.py --purge
 ```
+
+**Re-run under ADR 0007, 12 October 2026** (times UTC; 00:15–01:36 IST on the
+13th). The policy now retries a record until it is an hour old, and the
+expectations change as the note under *Expected signals* says: the failures
+repeat for an hour, the records behind the garbage wait with it,
+findings-fresh fires at ten minutes, and the queue message and findings-stored
+follow the hour. A second prediction was made before the run, from reading
+the handler, which stores every good record of a batch before it reports the
+bad one: that the finding sent behind the garbage would be stored on the first
+delivery and again on every retry. The steps were the same. The garbage
+reached the stream at 18:45:33.044 by the stream's clock, as sequence number
+`49677756101047019183198917362009111694844355380493942786`;
+the finding — run `dwcq`, one finding on `i-0f100ddwcq0000000` — at
+18:45:37.601, 4.6 seconds behind it.
+
+1. **The garbage was delivered 69 times in the hour, and nothing else was.**
+   The normalizer logged 69 `Failed to process record … JSONDecodeError`
+   lines, from 18:45:38.156 to 19:44:56.073: seven in the first 22 seconds,
+   then about one a minute — 62 over the next 59 minutes, two in six of those
+   minutes and none in three — the pacing the E2 re-run saw. Every delivery
+   held one record: `RecordsReceived` summed to 69 over the 69 deliveries.
+   The finding had reached the stream 0.6 seconds before the first delivery
+   but was not in it, and Lambda delivered that one-record batch again each
+   time rather than reading the shard afresh, so the handler never saw the
+   finding. The garbage's age climbed a minute a minute, from 17.6 seconds to
+   59 min 23 s.
+2. **findings-fresh went OK → ALARM at 18:57:38**, 12 min 06 s after the
+   garbage arrived: two five-minute windows over the threshold, as written.
+3. **The drop took the finding with it.** At 19:45:50.111, 60 min 17 s after
+   it arrived, Lambda gave the garbage up: the queue message reads
+   `RecordAgeExceeded`, `approximateInvokeCount` 70, a batch of one — the
+   garbage's own sequence number. A second message reached the queue in the
+   same minute (`NumberOfMessagesSent` 2 at 19:45). It was purged unread at
+   rollback, but the rest identifies it: the finding was the next record on
+   the shard, it was 60 min 12.5 s old by then and so past the limit itself,
+   no log line ever shows it normalized, and the purge found no flood
+   finding in the table to remove. It was dropped without being delivered —
+   lost, recoverable only by replaying its sequence number from the stream
+   within 24 hours. findings-stored went to ALARM at 19:48:42, 2 min 52 s
+   after the drop, and back to OK at 19:53:42.
+4. **Everything further back was stored at once.** 93 findings had reached
+   the stream behind the garbage, all in its last 13 minutes — none in the
+   47 before — and were stored in a single delivery at 19:45:50.5–52.3,
+   0.4 seconds after the drop. The oldest had waited 13.3 minutes
+   (`measure.py --since 2026-10-12T19:45:00Z`: `stored` max 13.3 m), and the
+   delivery's iterator age read 797 s — the same figure, which is what
+   objective 2 takes the metric to be: the oldest record's wait.
+5. **findings-fresh cleared at 20:01:38**, 15 min 49 s after the drop rather
+   than within one window. Nothing was delivered after 19:45:52, and with no
+   new samples the alarm went on judging its last two high ones until they
+   left its evaluation range — the sliding evaluation E3 found, here delaying
+   the clear rather than the alarm.
+6. No control-change message: controls-unchanged did not change state.
+
+ADR 0007 accepted an hour's delay for whatever sits behind a poison record.
+The run shows that the hold is total and that it ends in a loss. Total,
+because Lambda redelivers the batch it has and reads nothing past it, so
+storing the good records of a batch helps only those already in it. A loss,
+because when the poison record is dropped, anything that arrived between its
+turning an hour old and the retry that drops it is past the hour as well and
+goes with it: up to a minute of findings at the pacing measured here, 17
+seconds this time, which was enough to catch the test finding. The 93 real
+findings waited 13 minutes only because none had arrived earlier in the hour;
+one arriving in its first minute would have waited all of it. The
+expectation written into this section was right as far as it went; the
+second prediction was wrong, because it assumed Lambda re-reads the shard
+from the failed record.
+
+The retry policy is right for a failure that can heal (E2) and wrong for a
+record that cannot. The fix goes in front of it: a record the normalizer
+cannot read is reported to the failure queue by the normalizer itself and
+not handed back, so it never holds the shard. That is the next change, and
+E1 runs a third time against it.
+
+Side finding: the sender's clock read 21 seconds ahead of AWS's (`date -u`
+printed 18:45:54 after a put the stream stamped 18:45:33), up from twelve on
+7 October; any time taken from the sender's own stamps needs that correction.
+
+**Rollback** (done 20:06). The queue was purged and the flood purge run, as
+above. The purge removed nothing, there being no flood finding stored; the 93
+real findings stay where they are.
 
 ---
 
