@@ -186,3 +186,4 @@ ml/models/*_model.json
 # model is retrained in minutes, and the trial is superseded by the full run
 ml/models/*.ubj
 ml/models/cross_trial.json
+findings_dump.json
