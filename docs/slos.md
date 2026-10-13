@@ -57,6 +57,25 @@ aws cloudwatch set-alarm-state --profile cs-audit --alarm-name cloudsentinel-slo
 4. The forced change is a call that changes no control, so
    controls-unchanged stays OK.
 
+**Observed, 13 October 2026** (times UTC). The Observability stack was
+deployed at 14:16:18–14:16:25, changing the topic's policy and nothing else.
+Before it, the alarms' histories held 49 notification attempts since
+13 September, every one `Failed to execute action`, and none that succeeded;
+the subscribed inbox held 15 messages from the topic in that time, all of them
+control-change messages from EventBridge, and not one alarm notification.
+
+1. At 14:17:43.845 the forced change took findings-stored to ALARM, and at
+   14:17:43.884 its history read `Successfully executed action
+   arn:aws:sns:us-east-1:118821712739:cloudsentinel-alarms`.
+2. The ALARM email reached the inbox at 14:17:43, within the second: the
+   first alarm notification the platform has delivered.
+3. At its next evaluation, at 14:18:08.447, the alarm returned to OK; that
+   action succeeded at 14:18:08.493, and the OK email arrived at 14:18:08.
+4. No control-change message: nothing else reached the inbox.
+
+Every expected signal held. Since then, every experiment's expected signals
+name the notification as well as the state (`docs/chaos-experiments.md`).
+
 ## Summary
 
 | # | Objective | Alarm (`cloudsentinel-slo-…`) | Measured by | Target | Fires when |

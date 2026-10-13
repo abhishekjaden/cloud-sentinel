@@ -13,6 +13,14 @@ rule of the exercise is that nothing is fixed in the middle: if an experiment
 reveals that an alarm does not fire, that is the result, and the fix is a
 separate change with its own test.
 
+An alarm's state is not a notification. Every expected signal written before
+13 October named a state — "goes to ALARM" — and every one was checked
+against the alarm's state, so every run passed while none of the
+notifications was delivered: the alarm topic's policy refused CloudWatch from
+the topic's creation, a refusal recorded only in each alarm's history
+(`docs/slos.md`, "Receiving alarms"). From 13 October an expected alarm
+signal includes its notification arriving, and is checked in the inbox.
+
 | # | Experiment | Objectives exercised | Status |
 |---|---|---|---|
 | E1 | A record the normalizer cannot read | 1 (stored), 2 (fresh), 8 (controls) | **run, 7 October 2026**; **re-run under ADR 0007, 12 October** — the record held the shard for an hour, and the finding 4.6 seconds behind it was lost with it; **third run under ADR 0008, 13 October** — rejected on first sight, 11 seconds after it arrived, and the finding behind it stored by the same invocation |
