@@ -170,8 +170,8 @@ from the failed record.
 The retry policy is right for a failure that can heal (E2) and wrong for a
 record that cannot. The fix goes in front of it: a record the normalizer
 cannot read is reported to the failure queue by the normalizer itself and
-not handed back, so it never holds the shard. That is the next change, and
-E1 runs a third time against it.
+not handed back, so it never holds the shard. That is ADR 0008, and E1 runs a
+third time against it, with the expected signals below.
 
 Side finding: the sender's clock read 21 seconds ahead of AWS's (`date -u`
 printed 18:45:54 after a put the stream stamped 18:45:33), up from twelve on
@@ -180,6 +180,27 @@ printed 18:45:54 after a put the stream stamped 18:45:33), up from twelve on
 **Rollback** (done 20:06). The queue was purged and the flood purge run, as
 above. The purge removed nothing, there being no flood finding stored; the 93
 real findings stay where they are.
+
+**Third run, under ADR 0008 — expected signals** (written before the run).
+The normalizer now rejects a record it cannot read to the failure queue on
+first sight instead of handing it back. Deploy the Ingestion and
+Observability stacks, then the same steps: the garbage, and the finding behind
+it.
+
+1. The normalizer's log shows `Rejected record <sequence number>, which can
+   never be stored: JSONDecodeError …` once, within seconds of the put, and
+   no `Failed to process record` line.
+2. One message in `cloudsentinel-failed-findings` within a minute, condition
+   `RecordRejected`, naming the garbage's sequence number in a batch of one;
+   findings-stored goes to ALARM about three minutes after it and back to OK
+   one quiet window later.
+3. No hold: iterator age stays at seconds, `RecordsRejected` reads 1, and
+   findings-fresh stays OK.
+4. The finding sent behind the garbage is stored once, within the batching
+   window: one `NORMALIZED_FINDING` line for it, and one flood finding in the
+   table for the purge to remove.
+5. No control-change message: the deploy went through CloudFormation's
+   execution role, and the run changes nothing else.
 
 ---
 

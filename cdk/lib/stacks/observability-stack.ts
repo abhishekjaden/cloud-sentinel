@@ -112,18 +112,19 @@ export class ObservabilityStack extends cdk.Stack {
     };
 
     // 1. Findings are stored. Two places can lose one for good: EventBridge
-    //    failing to deliver it to the stream after its own retries, and Lambda
-    //    giving up on a batch the normalizer kept failing on, which it reports
-    //    to the failure queue.
+    //    failing to deliver it to the stream after its own retries, and the
+    //    failure queue, which receives both a batch Lambda gave up on after an
+    //    hour of retries and a record the normalizer rejected at once because
+    //    it can never be stored (ADR 0008).
     //
-    //    A record the normalizer fails on is *not* one of them, and is not in
-    //    this alarm: the handler hands its sequence number back and Lambda
-    //    delivers it again, so a throttle or a timeout costs a retry, not a
-    //    finding. Those counts are graphed instead, because a rising number of
-    //    retries is how this objective is usually about to break.
+    //    A record whose write failed is *not* one of them, and is not in this
+    //    alarm: the handler hands its sequence number back and Lambda delivers
+    //    it again, so a throttle or a timeout costs a retry, not a finding.
+    //    Those counts are graphed instead, because a rising number of retries
+    //    is how this objective is usually about to break.
     const retriedInNormalizer = published('RecordsFailed', 'normalizer', 'handed back for retry');
     const normalizerErrors = errors(normalizer, 'normalizer batch errors');
-    const lostInNormalizer = failureQueue('NumberOfMessagesSent', 'Sum', 'given up on by Lambda');
+    const lostInNormalizer = failureQueue('NumberOfMessagesSent', 'Sum', 'reported to the failure queue');
     const ingestionUndelivered = new cloudwatch.MathExpression({
       expression: 'SUM([gd, sh, insp])',
       usingMetrics: {
@@ -136,8 +137,9 @@ export class ObservabilityStack extends cdk.Stack {
     });
     slo('findings-stored',
       'A security finding was lost between EventBridge and the findings table: either ' +
-      'EventBridge could not deliver it to the stream, or the normalizer failed on it through ' +
-      'every retry and Lambda reported the batch to the cloudsentinel-failed-findings queue. ' +
+      'EventBridge could not deliver it to the stream, or a record reached the ' +
+      'cloudsentinel-failed-findings queue - rejected by the normalizer as one it can never ' +
+      'store, or given up on by Lambda after an hour of retries. ' +
       'The CloudSentinel-SLOs dashboard shows which; docs/slos.md says how to recover the ' +
       'finding from the stream, which holds it for 24 hours.', {
         metric: new cloudwatch.MathExpression({
@@ -300,8 +302,10 @@ export class ObservabilityStack extends cdk.Stack {
             leftYAxis: { min: 0, showUnits: false },
             // Sent counts the moment of loss and falls back to zero; this stays
             // up while the pointers to lost findings are still unrecovered.
-            right: [failureQueue('ApproximateNumberOfMessagesVisible', 'Maximum',
-              'batches awaiting recovery')],
+            right: [
+              failureQueue('ApproximateNumberOfMessagesVisible', 'Maximum', 'batches awaiting recovery'),
+              published('RecordsRejected', 'normalizer', 'of them, rejected by the normalizer'),
+            ],
             rightYAxis: { min: 0, showUnits: false },
           }),
           new cloudwatch.GraphWidget({

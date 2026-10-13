@@ -25,8 +25,8 @@ control-change watch and the honeypot.
 - All durable infrastructure is AWS CDK in TypeScript, synthesised with
   cdk-nag on every push; every accepted finding carries a written reason in
   `cdk/lib/nag-suppressions.ts`.
-- Three test suites run in CI before anything deploys: 299 backend tests at a
-  93% coverage floor of 80%, 104 CDK assertion tests, 76 frontend tests. The
+- Three test suites run in CI before anything deploys: 316 backend tests at a
+  93% coverage floor of 80%, 105 CDK assertion tests, 76 frontend tests. The
   CDK tests pin security properties rather than resource counts: what each
   function may touch, what the API may read and never write, that every
   alarm is documented and every documented alarm exists.
@@ -177,10 +177,10 @@ control-change watch and the honeypot.
   new policy on 12 October, measured that price and found it higher: the
   malformed record held the shard for 60 minutes, nothing behind it was
   delivered until it was dropped, and the finding 4.6 seconds behind it was
-  dropped with it — lost, not delayed. Reporting unreadable records before they
-  reach the retry policy is the next change. E4 (ten times the
-  volume) stored all 10,000 findings with a 2.5-minute peak backlog and no
-  alarm. E3 (the schedule disabled) found that the incidents-current alarm's
+  dropped with it — lost, not delayed. ADR 0008 now rejects unreadable records
+  before they reach the retry policy; E1's third run is the check. E4 (ten
+  times the volume) stored all 10,000 findings with a 2.5-minute peak backlog
+  and no alarm. E3 (the schedule disabled) found that the incidents-current alarm's
   single 45-minute window, clock-aligned, let a 56-minute gap pass unreported.
   Re-defined as three 15-minute windows, it fired in the 11 October re-run,
   but 77 minutes after the last run, because the default sliding evaluation

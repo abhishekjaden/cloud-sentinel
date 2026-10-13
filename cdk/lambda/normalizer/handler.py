@@ -19,16 +19,31 @@ created_at is ISO 8601 for every source. sk sorts by time only because of that,
 so a source that sends another format is converted here, not downstream.
 
 A record that fails is caught so the rest of its batch still goes through, and
-its sequence number is returned to Lambda, which rewinds the shard to it and
-delivers it again. Records after it in the batch are delivered again too —
-Kinesis retries from the lowest reported sequence number — so persisting has to
-be idempotent, and is: the key is derived from the finding, so a second write of
-the same record overwrites the first.
+what happens next depends on where it failed.
 
-Each batch reports how many records it received and how many it had to hand back
-as CloudWatch metrics. Neither is a lost finding: a record is lost only once
-Lambda has retried it to exhaustion, at which point Lambda reports the batch to
-the failure queue, which is what the findings-stored alarm watches (docs/slos.md).
+- A record that cannot be read — not base64, not JSON, not an object, not
+  something the mapping can handle — or that the table rejects as invalid will
+  fail the same way however often it is delivered. It is reported to the
+  failure queue here, at once, and not handed back (ADR 0008). Handing it back
+  would hold the shard: Lambda delivers the batch it holds again rather than
+  reading past it, so everything behind the record waits, for up to an hour,
+  and whatever is past the hour itself by then is dropped with it (experiment
+  E1, re-run on 12 October 2026).
+- A record whose write failed for a reason that can heal — a throttle, a
+  denied or unavailable table or key — is handed back to Lambda by sequence
+  number and delivered again, until it is an hour old (ADR 0007). Records after
+  it in the batch are delivered again too, so persisting has to be idempotent,
+  and is: the key is derived from the finding, so a second write of the same
+  record overwrites the first.
+
+If the failure queue cannot be reached, a record that should have been reported
+there is handed back instead: a rejection must never become a silent loss.
+
+Each batch reports, as CloudWatch metrics, how many records it received, handed
+back and rejected. A handed-back record is not a lost one. A rejected record is,
+until someone replays it from the stream, and so is one Lambda gives up on at
+the hour; the failure queue receives both, and is what the findings-stored
+alarm watches (docs/slos.md).
 """
 import base64
 import ipaddress
@@ -39,12 +54,23 @@ import time
 from datetime import datetime, timezone
 
 import boto3
+from botocore.exceptions import ClientError, ParamValidationError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 _TABLE_NAME = os.environ.get("FINDINGS_TABLE", "cloudsentinel-findings")
 _table = boto3.resource("dynamodb").Table(_TABLE_NAME)
+
+# Where a record that can never be stored is reported (ADR 0008). The client is
+# made on first use: most invocations never need it.
+_FAILED_QUEUE_URL = os.environ.get("FAILED_FINDINGS_QUEUE_URL")
+_sqs = None
+
+# Table errors that are about the record, not the table: retrying the same item
+# gets the same answer. Everything else from a write — throttling, access
+# denied, a missing table, a disabled key — can heal, and is retried.
+_UNSTORABLE_ERRORS = {"ValidationException", "SerializationException"}
 
 # Pinned on both sides: the observability stack's alarms read these names.
 _METRIC_NAMESPACE = "CloudSentinel"
@@ -273,6 +299,80 @@ def _persist(finding, event_time=None, queued_at=None):
     _table.put_item(Item=item)
 
 
+def _read(kinesis):
+    """The record as an EventBridge event and its normalized finding. Raises
+    if the record cannot be read; nothing here touches the table."""
+    raw_event = json.loads(base64.b64decode(kinesis["data"]))
+    if not isinstance(raw_event, dict):
+        raise TypeError(f"expected a JSON object, got {type(raw_event).__name__}")
+    return raw_event, _normalize(raw_event)
+
+
+def _unstorable(exc):
+    """Whether a failed write failed because of the item rather than the table.
+    boto3 raises TypeError for a value DynamoDB cannot hold, and botocore
+    ParamValidationError for one the API would refuse; both come from the item."""
+    if isinstance(exc, (TypeError, ParamValidationError)):
+        return True
+    if isinstance(exc, ClientError):
+        return exc.response.get("Error", {}).get("Code") in _UNSTORABLE_ERRORS
+    return False
+
+
+def _queue():
+    global _sqs
+    if _sqs is None:
+        _sqs = boto3.client("sqs")
+    return _sqs
+
+
+def _rejection(record, exc, context):
+    """The failure-queue message for one rejected record. It has the shape of
+    Lambda's own on-failure message, so the same runbook reads both: a pointer
+    into the stream (shard, sequence number, arrival), not a copy of the data."""
+    kinesis = record.get("kinesis") or {}
+    sequence_number = kinesis.get("sequenceNumber")
+    arrived = _iso(kinesis.get("approximateArrivalTimestamp"))
+    return {
+        "version": "1.0",
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "requestContext": {
+            "condition": "RecordRejected",
+            "reason": f"{type(exc).__name__}: {exc}"[:300],
+            "requestId": getattr(context, "aws_request_id", None),
+            "functionArn": getattr(context, "invoked_function_arn", None),
+        },
+        "KinesisBatchInfo": {
+            "shardId": (record.get("eventID") or "").split(":", 1)[0] or None,
+            "startSequenceNumber": sequence_number,
+            "endSequenceNumber": sequence_number,
+            "approximateArrivalOfFirstRecord": arrived,
+            "approximateArrivalOfLastRecord": arrived,
+            "batchSize": 1,
+            "streamArn": record.get("eventSourceARN"),
+        },
+    }
+
+
+def _reject(record, exc, context):
+    """Report a record that can never be stored to the failure queue. True if
+    the queue took it; False if the record has to be handed back instead."""
+    sequence_number = (record.get("kinesis") or {}).get("sequenceNumber") or "unidentified"
+    if not _FAILED_QUEUE_URL:
+        logger.error("Cannot reject record %s: no failure queue configured", sequence_number)
+        return False
+    try:
+        _queue().send_message(QueueUrl=_FAILED_QUEUE_URL,
+                              MessageBody=json.dumps(_rejection(record, exc, context)))
+    except Exception as send_exc:  # noqa: BLE001 — handed back below rather than lost
+        logger.error("Cannot reject record %s: %s: %s", sequence_number,
+                     type(send_exc).__name__, send_exc)
+        return False
+    logger.error("Rejected record %s, which can never be stored: %s: %s",
+                 sequence_number, type(exc).__name__, exc)
+    return True
+
+
 def _metrics_line(**counts):
     """One record in CloudWatch Embedded Metric Format.
 
@@ -297,28 +397,37 @@ def _metrics_line(**counts):
 
 def handler(event, context):
     records = event.get("Records", [])
-    failed = 0
+    failed = rejected = 0
     retry = []
     for record in records:
+        kinesis = record.get("kinesis") or {}
         # Read before the work, so a record that fails can still be named.
-        sequence_number = (record.get("kinesis") or {}).get("sequenceNumber")
+        sequence_number = kinesis.get("sequenceNumber")
+        stage = "read"
         try:
-            payload = base64.b64decode(record["kinesis"]["data"])
-            raw_event = json.loads(payload)
-            normalized = _normalize(raw_event)
+            raw_event, normalized = _read(kinesis)
+            stage = "write"
             _persist(normalized, event_time=raw_event.get("time"),
-                     queued_at=record["kinesis"].get("approximateArrivalTimestamp"))
-            logger.info("NORMALIZED_FINDING %s", json.dumps(normalized))
+                     queued_at=kinesis.get("approximateArrivalTimestamp"))
         except Exception as exc:  # noqa: BLE001
+            # A failure before the write, or a write refused for the item
+            # itself, will happen again on every delivery (ADR 0008).
+            never = stage == "read" or _unstorable(exc)
+            if never and _reject(record, exc, context):
+                rejected += 1
+                continue
             failed += 1
             logger.error("Failed to process record %s: %s: %s",
                          sequence_number or "unidentified", type(exc).__name__, exc)
             if sequence_number:
                 retry.append({"itemIdentifier": sequence_number})
+            continue
+        logger.info("NORMALIZED_FINDING %s", json.dumps(normalized))
     # Printed rather than logged: Lambda's log handler prefixes each line with a
     # level and request ID, and CloudWatch reads EMF only from a line that is
     # JSON from its first character.
-    print(_metrics_line(RecordsReceived=len(records), RecordsFailed=failed))
+    print(_metrics_line(RecordsReceived=len(records), RecordsFailed=failed,
+                        RecordsRejected=rejected))
     # Nothing else may go in this response. Lambda reads it as a partial batch
     # report, and treats a response it cannot read as the whole batch failing —
     # so an extra key would turn one bad record into a hundred retried ones.

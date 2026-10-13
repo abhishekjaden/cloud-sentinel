@@ -62,10 +62,12 @@ export class IngestionStack extends cdk.Stack {
     // Where a batch goes once the normalizer has failed on it through every
     // retry. Lambda sends the batch's *metadata* — the shard and the range of
     // sequence numbers — not the findings themselves, so a message is a pointer
-    // back into the stream rather than a copy of what was lost. The stream
-    // keeps records for 24 hours; the queue keeps the pointers for 14 days, so
-    // that a loss is still on the record after the records themselves have
-    // aged out and recovery has to come from the source service's own console.
+    // back into the stream rather than a copy of what was lost. The normalizer
+    // reports here too, in the same shape, any record it rejects because it
+    // can never be stored (ADR 0008). The stream keeps records for 24 hours;
+    // the queue keeps the pointers for 14 days, so that a loss is still on the
+    // record after the records themselves have aged out and recovery has to
+    // come from the source service's own console.
     const failedFindings = new sqs.Queue(this, 'FailedFindings', {
       queueName: FAILED_FINDINGS_QUEUE_NAME,
       // SQS-managed keys rather than a CMK: the messages name sequence numbers
@@ -75,6 +77,13 @@ export class IngestionStack extends cdk.Stack {
       retentionPeriod: Duration.days(14),
     });
     suppressFailureDestination(failedFindings);
+
+    // ADR 0008: a record that can never be stored is reported by the handler
+    // itself, at once, rather than handed back to hold the shard for the hour
+    // below. The event source's own grant covers Lambda's sends, not the
+    // handler's, so the handler gets its own.
+    normalizer.addEnvironment('FAILED_FINDINGS_QUEUE_URL', failedFindings.queueUrl);
+    failedFindings.grantSendMessages(normalizer);
 
     // Lambda consumes the Kinesis stream in batches
     normalizer.addEventSource(new KinesisEventSource(stream, {
@@ -89,9 +98,12 @@ export class IngestionStack extends cdk.Stack {
       // to the failure queue, recoverable only by hand. Retrying for an hour
       // holds the shard instead: iterator age climbs, the findings-fresh
       // objective fires at ten minutes, and the records store themselves
-      // when the dependency returns. A poison record now blocks its shard for
-      // up to an hour, which the same alarm reports. No retry count is set,
-      // so the only limit is the record's age.
+      // when the dependency returns. No retry count is set, so the only limit
+      // is the record's age. A record that can never be stored does not reach
+      // this at all (ADR 0008): handed back, it held its shard for the full
+      // hour in E1's re-run, because Lambda redelivers the batch it holds
+      // rather than reading past it, and the finding behind it aged out with
+      // it.
       maxRecordAge: Duration.hours(1),
       // Without this, the checkpoint advances past every record the handler
       // returned from, whether or not it stored them, and a finding that failed

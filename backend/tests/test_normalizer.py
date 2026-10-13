@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from botocore.exceptions import ClientError
 
 HANDLER_DIR = Path(__file__).resolve().parents[2] / "cdk" / "lambda" / "normalizer"
 
@@ -310,10 +311,15 @@ def test_every_bucket_the_normalizer_writes_is_one_the_routes_count(normalizer, 
 
 
 # --------------------------------------------------------- failures and loss
-# A record that fails is handed back to Lambda by sequence number, so the shard
-# rewinds to it and it is delivered again rather than skipped. Getting this
-# wrong is silent: the batch still succeeds, the alarm still reads zero, and the
-# finding is simply not in the table.
+# A record whose write failed is handed back to Lambda by sequence number and
+# delivered again rather than skipped (ADR 0007). A record that can never be
+# stored is reported to the failure queue instead, at once (ADR 0008): handed
+# back, it would hold the shard for an hour, and experiment E1 showed the
+# finding behind it lost when it was finally dropped. Getting either wrong is
+# silent: the batch still succeeds, and the finding is simply not in the table.
+QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/111122223333/cloudsentinel-failed-findings"
+
+
 def _batch(*payloads):
     return {"Records": [
         {"kinesis": {"data": base64.b64encode(p).decode(), "sequenceNumber": f"4957{i:04d}"}}
@@ -327,21 +333,154 @@ def _metric_lines(capsys):
             if line.startswith("{") and '"_aws"' in line]
 
 
-def test_a_failed_record_is_handed_back_by_sequence_number(normalizer, capsys):
+@pytest.fixture
+def queue(normalizer):
+    """The failure queue, as the handler sees it."""
+    client = mock.MagicMock()
+    with mock.patch.object(normalizer, "_FAILED_QUEUE_URL", QUEUE_URL), \
+            mock.patch.object(normalizer, "_queue", return_value=client):
+        yield client
+
+
+def _sent(queue):
+    """The bodies the handler sent to the failure queue."""
+    for call in queue.send_message.call_args_list:
+        assert call.kwargs["QueueUrl"] == QUEUE_URL
+    return [json.loads(call.kwargs["MessageBody"]) for call in queue.send_message.call_args_list]
+
+
+def _refusal(code):
+    return ClientError({"Error": {"Code": code, "Message": "refused"}}, "PutItem")
+
+
+def test_each_failure_goes_where_it_can_be_recovered_from(normalizer, queue, capsys):
     good = json.dumps(INSPECTOR_EVENT).encode()
     with mock.patch.object(normalizer, "_table") as table:
-        # one record that cannot be parsed, one that DynamoDB refuses
+        # one record that cannot be read, and one write the table throttles
         table.put_item.side_effect = [None, RuntimeError("throttled"), None]
-        event = _batch(good, b"not json", good, good)
-        result = normalizer.handler(event, None)
+        result = normalizer.handler(_batch(good, b"not json", good, good), None)
 
-    assert result == {"batchItemFailures": [
-        {"itemIdentifier": "49570001"},  # the unparseable record
-        {"itemIdentifier": "49570002"},  # the one DynamoDB refused
-    ]}
+    # the throttled write is retried; the unreadable record is reported, not retried
+    assert result == {"batchItemFailures": [{"itemIdentifier": "49570002"}]}
+    (body,) = _sent(queue)
+    assert body["KinesisBatchInfo"]["startSequenceNumber"] == "49570001"
     (line,) = _metric_lines(capsys)
-    assert line["RecordsReceived"] == 4
-    assert line["RecordsFailed"] == 2
+    assert (line["RecordsReceived"], line["RecordsFailed"], line["RecordsRejected"]) == (4, 1, 1)
+
+
+@pytest.mark.parametrize("payload", [
+    b"this is not a finding",        # experiment E1's record
+    b'"a JSON string"', b"[1, 2]", b"null", b"42",
+    b"",
+])
+def test_a_record_that_cannot_be_read_is_reported_at_once_and_not_handed_back(
+        normalizer, queue, payload):
+    with mock.patch.object(normalizer, "_table") as table:
+        result = normalizer.handler(_batch(payload), None)
+
+    assert result == {"batchItemFailures": []}
+    table.put_item.assert_not_called()
+    (body,) = _sent(queue)
+    assert body["requestContext"]["condition"] == "RecordRejected"
+
+
+def test_nothing_behind_a_rejected_record_waits_for_it(normalizer, queue):
+    """The finding E1 lost was the one sent 4.6 seconds behind the garbage.
+    Rejected rather than handed back, the garbage holds nothing up: the
+    finding behind it is stored in the same delivery."""
+    with mock.patch.object(normalizer, "_table") as table:
+        result = normalizer.handler(
+            _batch(b"this is not a finding", json.dumps(INSPECTOR_EVENT).encode()), None)
+
+    assert result == {"batchItemFailures": []}
+    table.put_item.assert_called_once()
+
+
+def test_the_rejection_points_into_the_stream_like_lambdas_own_message(normalizer, queue):
+    """Same shape as the message Lambda sends when it gives a batch up, so the
+    recovery runbook in docs/slos.md reads both; a pointer, not a copy, so the
+    queue keeps no finding content (it is encrypted with SQS-managed keys for
+    that reason)."""
+    record = {
+        "eventID": "shardId-000000000000:49677756101047019183198917362009111694844355380493942786",
+        "eventSourceARN": "arn:aws:kinesis:us-east-1:118821712739:stream/cloudsentinel-findings",
+        "kinesis": {
+            "data": base64.b64encode(b"record content not to be copied").decode(),
+            "sequenceNumber": "49677756101047019183198917362009111694844355380493942786",
+            "approximateArrivalTimestamp": 1791830733.044,
+            "partitionKey": "chaos",
+        },
+    }
+    context = mock.Mock(aws_request_id="req-1",
+                        invoked_function_arn="arn:aws:lambda:us-east-1:118821712739:function:CloudSentinel-Normalizer")
+    with mock.patch.object(normalizer, "_table"):
+        normalizer.handler({"Records": [record]}, context)
+
+    (body,) = _sent(queue)
+    assert body["requestContext"]["condition"] == "RecordRejected"
+    assert body["requestContext"]["reason"].startswith("JSONDecodeError: ")
+    assert body["requestContext"]["requestId"] == "req-1"
+    info = body["KinesisBatchInfo"]
+    assert info == {
+        "shardId": "shardId-000000000000",
+        "startSequenceNumber": record["kinesis"]["sequenceNumber"],
+        "endSequenceNumber": record["kinesis"]["sequenceNumber"],
+        "approximateArrivalOfFirstRecord": "2026-10-12T18:45:33.044+00:00",
+        "approximateArrivalOfLastRecord": "2026-10-12T18:45:33.044+00:00",
+        "batchSize": 1,
+        "streamArn": record["eventSourceARN"],
+    }
+    sent = queue.send_message.call_args.kwargs["MessageBody"]
+    assert "not to be copied" not in sent and record["kinesis"]["data"] not in sent
+
+
+@pytest.mark.parametrize("refusal", [
+    _refusal("ValidationException"),     # an item DynamoDB will never accept
+    TypeError("Float types are not supported. Use Decimal types instead."),
+])
+def test_a_write_refused_because_of_the_item_is_rejected_too(normalizer, queue, refusal):
+    with mock.patch.object(normalizer, "_table") as table:
+        table.put_item.side_effect = refusal
+        result = normalizer.handler(_batch(json.dumps(INSPECTOR_EVENT).encode()), None)
+
+    assert result == {"batchItemFailures": []}
+    assert len(_sent(queue)) == 1
+
+
+@pytest.mark.parametrize("refusal", [
+    _refusal("AccessDeniedException"),               # experiment E2: the table denied
+    _refusal("ProvisionedThroughputExceededException"),
+    _refusal("ResourceNotFoundException"),
+    _refusal("KMSAccessDeniedException"),
+    RuntimeError("timed out"),
+])
+def test_a_write_that_could_succeed_later_is_handed_back_not_reported(normalizer, queue, refusal):
+    """ADR 0007 stands for these: the shard holds, findings-fresh reports it,
+    and the record stores itself when the table or key comes back."""
+    with mock.patch.object(normalizer, "_table") as table:
+        table.put_item.side_effect = refusal
+        result = normalizer.handler(_batch(json.dumps(INSPECTOR_EVENT).encode()), None)
+
+    assert result == {"batchItemFailures": [{"itemIdentifier": "49570000"}]}
+    queue.send_message.assert_not_called()
+
+
+def test_a_rejection_the_queue_refuses_is_handed_back_rather_than_dropped(normalizer, queue, capsys):
+    queue.send_message.side_effect = _refusal("AccessDenied")
+    with mock.patch.object(normalizer, "_table"):
+        result = normalizer.handler(_batch(b"this is not a finding"), None)
+
+    assert result == {"batchItemFailures": [{"itemIdentifier": "49570000"}]}
+    (line,) = _metric_lines(capsys)
+    assert (line["RecordsFailed"], line["RecordsRejected"]) == (1, 0)
+
+
+def test_without_a_failure_queue_a_bad_record_is_handed_back(normalizer):
+    with mock.patch.object(normalizer, "_FAILED_QUEUE_URL", None), \
+            mock.patch.object(normalizer, "_table"):
+        result = normalizer.handler(_batch(b"this is not a finding"), None)
+
+    assert result == {"batchItemFailures": [{"itemIdentifier": "49570000"}]}
 
 
 def test_a_stored_finding_carries_the_three_latency_stamps(normalizer):
@@ -388,12 +527,13 @@ def test_the_response_carries_nothing_but_the_failures(normalizer):
 def test_a_record_with_no_sequence_number_is_still_counted(normalizer, capsys):
     """Nothing can be handed back for a record Lambda did not identify, but the
     count is what the dashboard shows, so it must not quietly read zero."""
-    with mock.patch.object(normalizer, "_table"):
+    with mock.patch.object(normalizer, "_FAILED_QUEUE_URL", None), \
+            mock.patch.object(normalizer, "_table"):
         result = normalizer.handler({"Records": [{"kinesis": {}}]}, None)
 
     assert result == {"batchItemFailures": []}
     (line,) = _metric_lines(capsys)
-    assert (line["RecordsReceived"], line["RecordsFailed"]) == (1, 1)
+    assert (line["RecordsReceived"], line["RecordsFailed"], line["RecordsRejected"]) == (1, 1, 0)
 
 
 def test_a_redelivered_record_overwrites_rather_than_duplicates(normalizer):
@@ -414,7 +554,7 @@ def test_a_clean_batch_reports_no_failures(normalizer, capsys):
         normalizer.handler(_batch(json.dumps(INSPECTOR_EVENT).encode()), None)
 
     (line,) = _metric_lines(capsys)
-    assert (line["RecordsReceived"], line["RecordsFailed"]) == (1, 0)
+    assert (line["RecordsReceived"], line["RecordsFailed"], line["RecordsRejected"]) == (1, 0, 0)
 
 
 def test_the_metrics_line_is_embedded_metric_format(normalizer, capsys):
@@ -430,7 +570,7 @@ def test_the_metrics_line_is_embedded_metric_format(normalizer, capsys):
     assert spec["Dimensions"] == [["Component"]]
     assert line["Component"] == "normalizer"
     declared = {m["Name"] for m in spec["Metrics"]}
-    assert declared == {"RecordsReceived", "RecordsFailed"}
+    assert declared == {"RecordsReceived", "RecordsFailed", "RecordsRejected"}
     for name in declared:
         assert isinstance(line[name], int)
     assert all(m["Unit"] == "Count" for m in spec["Metrics"])

@@ -249,7 +249,7 @@ describe('objectives', () => {
       'AWS/Events/FailedInvocations',   // EventBridge gave up on an event
       'AWS/Events/FailedInvocations',
       'AWS/Events/FailedInvocations',
-      'AWS/SQS/NumberOfMessagesSent',   // Lambda gave up on a batch
+      'AWS/SQS/NumberOfMessagesSent',   // a record rejected, or a batch Lambda gave up on
     ]);
   });
 
@@ -316,6 +316,17 @@ describe('a record the normalizer fails on is retried, and kept if it still fail
       .toEqual([expect.stringMatching(/^NormalizerServiceRole/)]);
     expect(policy.PolicyDocument.Statement.filter(sends).map((st: any) => st.Resource))
       .toEqual([{ 'Fn::GetAtt': [queueId, 'Arn'] }]);
+  });
+
+  test('a record that can never be stored is reported by the normalizer itself', () => {
+    // ADR 0008. Handed back, such a record held the shard for the full hour in
+    // E1's re-run, and the finding behind it aged out with it. The handler now
+    // sends it to the failure queue at once, so it has to know where the queue
+    // is; the right to send is the grant pinned above.
+    const [queueId] = Object.keys(ingestion.findResources('AWS::SQS::Queue'));
+    const [normalizer] = resources(ingestion, 'AWS::Lambda::Function')
+      .filter((f) => f.FunctionName === FUNCTION_NAMES.normalizer);
+    expect(normalizer.Environment.Variables.FAILED_FINDINGS_QUEUE_URL).toEqual({ Ref: queueId });
   });
 });
 

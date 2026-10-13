@@ -50,20 +50,23 @@ is gone:
 
 - events EventBridge matched but could not deliver to the stream, after its own
   retries (`FailedInvocations` on the three ingestion rules);
-- batches Lambda gave up on (`NumberOfMessagesSent` on the
-  `cloudsentinel-failed-findings` queue). The normalizer hands back the sequence
-  number of every record it could not store, and Lambda delivers the batch
-  again from the first of them, for up to an hour (ADR 0007), reading nothing
-  further from the shard in the meantime; only when a record is an hour old
-  does it report it to that queue and move on — taking with it anything behind
-  it that has also passed the hour by then (E1 re-run, 12 October 2026).
+- records reported to the `cloudsentinel-failed-findings` queue
+  (`NumberOfMessagesSent`), of two kinds. A record the normalizer can never
+  store — one it cannot read, or one the table refuses as invalid — it
+  reports there itself, at once (ADR 0008). A record whose write failed it
+  hands back by sequence number, and Lambda delivers the batch again from it,
+  for up to an hour (ADR 0007), reading nothing further from the shard in the
+  meantime; only when the record is an hour old does Lambda report it there
+  and move on — taking with it anything behind it that has also passed the
+  hour (E1 re-run, 12 October 2026).
 
-**What is not counted.** A record the normalizer fails on. It is retried, so a
-DynamoDB throttle or a slow write costs a retry rather than a finding, and
-alarming on it would page somebody for something that fixed itself. The
-normalizer publishes the count as `RecordsFailed`, and the dashboard graphs it
-under *Retried, not lost*, next to the normalizer's own `Errors`. A rising line
-there is the warning that comes before this objective breaks.
+**What is not counted.** A record whose write the normalizer hands back. It is
+retried, so a DynamoDB throttle or a slow write costs a retry rather than a
+finding, and alarming on it would page somebody for something that fixed
+itself. The normalizer publishes the count as `RecordsFailed`, and the
+dashboard graphs it under *Retried, not lost*, next to the normalizer's own
+`Errors`. A rising line there is the warning that comes before this objective
+breaks.
 
 **Why alarm on the first loss.** At about a thousand findings a day, a 99.9%
 objective allows roughly one lost finding a day. A burn-rate alert on an error
@@ -78,10 +81,16 @@ aws sqs receive-message --profile cs-audit --region us-east-1 \
   --max-number-of-messages 10 --visibility-timeout 0
 ```
 
-Its body names the shard and the range of sequence numbers Lambda gave up on —
-the findings themselves are not in it. Read the normalizer's own account of why
-in `/aws/lambda/CloudSentinel-Normalizer`, where each failure is logged as
-`Failed to process record <sequence number>` with the exception that caused it.
+Its body names the shard and the sequence numbers involved — the findings
+themselves are not in it — and its `requestContext.condition` says which kind
+it is: `RecordRejected`, with the reason, for a record the normalizer refused
+at once, or `RecordAgeExceeded` for one Lambda gave up on after the hour. The
+normalizer's own account is in `/aws/lambda/CloudSentinel-Normalizer`, where a
+refused record is logged as `Rejected record <sequence number>` and a retried
+one as `Failed to process record <sequence number>`, each with the exception
+that caused it. A rejected record that is not a finding at all has nothing to
+recover: something wrote to a stream only EventBridge writes to, and the
+question is who.
 
 To recover the findings, fix the cause first — otherwise the replay fails the
 same way — then read the records back out of the stream, which keeps them for 24
@@ -138,10 +147,11 @@ arrived, the 93 findings that arrived behind it waited up to 13 minutes, and
 the finding 4.6 seconds behind it was dropped with it at the hour — a loss
 objective 1 reported 2 min 52 s later. The alarm then took 15 min 49 s to
 clear rather than one window: with nothing arriving, it went on judging its
-last two high samples until they left its evaluation range. A record that
-cannot be read is to be reported before it reaches the retry policy; until
-then, a poison record looks like this alarm firing while the normalizer's log
-names the same sequence number, with the same exception, about once a minute.
+last two high samples until they left its evaluation range. ADR 0008 now
+rejects such a record on first sight, so it should never reach this alarm;
+E1's third run is the check. Should one ever hold the shard again, it looks
+like this alarm firing while the normalizer's log names the same sequence
+number, with the same exception, about once a minute.
 
 ## 3. Incidents stay current — `cloudsentinel-slo-incidents-current`
 
