@@ -286,9 +286,9 @@ serving. Attempted attacks count as benign, as above.
 | DDoS HOIC | 1,082,293 | 0.0% |
 | DDoS LOIC-HTTP | 289,328 | 41.5% |
 | Botnet Ares | 142,921 | 0.6% |
-| SSH brute force | 94,197 | 4.3% |
+| SSH brute force | 94,197 | 4.2% |
 | Infiltration: nmap port scan | 89,374 | 79.1% |
-| DoS GoldenEye | 22,560 | 16.6% |
+| DoS GoldenEye | 22,560 | 16.5% |
 | DoS Slowloris | 8,490 | 97.0% |
 | DDoS LOIC-UDP | 2,527 | 0.0% |
 | Infiltration: other | 289 | 0.0% |
