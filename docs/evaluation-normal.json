@@ -1,0 +1,61 @@
+{
+  "measured_at": "2026-10-17T11:37:49+00:00",
+  "since": "2026-10-12T20:10:00+00:00",
+  "findings": 786,
+  "incidents": 4,
+  "latency": {
+    "queued": {
+      "n": 786,
+      "p50": 0.762,
+      "p95": 7.539,
+      "max": 15.459
+    },
+    "stored": {
+      "n": 786,
+      "p50": 6.062,
+      "p95": 10.441,
+      "max": 11.944
+    },
+    "ingested": {
+      "n": 786,
+      "p50": 7.199,
+      "p95": 13.39,
+      "max": 22.37
+    },
+    "detected": {
+      "n": 786,
+      "p50": 10245376.619,
+      "p95": 10456165.902,
+      "max": 10465400.172
+    },
+    "correlated": {
+      "n": 4,
+      "p50": 687.907447,
+      "p95": 983.808378,
+      "max": 983.808378
+    },
+    "triaged": {
+      "n": 4,
+      "p50": 513.335315,
+      "p95": 513.533303,
+      "max": 513.533303
+    }
+  },
+  "cost": {
+    "total": 3.67,
+    "by_service": {
+      "Amazon Kinesis": 1.8,
+      "AWS Security Hub": 0.69,
+      "Amazon Inspector": 0.66,
+      "AWS Key Management Service": 0.19,
+      "AWS Config": 0.07,
+      "AWS Secrets Manager": 0.07,
+      "Amazon DynamoDB": 0.06,
+      "Amazon EC2 Container Registry (ECR)": 0.05,
+      "Amazon GuardDuty": 0.05,
+      "Claude Haiku 4.5 (Amazon Bedrock Edition)": 0.02,
+      "AWS Cost Explorer": 0.02
+    }
+  },
+  "cost_per_thousand_findings": 4.67
+}
