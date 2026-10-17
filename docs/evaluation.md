@@ -20,6 +20,7 @@ nearest-rank percentiles with the count behind each.
 
 | Measure | Meaning | n | p50 | p95 | max | Measured |
 |---|---|---|---|---|---|---|
+| stored, normal traffic | stream arrival → written | 610 | 6.3 s | 10.2 s | — | 13 Oct 2026, about 17 hours of the organization's own traffic after the E1 re-run's rollback (`measure.py --since 2026-10-12T20:10:00Z`); read from the terminal and not yet committed as JSON — `normlat` in `scripts/e2-helpers.sh` measures it again into `docs/evaluation-normal.json` |
 | queued | EventBridge event → stream arrival | 10,075 | 2.2 s | 24.7 s | 27.2 s | 8 Oct 2026, E4 — a 200/s flood; the sender's clock was 20 s ahead, so read these 20 s short |
 | stored | stream arrival → written | 10,075 | 1.3 min | 2.4 min | 2.5 min | 8 Oct 2026, E4 — the single shard's consumer draining a burst at about 50 records a second |
 | ingested | EventBridge event → stored | 10,075 | 1.4 min | 2.8 min | 3.0 min | 8 Oct 2026, E4; 20 s short, as `queued` |
@@ -33,12 +34,13 @@ nearest-rank percentiles with the count behind each.
 | outage alarmed | first record held on the shard → findings-fresh in ALARM | 2 | 10.5 min | 12.1 min | 12.1 min | 8 Oct 2026, E2 re-run (ADR 0007), held by a failing write; 12 Oct 2026, E1 re-run, held by a record that cannot be read |
 | silence alarmed | last completed correlation run → incidents-current in ALARM | 1 | 49.7 min | 49.7 min | 49.7 min | 11 Oct 2026, E3 third run, on the wall-clock window — 45 to 50 minutes by design; the superseded three-window definition took 76.9 min in the re-run (`docs/chaos-experiments.md`) |
 
-The first five rows are the flood of E4, which is the pipeline under ten
-times its volume, not a normal day; they are filled again from a normal
-week's traffic once the stamps, added on 3 October 2026, have been in place
-for one. Under normal traffic `stored` should read seconds, since a batch
-that is not queued behind nine thousand others is written within its
-ten-second window.
+The five flood rows are E4, which is the pipeline under ten times its
+volume, not a normal day; the first row is seventeen hours of normal
+traffic, and the flood rows are filled again from a normal week's traffic
+once the stamps, added on 3 October 2026, have been in place for one. Under
+normal traffic `stored` reads seconds, as the first row shows: a batch that
+is not queued behind nine thousand others is written within its ten-second
+window.
 
 ## 2. Cost
 
