@@ -37,7 +37,7 @@ signal includes its notification arriving, and is checked in the inbox.
 | # | Experiment | Objectives exercised | Status |
 |---|---|---|---|
 | E1 | A record the normalizer cannot read | 1 (stored), 2 (fresh), 8 (controls) | **run, 7 October 2026**; **re-run under ADR 0007, 12 October** — the record held the shard for an hour, and the finding 4.6 seconds behind it was never stored by the automatic path; **third run under ADR 0008, 13 October** — rejected on first sight, 11 seconds after it arrived, and the finding behind it stored by the same invocation |
-| E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day** |
+| E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day**; **matched re-run under ADRs 0007 and 0008 planned** — the first run's workload, with every notification checked in the inbox; expected signals written |
 | E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** — it fired, but 77 minutes after the last run; **third run 11 October**, on a wall-clock window — fired 49 min 41 s after the last run, as designed |
 | E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
 | E5 | A control changed by hand | 8 | **run, 3 October 2026** |
@@ -422,6 +422,55 @@ itself, and nothing to replay.
 **Rollback** (done 12:25:22 for the policy; the data stayed in place and was
 removed by the purge before E4). The same `delete-role-policy` as above; the
 queue had nothing to purge.
+
+**Matched re-run under ADRs 0007 and 0008 — expected signals** (written
+before the run). The re-run of 8 October used 50 findings and a 25-minute
+denial against the first run's 200 and 15 min 42 s, and no run yet has
+checked detection and delivery together: every notification before 13
+October was refused, and the delivery check that followed forced an alarm
+rather than causing a failure. This run repeats the first run's workload and
+timeline exactly — the denial, 200 findings at 20 a second 108 seconds later,
+the denial removed 942 seconds after it was put — under the configuration
+now deployed: an hour of retries, rejection of records that can never be
+stored, and the alarm topic admitting CloudWatch. `scripts/e2-helpers.sh`
+runs it (`e2chk`, then `e2run`, about 41 minutes; `e2collect` gathers the
+evidence; `e2cleanup` last) and removes the denial on Ctrl-C.
+
+1. **The denial is reported and notified.** A control-change message for
+   `PutRolePolicy` on the normalizer's role, naming the session, within a
+   minute; controls-unchanged OK → ALARM within five minutes, its history
+   reading `Successfully executed action`, and its ALARM e-mail in the inbox
+   within a minute of the state change — the first expected notification of
+   an injected failure.
+2. **Every record is handed back and retried, none rejected.** The
+   normalizer's log shows `AccessDeniedException` on every delivery, a burst
+   of immediate attempts in the first minute and then about one failed
+   delivery a minute, the pacing the re-run saw; no `Rejected record` line,
+   and `RecordsRejected` 0 throughout, since a denied write is a failure that
+   can heal and is outside ADR 0008's rejection set. `RecordsFailed` reads
+   as retries on the dashboard for the length of the denial.
+3. **The shard is held and the outage alarmed.** Iterator age climbs for as
+   long as the denial lasts, to about fourteen minutes by its end;
+   findings-fresh goes OK → ALARM about ten to twelve minutes after the
+   flood, two five-minute windows over the threshold; its ALARM e-mail
+   arrives within a minute of the state change.
+4. **Nothing is reported as lost.** The failure queue holds no message at any
+   point, findings-stored stays OK, and no e-mail comes from it: the denial
+   is shorter than the hour, and nothing is rejected.
+5. **The held findings store themselves.** After `DeleteRolePolicy`, once
+   IAM's deletion reaches the table's authorizer — about two minutes on 8
+   October — the held batches write: 200 of 200 flood findings in the table
+   and nothing to replay. The watch reports `DeleteRolePolicy` too, so
+   controls-unchanged goes through a second ALARM and OK with their e-mails;
+   findings-fresh returns to OK after its quiet windows, with its OK e-mail.
+6. **The inbox matches the histories.** One e-mail for each state change the
+   three alarms' histories record, the same count in the same order, and no
+   other. A forced alarm checks delivery alone; this is the first run to
+   check detection and delivery together on an injected failure.
+
+Rollback: the `delete-role-policy` of step 5 is part of the run, and
+`e2abort` makes it early; after `e2collect`, `e2cleanup` purges the queue
+and the flood findings, incidents and notes.
 
 ---
 
