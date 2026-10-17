@@ -235,4 +235,19 @@ United States. Each note records the model and prompt version that wrote it.
   (9 of 9), and *medium* appearing among the nine answers to the three cases
   whose band is centred on it. Any other outcome is recorded as the result,
   and no band is widened for it.
+
+  Run on 17 October 2026, three runs of the twelve at `2026-10-17.1` against
+  the same model, every expectation was met: 36 of 36 within band, 9 of 9
+  injection attempts flagged. *Medium* appeared for the first time: the lone
+  persistence command came back medium, at medium confidence, on all three
+  runs. The other two medium-centred cases, the disabled database
+  authentication and cost harvesting, stayed high at medium confidence, as
+  before. The lone port probe stayed low, the sample findings critical and
+  flagged at low confidence. Across the 36 answers the distribution moved
+  from 12 critical, 21 high, 0 medium, 3 low to 18 critical, 12 high, 3
+  medium, 3 low: the defined steps spread the answers in both directions
+  rather than lowering them, and every answer stayed inside its band. The
+  tendency is reduced, not gone. It is not pursued further on these cases —
+  another revision judged on the same twelve would be tuning by iteration —
+  and the independent set is the next measurement of it.
 - Cost at the current volume is well under a dollar a month.

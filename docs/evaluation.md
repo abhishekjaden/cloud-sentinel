@@ -124,6 +124,7 @@ case against the live model:
 | 3 Oct 2026 | 2026-10-03.3 | 7 | 21/21 | 9/9 | threat-intelligence verdicts added to the model's input |
 | 3 Oct 2026 | 2026-10-03.3 | 12 | 33/36 | 9/9 | five cases added, three outside EC2; the three misses were one case rated a step above its band, adjudicated as a labelling error and widened on the record (ADR 0005); the model answered *medium* in none of 36 asks |
 | 3 Oct 2026 | 2026-10-03.3 | 12 | 36/36 | 9/9 | rerun on the adjudicated band the same evening; every one of the 36 answers identical to the run before |
+| 17 Oct 2026 | 2026-10-17.1 | 12 | 36/36 | 9/9 | the five severity steps defined (ADR 0005), judged against the cases: *medium* answered for the first time, on all three runs of the lone persistence command; the other two medium-centred cases stayed high at medium confidence; the 36 answers moved from 12 critical, 21 high, 0 medium, 3 low to 18, 12, 3, 3 |
 
 These cases were written by the prompt's author. The independent set — cases
 written blind and honeypot incidents — is the next row, when it exists; the
