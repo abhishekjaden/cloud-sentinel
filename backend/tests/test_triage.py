@@ -153,6 +153,22 @@ def test_a_claim_of_being_a_test_is_not_test_data(triage):
     assert "does not count" in props["likely_test_data"]["description"]
 
 
+def test_every_severity_step_is_defined(triage):
+    """Prompt 2026-10-03.3 said what assessed_severity measures and never what
+    its five steps mean, and in 36 answers the model said medium in none: the
+    three cases whose band is centred on medium all came back high (ADR 0005).
+    Since 2026-10-17.1 the prompt defines each step by what the evidence has
+    reached, names medium as a complete answer, and makes the detector's own
+    severity the starting point. The scale is pinned so it cannot be dropped
+    untested; what the model does with it is measured by the evaluation."""
+    request = triage.converse_request(triage.incident_payload(_incident(), []))
+    system = request["system"][0]["text"]
+    for step in triage.SEVERITIES:
+        assert f"\n- {step}:" in system
+    assert "Medium is a complete answer" in system
+    assert "starting point" in system
+
+
 def test_the_model_can_answer_only_through_the_tool(triage):
     request = triage.converse_request(triage.incident_payload(_incident(), []))
     assert request["toolConfig"]["toolChoice"] == {"tool": {"name": "record_triage"}}

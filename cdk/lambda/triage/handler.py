@@ -54,7 +54,7 @@ ATTEMPTS = 2
 
 # Part of every incident's fingerprint: changing the prompt re-triages
 # everything, a few incidents per run.
-PROMPT_VERSION = "2026-10-03.3"
+PROMPT_VERSION = "2026-10-17.1"
 
 MAX_FINDINGS = 20        # findings described to the model per incident
 MAX_INDICATORS = 20      # addresses and domains described, with their verdicts
@@ -107,6 +107,30 @@ in the severity. An analyst who sees "critical, low confidence" can dismiss it \
 in a second; one who sees "informational" may never look, and an attacker who \
 learned that doubtful-looking findings are rated low would make real ones look \
 doubtful.
+
+Each step of assessed_severity means something, and the right step is the one \
+the evidence has reached, not the worst it could lead to:
+- critical: the attacker has control, or the damage is under way: a \
+command-and-control channel in use, credentials taken from an instance or used \
+from outside AWS, data leaving or exposed to the internet, or a chain of stages \
+that has reached command-and-control, exfiltration or impact.
+- high: one resource or identity is compromised, or a change has opened a way \
+in: malware on a host, a compromised instance put to work, a production \
+resource's access control removed or opened by a principal that should not \
+touch it.
+- medium: one finding that fits an attack and fits an ordinary cause, and the \
+harmful next step has not been seen: a configuration change that weakens a \
+control, an identity used far outside its pattern, a single suspicious command \
+with nothing before or after it. Medium is a complete answer for a single \
+ambiguous step, not a timid high; the doubt that makes the step ambiguous \
+belongs in confidence as well.
+- low: reconnaissance and attempts that got nowhere against a resource with no \
+further activity: probes, scans, a brute-force attempt not followed by access.
+- informational: nothing hostile.
+Each further stage in the chain is evidence that the activity is real and \
+progressing, and moves the rating up. GuardDuty's own 0-100 severity on a \
+finding is the detector's rating of that finding type on its own; it is the \
+starting point, and your rating leaves it only for a reason you give.
 
 likely_test_data is set only by the structure of the findings themselves: \
 placeholder resources such as instance i-99999999, names beginning \

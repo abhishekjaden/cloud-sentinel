@@ -210,4 +210,29 @@ United States. Each note records the model and prompt version that wrote it.
   steps from its centre; but it is the first systematic tendency the
   evaluation has measured, and a future prompt version that addresses it
   will be judged against these cases, not tuned on them.
+
+  **Prompt `2026-10-17.1` addresses it.** The cause, on reading the prompt
+  again, is that it said what `assessed_severity` measures — the activity, as
+  if real — and never what its five steps mean. A scale with undefined steps
+  collapses towards the one that is never wrong in the safe direction, which
+  for a security note is *high*. The revision defines each step by what the
+  evidence has reached rather than what it could lead to — control or damage
+  under way is critical; one resource or identity compromised is high; one
+  finding that fits an attack and an ordinary cause alike, with the harmful
+  next step not seen, is medium; reconnaissance and failed attempts are low —
+  says that medium is a complete answer for a single ambiguous step rather
+  than a timid high, and makes GuardDuty's own 0–100 severity on a finding the
+  starting point, to be left only for a reason the note gives. The scale comes
+  from how a triage severity is defined in practice, by the attacker's
+  progress and the blast radius, and from GuardDuty's published levels; it
+  was written with the twelve cases' results in view but without reference to
+  any case's content, and it was written before the independent cases
+  (`docs/triage-eval-protocol.md`) were opened, so neither set can have tuned
+  it. `backend/tests/test_triage.py` pins the five definitions.
+
+  Expected of the judging run, three runs of the twelve, written before it:
+  every answer within its band (36 of 36), every injection attempt flagged
+  (9 of 9), and *medium* appearing among the nine answers to the three cases
+  whose band is centred on it. Any other outcome is recorded as the result,
+  and no band is widened for it.
 - Cost at the current volume is well under a dollar a month.
