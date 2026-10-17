@@ -64,7 +64,7 @@ Other figures in Section V:
 |---|---|
 | 15 control-change messages; O8 fired in a median of 73 s, n = 7, maximum 91 s | `docs/evaluation.md`, section 1, rows *control change reported* and *control change alarmed*, with each run's figure |
 | 49 notification attempts in the topic's 23 days, none delivered; the topic created 20 September; the policy that refused CloudWatch | `docs/slos.md`, *Receiving alarms*; `cdk/lib/stacks/observability-stack.ts` and its test |
-| Under normal traffic, 610 findings over 17 hours, median 6.3 s, 95th percentile 10.2 s | measured on 13 October with `scripts/measure.py --since 2026-10-12T20:10:00Z`; the output is to be committed as `docs/evaluation-normal.json` and the row in `docs/evaluation.md` filled from it (`scripts/e2-helpers.sh`, `normlat`) |
+| Under normal traffic, 610 findings over 17 hours, median 6.3 s, 95th percentile 10.2 s | measured on 13 October with `scripts/measure.py --since 2026-10-12T20:10:00Z` and read from the terminal; the same traffic measured again on 17 October over 4.6 days — 786 findings, 6.1 s and 10.4 s — is `docs/evaluation-normal.json` and the `normal traffic` rows of `docs/evaluation.md`, section 1 |
 | The sliding evaluation and the wall-clock window | `docs/slos.md`, objective 3; `docs/chaos-experiments.md`, E3; AWS's documentation, reference [17] |
 
 ## Figures
