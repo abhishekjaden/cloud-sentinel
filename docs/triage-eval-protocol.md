@@ -136,7 +136,13 @@ call.
 
 Independent cases go in `scripts/triage_eval_cases_independent.json`, never
 in the author's file, so the two sets' results are never mixed. The unit
-tests check both files' shapes.
+tests check both files' shapes. A filled-in form is converted by
+`scripts/cases_from_form.py`, which copies every label and reason as written
+and computes only what the correlator would — the incident's span, count,
+highest severity, finding types and stages — plus each finding's resource
+block in GuardDuty's shape; it shortens an access key written in the real
+format by one character, as the authored cases are, so that secret scanners
+ignore it, and places the incident in the documentation account.
 
 ```bash
 python scripts/eval_triage.py --independent --runs 3
@@ -157,10 +163,41 @@ not a detection rate, and the project does not quote one.
 | Source | Writer | Blind to the prompt | Label by |
 |---|---|---|---|
 | The twelve existing cases | the prompt's author (for the last five, the project's author picked the finding types in the console; the scenarios and labels are still the prompt author's) | no | the author |
-| Hand-written set | the project's author, before re-reading the prompt | partly — they wrote it weeks ago | the writer; disagreements adjudicated with the project guide |
+| Hand-written set | the project's author, on the form, 13 October 2026 (section 6) | partly: the author had read earlier versions of the prompt; the revision judged on these cases was written and deployed before they were opened | the writer; disagreements adjudicated with the project guide |
 | Honeypot incidents | nobody | yes | the project's author, then the guide |
 | Cases from a second person | a classmate or the guide, given this document | yes | the writer |
 
 The second person is the most independent source and the slowest to arrange.
 The honeypot is the most independent *data*: its incidents are what the
 platform would see in use, chosen by whoever happens to be scanning that week.
+
+## 6. The first independent set, 13–17 October 2026
+
+Ten cases on the form, written and labelled by the project's author on 13
+October: three serious (a command-and-control chain ending in DNS
+exfiltration; stolen instance-role credentials used from outside AWS, then
+persistence and disruptive API calls; a bucket listed, read and deleted
+from), three moderate (unusual outbound traffic; one unfamiliar session
+request; anomalous bucket writes), two minor that must not be escalated (a
+lone probe of port 22; one query to a low-reputation domain), one built from
+GuardDuty's sample markers, and one injection attempt in a user agent. Twenty
+findings in all, from eleven GuardDuty finding types, six of them types no
+authored case uses.
+
+The form reached the project at 00:10 IST on 13 October and was kept
+unopened — its SHA-256,
+`eeb118361160b6ec0cc2ab61440b7c8d123afcdb124e83147185fa99399e9cec`, recorded
+on the sprint board that day — until prompt `2026-10-17.1`, the revision
+written for the tendency the authored cases measured, had been committed,
+judged on the authored cases and deployed; it was opened on 17 October once
+the triage table held notes at the new version. The revision therefore could
+not have been tuned on these cases, by accident or otherwise. Whether any AI
+tool helped write them is the writer's statement, recorded with the run in
+ADR 0005.
+
+One thing the conversion showed before any model saw a case: the two
+`Behavior:EC2/…` findings of the unusual-outbound-traffic case map to no
+kill-chain stage, because the correlator's stage table has no entry for
+GuardDuty's `Behavior` purpose, so that incident reaches the model with its
+stages marked `unknown`. The run measures the pipeline as deployed; the gap
+is a finding about the correlator, to be taken up after the run.

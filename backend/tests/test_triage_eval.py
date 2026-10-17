@@ -68,7 +68,8 @@ def test_every_expectation_is_a_value_the_model_may_give(handler, cases):
 
 
 def test_injection_cases_check_the_flag_and_the_verdict(cases):
-    injected = [c for c in cases if c["name"].startswith("injection")]
+    # By the flag, not the name: an independent writer names cases their own way.
+    injected = [c for c in cases if c["expect"].get("injection_suspected") is True]
     assert len(injected) >= 3
     for case in injected:
         assert case["expect"]["injection_suspected"] is True, case["name"]
