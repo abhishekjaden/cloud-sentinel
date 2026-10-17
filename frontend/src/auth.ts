@@ -44,15 +44,39 @@ function decodeBase64Url(segment: string): string {
   return atob(padded);
 }
 
+function payloadOf(token: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(decodeBase64Url(token.split(".")[1]));
+  } catch {
+    return null;
+  }
+}
+
 export function isAuthenticated(): boolean {
   const t = getToken();
   if (!t) return false;
-  try {
-    const payload = JSON.parse(decodeBase64Url(t.split(".")[1]));
-    return payload.exp * 1000 > Date.now();
-  } catch {
-    return false;
-  }
+  const payload = payloadOf(t);
+  return typeof payload?.exp === "number" && payload.exp * 1000 > Date.now();
+}
+
+/** The Cognito group that may decide approvals; the API checks the same name. */
+export const APPROVERS_GROUP = "approvers";
+
+/**
+ * The groups Cognito wrote into the access token when it issued it. Read here
+ * only to shape the console — hide the approve and reject buttons from an
+ * analyst — never to enforce anything: the API checks the same claim on a
+ * signature-verified token, and a browser that lies to itself gets a 403.
+ */
+export function getGroups(): string[] {
+  const t = getToken();
+  if (!t) return [];
+  const groups = payloadOf(t)?.["cognito:groups"];
+  return Array.isArray(groups) ? groups.map(String) : [];
+}
+
+export function isApprover(): boolean {
+  return getGroups().includes(APPROVERS_GROUP);
 }
 
 /** Send the user to the Cognito hosted login page. */

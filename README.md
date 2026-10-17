@@ -19,7 +19,7 @@ Built as a portfolio project to demonstrate cloud security engineering end to en
 | **Enrich** | The addresses and domains an incident names are looked up in AbuseIPDB and AlienVault OTX — once a week each, ten a run — and the verdict is shown beside the indicator, printed in the report and given to the triage model as a fact about the indicator, never about the activity. |
 | **Triage** | A language model on Amazon Bedrock drafts an advisory note for each correlated incident — what likely happened and what to check next — contained so that no answer it gives, however steered, can cause an action. |
 | **Observe** | A React SOC dashboard shows live severity/source charts, a filterable findings table, remediation status, and an interactive prediction tool. Any incident downloads as a PDF report: executive summary, affected resources, timeline, an indicative ATT&CK placement, the actions that reached the approval gate, and the advisory note — assembled from the record, with nothing generated. |
-| **Protect** | Cognito authentication with JWT validation enforced on **every** API route — the data cannot be reached by bypassing the UI. |
+| **Protect** | Cognito authentication with JWT validation enforced on **every** API route — the data cannot be reached by bypassing the UI. Two roles: every operator reads; only the `approvers` group can approve or reject a remediation, checked by the API on the token's claims, not by the page. |
 
 ---
 
@@ -84,6 +84,28 @@ The SOAR loop was exercised end to end with simulated attack findings (SSH brute
 | ![Step Functions graph paused at the EC2 approval gate](screenshots/Graph.png) | ![Execution event timeline](screenshots/Events.png) | ![Execution input showing the ec2_compromise playbook](screenshots/Execution.png) |
 
 The graph shows `ClassifyFinding` routing a C&C/exfiltration finding down the `ec2_compromise` branch to `ApproveEc2`, where it waits for a human decision before the `IsolateEc2 → SnapshotEbs` remediation runs.
+
+### Operators
+
+Operators are created by an administrator, never by self sign-up, and belong
+to one of two Cognito groups: `analysts`, who read everything the console
+shows, and `approvers`, who can also approve or reject a staged remediation.
+A new user belongs to no group and can decide nothing. From a terminal with
+the audit profile:
+
+```bash
+POOL=$(aws cognito-idp list-user-pools --profile cs-audit --max-results 10 --query "UserPools[?Name=='cloudsentinel-soc'].Id" --output text)
+aws cognito-idp admin-create-user --profile cs-audit --user-pool-id "$POOL" --username analyst@example.com \
+  --user-attributes Name=email,Value=analyst@example.com Name=email_verified,Value=true
+aws cognito-idp admin-add-user-to-group --profile cs-audit --user-pool-id "$POOL" --username analyst@example.com --group-name analysts
+aws cognito-idp admin-add-user-to-group --profile cs-audit --user-pool-id "$POOL" --username operator@example.com --group-name approvers
+```
+
+A group change reaches the API with the user's next token, so an operator
+added to or removed from `approvers` signs out and in again (or waits up to
+an hour). When this change is first deployed, add the existing operator to
+`approvers` right after the Auth stack, before the Api stack: until then the
+decide route answers 403, which is the safe way round.
 
 ---
 

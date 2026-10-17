@@ -116,10 +116,14 @@ control-change watch and the honeypot.
   rotation finding is accepted with its reason.
 - *Least privilege asserted, not tested* → tested, per function and per
   table.
+- *Single administrator, no roles* → two Cognito groups, `analysts` and
+  `approvers`; the API refuses a decision from any token outside the second,
+  the console hides the buttons from the first, and tests pin both the group
+  check and the groups' existence (October 2026).
 
 **Gaps / next step**
-- Single administrator, no roles. Cognito groups mapped to API scopes
-  (analyst, approver) would separate reading from approving.
+- Group membership is one administrator's call, with no second approver and
+  no alarm on a change to it.
 - Single-account blast radius: the Audit account's administrator reads every
   finding and can disable the key (threat model, residual risk 1).
 - A change pushed *through* the deployment pipeline looks like a deploy; the

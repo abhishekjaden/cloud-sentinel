@@ -63,9 +63,24 @@ def client(app_module):
 
 @pytest.fixture
 def auth_client(app_module):
-    """Client with authentication satisfied, for testing route behaviour."""
+    """Client signed in as an approver, for testing route behaviour. The
+    override replaces token verification only; require_approver still reads
+    the claims it returns, so the group has to be here."""
     from fastapi.testclient import TestClient
     from app.auth import require_auth
-    app_module.app.dependency_overrides[require_auth] = lambda: {"sub": "test-operator"}
+    app_module.app.dependency_overrides[require_auth] = lambda: {
+        "sub": "test-operator", "cognito:groups": ["approvers"]}
+    yield TestClient(app_module.app)
+    app_module.app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def analyst_client(app_module):
+    """Client signed in as an analyst: a verified token in the analysts group
+    and not the approvers group."""
+    from fastapi.testclient import TestClient
+    from app.auth import require_auth
+    app_module.app.dependency_overrides[require_auth] = lambda: {
+        "sub": "test-analyst", "cognito:groups": ["analysts"]}
     yield TestClient(app_module.app)
     app_module.app.dependency_overrides.clear()

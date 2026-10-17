@@ -3,7 +3,9 @@
 The Step Functions task token never leaves AWS. Resuming a paused remediation
 requires an authenticated call here; this module looks the token up server-side
 and records which principal decided, so an approval is attributable to a person
-rather than to whoever held a link.
+rather than to whoever held a link. Any operator can see the queue; deciding
+needs the approvers group (app.auth.require_approver), so an analyst's session,
+stolen or not, cannot resume anything.
 """
 import os
 from datetime import datetime, timezone
@@ -13,7 +15,7 @@ from boto3.dynamodb.conditions import Key
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.auth import require_auth
+from app.auth import require_approver, require_auth
 
 router = APIRouter()
 
@@ -51,11 +53,12 @@ def list_approvals(status: str = "pending"):
 
 
 @router.post("/approvals/{approval_id}/decide")
-def decide(approval_id: str, body: Decision, claims: dict = Depends(require_auth)):
+def decide(approval_id: str, body: Decision, claims: dict = Depends(require_approver)):
     """Approve or reject a staged remediation.
 
     The decision is attributed to the authenticated principal, which is the
-    point of routing approval through the API rather than an emailed token.
+    point of routing approval through the API rather than an emailed token;
+    the principal must be an approver, which is the point of the group.
     """
     resp = _table.get_item(Key={"approval_id": approval_id})
     item = resp.get("Item")

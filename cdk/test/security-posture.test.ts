@@ -138,6 +138,14 @@ describe('AuthStack', () => {
     });
   });
 
+  test('the pool defines the analysts and approvers groups the API and console rely on', () => {
+    // backend/app/auth.py refuses a decision from any token without the
+    // approvers group; a pool without the group would make every approval a 403.
+    t.hasResourceProperties('AWS::Cognito::UserPoolGroup', { GroupName: 'approvers' });
+    t.hasResourceProperties('AWS::Cognito::UserPoolGroup', { GroupName: 'analysts' });
+    expect(Object.keys(t.findResources('AWS::Cognito::UserPoolGroup'))).toHaveLength(2);
+  });
+
   test('the public SPA client is not issued a secret', () => {
     const clients = t.findResources('AWS::Cognito::UserPoolClient');
     const props = Object.values(clients).map((c: any) => c.Properties);
@@ -193,6 +201,14 @@ describe('ApiStack', () => {
     return new ApiStack(app, 'TestApi', {
       ...audit, apiZone: dns.apiZone, apiCertificate: dns.apiCertificate,
     });
+  });
+
+  test('the API task is told which group decides approvals, by the name the pool creates', () => {
+    const defs = Object.values(t.findResources('AWS::ECS::TaskDefinition')) as any[];
+    expect(defs.length).toBe(1);
+    const env = defs[0].Properties.ContainerDefinitions[0].Environment as { Name: string; Value: string }[];
+    expect(env).toContainEqual({ Name: 'APPROVERS_GROUP', Value: 'approvers' });
+    expect(env).toContainEqual({ Name: 'AUTH_ENABLED', Value: 'true' });
   });
 
   test('the API can read correlated incidents but never write them', () => {

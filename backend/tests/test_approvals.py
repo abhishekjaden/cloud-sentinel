@@ -29,6 +29,42 @@ def test_deciding_requires_authentication(client):
     assert resp.status_code == 401
 
 
+def test_an_analyst_cannot_decide(analyst_client, fake_table, fake_sfn):
+    """The role distinction: a verified operator who is not an approver gets
+    403, and nothing is resumed or recorded. The buttons the console hides
+    from analysts are not the enforcement; this is."""
+    fake_table.get_item.return_value = {"Item": dict(PENDING)}
+    resp = analyst_client.post("/approvals/a-1/decide", json={"decision": "approve"})
+    assert resp.status_code == 403
+    assert "approvers" in resp.json()["detail"]
+    fake_sfn.send_task_success.assert_not_called()
+    fake_sfn.send_task_failure.assert_not_called()
+    fake_table.update_item.assert_not_called()
+
+
+def test_an_analyst_can_still_see_the_queue(analyst_client, fake_table):
+    """Reading is every operator's; only deciding is the approvers'."""
+    fake_table.query.return_value = {"Items": [PENDING]}
+    resp = analyst_client.get("/approvals")
+    assert resp.status_code == 200
+    assert resp.json()["count"] == 1
+
+
+def test_a_token_with_no_group_at_all_cannot_decide(app_module, fake_table, fake_sfn):
+    """A user created but never put in a group — the state every new operator
+    starts in — can decide nothing, rather than everything."""
+    from fastapi.testclient import TestClient
+    from app.auth import require_auth
+    app_module.app.dependency_overrides[require_auth] = lambda: {"sub": "new-operator"}
+    try:
+        fake_table.get_item.return_value = {"Item": dict(PENDING)}
+        resp = TestClient(app_module.app).post("/approvals/a-1/decide", json={"decision": "reject"})
+        assert resp.status_code == 403
+        fake_sfn.send_task_failure.assert_not_called()
+    finally:
+        app_module.app.dependency_overrides.clear()
+
+
 def test_task_token_is_never_returned_to_a_client(auth_client, fake_table):
     """Returning the token would reintroduce the exact weakness this design
     removes."""

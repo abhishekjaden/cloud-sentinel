@@ -92,6 +92,32 @@ describe("session state", () => {
     expect(isAuthenticated()).toBe(true);
   });
 
+  test("the groups Cognito put in the token are read back, and nothing else counts", async () => {
+    const { getGroups, isApprover } = await import("../auth");
+    sessionStorage.setItem(TOKEN_KEY, jwt(3600, { "cognito:groups": ["analysts", "approvers"] }));
+    expect(getGroups()).toEqual(["analysts", "approvers"]);
+    expect(isApprover()).toBe(true);
+  });
+
+  test("an analyst, a user in no group, and a signed-out browser are not approvers", async () => {
+    const { getGroups, isApprover } = await import("../auth");
+    sessionStorage.setItem(TOKEN_KEY, jwt(3600, { "cognito:groups": ["analysts"] }));
+    expect(isApprover()).toBe(false);
+    sessionStorage.setItem(TOKEN_KEY, jwt(3600));
+    expect(getGroups()).toEqual([]);
+    expect(isApprover()).toBe(false);
+    sessionStorage.removeItem(TOKEN_KEY);
+    expect(isApprover()).toBe(false);
+  });
+
+  test("a group claim that is not a list is ignored rather than trusted", async () => {
+    // The console only shapes itself by this claim; the API decides. A
+    // malformed claim must read as no groups, never as every group.
+    const { getGroups } = await import("../auth");
+    sessionStorage.setItem(TOKEN_KEY, jwt(3600, { "cognito:groups": "approvers" }));
+    expect(getGroups()).toEqual([]);
+  });
+
   test("logout clears the stored token", async () => {
     const { logout } = await import("../auth");
     sessionStorage.setItem(TOKEN_KEY, jwt(3600));

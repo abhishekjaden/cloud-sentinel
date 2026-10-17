@@ -7,7 +7,7 @@ import { IncidentsPanel } from "./components/IncidentsPanel";
 import { RemediationsPanel } from "./components/RemediationsPanel";
 import { ApprovalsPanel } from "./components/ApprovalsPanel";
 import { PredictPanel } from "./components/PredictPanel";
-import { isAuthenticated, login, logout, handleRedirect } from "./auth";
+import { isAuthenticated, isApprover, login, logout, handleRedirect } from "./auth";
 import "./App.css";
 
 export default function App() {
@@ -112,7 +112,7 @@ export default function App() {
               Awaiting Approval
               <span className="approval-badge">{approvals.length}</span>
             </h2>
-            <ApprovalsPanel approvals={approvals} onDecided={loadAll} />
+            <ApprovalsPanel approvals={approvals} onDecided={loadAll} canApprove={isApprover()} />
           </section>
         )}
 

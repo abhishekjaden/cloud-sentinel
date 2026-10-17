@@ -218,6 +218,7 @@ td { padding: 8px; border-bottom: 1px solid var(--border); }
   gap: 0.6rem;
 }
 .approval-warning { font-size: 0.82rem; color: #d9a441; }
+.approval-readonly { font-size: 0.82rem; font-style: italic; }
 .approval-error {
   background: rgba(139, 38, 53, 0.15);
   border: 1px solid #8b2635;

@@ -97,12 +97,13 @@ The highest-consequence boundary in the system.
 
 | Threat | Vector | Mitigation | Residual |
 |---|---|---|---|
-| **S** | Someone other than the operator approves | The task token is written to a KMS-encrypted DynamoDB table and never leaves AWS. Resuming a workflow requires an authenticated `POST /approvals/{id}/decide`; the notification email carries no token and cannot approve anything. | An operator's session token remains usable until expiry if stolen. |
+| **S** | Someone other than the operator approves | The task token is written to a KMS-encrypted DynamoDB table and never leaves AWS. Resuming a workflow requires an authenticated `POST /approvals/{id}/decide` from a token in the Cognito `approvers` group; the API reads the group from the verified token's claims, so an analyst's session can list the queue and decide nothing, and the notification email carries no token and cannot approve anything. | An approver's session token remains usable until expiry if stolen. Group membership travels in the token, so a user removed from the group keeps the power until their token expires, up to an hour. |
 | **T** | Altering the remediation definition | State machine defined in CDK and deployed through a reviewed pipeline | An audit-account administrator can edit the state machine directly in the console; there is no drift detection or alarm. |
 | **R** | Denying an approval decision | The deciding principal's Cognito `sub` and a timestamp are written to the approvals record before the workflow resumes; spent tokens are removed and replay returns 409 | Attribution is to a Cognito identity, not to a verified human; a shared account would defeat it. |
 | **I** | Approval payload exposes finding detail | SNS topic requires TLS for publishers | Notification content reaches a mailbox outside AWS's trust boundary. |
 | **D** | Blocking legitimate remediation | Failed executions surface in the dashboard; the `approvals-decided` alarm fires when an approval expires undecided, and `remediation-runs` when a step errors ([SLOs](slos.md)) | An unapproved execution waits up to 24 hours before anything alerts on it. |
 | **E** | Executor exceeds intended scope | Playbook Lambdas hold narrowly scoped permissions; `SAFE_MODE` allows exercising the flow without touching resources | Compromise of a playbook role grants exactly the destructive power the playbook was designed to have. |
+| **E** | An analyst promotes themselves to approver | Groups are set by an administrator through Cognito's admin API; the pool allows no self-service, and the console's hiding of the buttons is not the control — the API's check on the claim is, and a test refuses a decision from every token outside the group | Whoever administers the pool can add anyone to the group, with no second approver; the pool's own changes are CloudTrail events but not among the controls objective 8 watches. |
 
 ### B6 — GitHub Actions → AWS
 
@@ -170,6 +171,8 @@ restricted from `*` to the dashboard origin; the API container was moved off
 root; and the SOAR approval gate was rebuilt so that the Step Functions task
 token is held server-side rather than emailed, which removed the system's
 highest-ranked residual risk and, in the same change, gave approvals a named
-principal. The rest are recorded above rather than silently resolved, because a
-threat model whose every threat is neatly mitigated is not describing a real
-system.
+principal. A fourth followed in October: the single operator role was split
+into analysts and approvers, so that reading the platform and resuming a
+destructive workflow are no longer the same permission. The rest are recorded
+above rather than silently resolved, because a threat model whose every threat
+is neatly mitigated is not describing a real system.

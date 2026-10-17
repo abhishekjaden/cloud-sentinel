@@ -19,7 +19,18 @@ import { suppressLambdaBaseline, suppressCognitoTier } from '../nag-suppressions
  *    does not let strangers register.
  *  - The API validates the resulting JWT on every data request, so the login is
  *    not merely cosmetic — the endpoints cannot be reached by bypassing the UI.
+ *  - Two roles, as groups. Every operator reads what the console shows; only a
+ *    member of `approvers` can approve or reject a staged remediation. Cognito
+ *    writes a user's groups into the tokens it issues, the API checks the claim
+ *    on the decide route (backend/app/auth.py), and the console hides the
+ *    buttons from everyone else. Membership is an administrator's call
+ *    (README, "Operators"); a new user starts in no group and can decide
+ *    nothing.
  */
+/** The group the API requires on its decide route; the API stack names the same word. */
+export const APPROVERS_GROUP = 'approvers';
+export const ANALYSTS_GROUP = 'analysts';
+
 export class AuthStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
@@ -78,6 +89,21 @@ export class AuthStack extends cdk.Stack {
       accessTokenValidity: Duration.hours(1),
       refreshTokenValidity: Duration.days(30),
       preventUserExistenceErrors: true,
+    });
+
+    // The two roles. Precedence orders the groups in the token when a user is
+    // in both; it carries no permission of its own.
+    new cognito.CfnUserPoolGroup(this, 'ApproversGroup', {
+      userPoolId: this.userPool.userPoolId,
+      groupName: APPROVERS_GROUP,
+      description: 'May approve or reject a staged remediation; every decision is recorded against the deciding identity',
+      precedence: 10,
+    });
+    new cognito.CfnUserPoolGroup(this, 'AnalystsGroup', {
+      userPoolId: this.userPool.userPoolId,
+      groupName: ANALYSTS_GROUP,
+      description: 'Reads findings, incidents, notes and the approval queue; cannot decide an approval',
+      precedence: 20,
     });
 
     new cdk.CfnOutput(this, 'UserPoolId', { value: this.userPool.userPoolId });

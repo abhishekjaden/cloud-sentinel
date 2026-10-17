@@ -10,6 +10,10 @@ import { decideApproval } from "../api";
  * confirm step is deliberate rather than decorative, and failures are surfaced
  * rather than swallowed — an operator who believes an action succeeded when it
  * did not is worse off than one who sees an error.
+ *
+ * An analyst sees the queue without the buttons. That is a courtesy, not the
+ * control: the API refuses a decision from any token outside the approvers
+ * group, whatever the page shows.
  */
 function waitingFor(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -33,9 +37,11 @@ function targetOf(approval: Approval): string {
 export function ApprovalsPanel({
   approvals,
   onDecided,
+  canApprove,
 }: {
   approvals: Approval[];
   onDecided: () => void;
+  canApprove: boolean;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -87,7 +93,11 @@ export function ApprovalsPanel({
               <span className="approval-target">target: {targetOf(a)}</span>
             </div>
 
-            {confirming === a.approval_id ? (
+            {!canApprove ? (
+              <div className="approval-actions">
+                <span className="approval-readonly muted">Awaiting an approver's decision</span>
+              </div>
+            ) : confirming === a.approval_id ? (
               <div className="approval-confirm">
                 <span className="approval-warning">
                   This runs the {a.playbook} playbook against {targetOf(a)}.
@@ -132,7 +142,9 @@ export function ApprovalsPanel({
       </ul>
 
       <p className="hint muted">
-        Decisions are recorded against your Cognito identity.
+        {canApprove
+          ? "Decisions are recorded against your Cognito identity."
+          : "You are signed in as an analyst: only members of the approvers group can decide these."}
       </p>
     </div>
   );

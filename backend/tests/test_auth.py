@@ -105,6 +105,42 @@ def test_unreachable_jwks_denies_rather_than_erroring(monkeypatch):
     assert exc.value.status_code == 401
 
 
+# ---------------------------------------------------------------- the approvers group
+def test_groups_are_read_from_the_token_claim():
+    assert auth_module.groups_of({"cognito:groups": ["analysts", "approvers"]}) == {"analysts", "approvers"}
+    assert auth_module.groups_of({"cognito:groups": "approvers"}) == {"approvers"}
+    assert auth_module.groups_of({"sub": "x"}) == set()
+
+
+def test_an_approver_passes_the_approver_check():
+    claims = {"sub": "op", "cognito:groups": ["approvers"]}
+    assert auth_module.require_approver(claims) is claims
+
+
+@pytest.mark.parametrize("claims", [
+    {"sub": "op"},
+    {"sub": "op", "cognito:groups": []},
+    {"sub": "op", "cognito:groups": ["analysts"]},
+    {"sub": "op", "cognito:groups": ["Approvers"]},   # the name is exact
+])
+def test_anyone_else_is_refused_with_403(claims):
+    with pytest.raises(HTTPException) as exc:
+        auth_module.require_approver(claims)
+    assert exc.value.status_code == 403
+
+
+def test_the_group_name_comes_from_the_environment_with_the_pools_name_as_default():
+    """The Auth stack creates the group and the API stack names it; the
+    default is the same word, so a deployment that forgets to set it still
+    checks the right group rather than none."""
+    assert auth_module.APPROVERS_GROUP == "approvers"
+
+
+def test_disabled_auth_skips_the_approver_check_too(monkeypatch):
+    monkeypatch.setattr(auth_module, "AUTH_ENABLED", False)
+    assert auth_module.require_approver({"sub": "auth-disabled"})["sub"] == "auth-disabled"
+
+
 def test_auth_can_be_disabled_for_local_development(monkeypatch):
     """AUTH_ENABLED=false is a local convenience; it must never be the default."""
     monkeypatch.setattr(auth_module, "AUTH_ENABLED", False)

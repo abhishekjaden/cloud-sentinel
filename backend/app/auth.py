@@ -1,5 +1,5 @@
 """
-Cognito JWT verification.
+Cognito JWT verification, and the one role distinction the API makes.
 
 Every data route requires a valid access token issued by the CloudSentinel
 Cognito user pool. Verification is done locally against the pool's public JWKS:
@@ -7,6 +7,12 @@ signature, issuer, audience (client id), token_use and expiry are all checked.
 
 Frontend-only auth would be theatre — without this, the endpoints could be
 reached directly with curl. This is the enforcement point.
+
+Two roles, two Cognito groups. Every operator can read what the console shows;
+only a member of the approvers group can resume or stop a remediation. The
+group is read from the token's claims, which Cognito fills from the pool's
+membership when it issues the token, so an analyst cannot grant it to
+themselves and the console's hiding of the buttons is not what enforces it.
 """
 import os
 from functools import lru_cache
@@ -20,6 +26,9 @@ REGION = os.environ.get("AWS_REGION", "us-east-1")
 USER_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID", "")
 CLIENT_ID = os.environ.get("COGNITO_CLIENT_ID", "")
 AUTH_ENABLED = os.environ.get("AUTH_ENABLED", "true").lower() == "true"
+# The Cognito group whose members may decide approvals; the Auth stack creates
+# it and the API stack names it, so the two cannot drift apart unnoticed.
+APPROVERS_GROUP = os.environ.get("APPROVERS_GROUP", "approvers")
 
 ISSUER = f"https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}"
 JWKS_URL = f"{ISSUER}/.well-known/jwks.json"
@@ -85,4 +94,30 @@ def require_auth(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
     if claims.get("client_id") != CLIENT_ID:
         raise _unauthorized("token not issued for this client")
 
+    return claims
+
+
+def groups_of(claims: dict) -> set:
+    """The Cognito groups a verified token carries. Cognito writes them as a
+    list under cognito:groups when it issues the token; a token issued before
+    the user joined a group lacks it until the token is refreshed, and one
+    issued before they left a group keeps it until expiry (an hour)."""
+    found = claims.get("cognito:groups") or []
+    if isinstance(found, str):
+        found = [found]
+    return {str(g) for g in found}
+
+
+def require_approver(claims: dict = Depends(require_auth)) -> dict:
+    """FastAPI dependency: a verified token whose user is in the approvers
+    group, or 403. Reading never needs it; deciding an approval always does.
+    It builds on require_auth, so an unauthenticated caller still gets 401
+    and never learns that a group exists."""
+    if not AUTH_ENABLED:
+        return claims
+    if APPROVERS_GROUP not in groups_of(claims):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"deciding an approval requires membership of the {APPROVERS_GROUP} group",
+        )
     return claims

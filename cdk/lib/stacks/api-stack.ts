@@ -16,6 +16,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import { ACCOUNTS } from '../config';
 import { ALARM_TOPIC_NAME, INTEL_TABLE_NAME, TRIAGE_TABLE_NAME } from '../names';
 import { suppressLambdaBaseline, suppressPublicIngress } from '../nag-suppressions';
+import { APPROVERS_GROUP } from './auth-stack';
 
 /**
  * ApiStack — deploys to the Audit account (118821712739).
@@ -118,6 +119,9 @@ export class ApiStack extends cdk.Stack {
           COGNITO_USER_POOL_ID: COGNITO_USER_POOL_ID,
           COGNITO_CLIENT_ID: COGNITO_CLIENT_ID,
           AUTH_ENABLED: 'true',
+          // Only members of this Cognito group may decide an approval; the
+          // Auth stack creates the group under the same name.
+          APPROVERS_GROUP: APPROVERS_GROUP,
           // Browser origins allowed to call this API. Restricting this stops a
           // malicious site from issuing credentialed requests on behalf of a
           // logged-in operator.
