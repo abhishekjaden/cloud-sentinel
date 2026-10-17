@@ -135,10 +135,13 @@ case against the live model:
 | 3 Oct 2026 | 2026-10-03.3 | 12 | 33/36 | 9/9 | five cases added, three outside EC2; the three misses were one case rated a step above its band, adjudicated as a labelling error and widened on the record (ADR 0005); the model answered *medium* in none of 36 asks |
 | 3 Oct 2026 | 2026-10-03.3 | 12 | 36/36 | 9/9 | rerun on the adjudicated band the same evening; every one of the 36 answers identical to the run before |
 | 17 Oct 2026 | 2026-10-17.1 | 12 | 36/36 | 9/9 | the five severity steps defined (ADR 0005), judged against the cases: *medium* answered for the first time, on all three runs of the lone persistence command; the other two medium-centred cases stayed high at medium confidence; the 36 answers moved from 12 critical, 21 high, 0 medium, 3 low to 18, 12, 3, 3 |
+| 17 Oct 2026 | 2026-10-17.1 | 10, independent | 24/30 | 3/3 | the first set the prompt's author did not write — the project author's ten cases, sealed until the prompt was deployed (`docs/triage-eval-protocol.md`, section 6). Two cases failed on every run: the test-data flag set on a real-data case for its made-up-looking bucket and role names, a prompt defect; and a lone suspicious-domain query rated medium against a band of low alone, pending adjudication with the guide. 15 critical, 0 high, 12 medium, 3 low across the thirty answers |
 
-These cases were written by the prompt's author. The independent set — cases
-written blind and honeypot incidents — is the next row, when it exists; the
-first honeypot run (3–8 October) produced no incidents to label.
+The first six rows are cases written by the prompt's author; the last is the
+first set it did not write, by the project's author, partly blind. Cases from
+a second person and the honeypot's incidents are the more independent sources
+still to come; the first honeypot run (3–8 October) produced no incidents to
+label, and the second runs to 22 October.
 
 ## 4. The controls
 

@@ -201,3 +201,7 @@ kill-chain stage, because the correlator's stage table has no entry for
 GuardDuty's `Behavior` purpose, so that incident reaches the model with its
 stages marked `unknown`. The run measures the pipeline as deployed; the gap
 is a finding about the correlator, to be taken up after the run.
+
+Run on 17 October at prompt `2026-10-17.1`, three times each: 24 of 30. The
+record, the two failing cases with the model's reasons, and the two
+adjudications left to the writer and the guide are in ADR 0005.
