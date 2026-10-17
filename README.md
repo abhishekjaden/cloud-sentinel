@@ -103,6 +103,8 @@ better than chance (AUC 0.58).
 What has been measured, and what each number is allowed to mean, is in
 [`docs/evaluation.md`](docs/evaluation.md); the platform is reviewed against the
 six Well-Architected pillars, twice, in [`docs/well-architected-review.md`](docs/well-architected-review.md).
+The ICSSS 2026 paper's tables, figures and numbers are indexed to the records
+they come from in [`docs/paper-evidence.md`](docs/paper-evidence.md).
 
 The system is threat-modelled in [`docs/threat-model.md`](docs/threat-model.md),
 a STRIDE analysis across seven trust boundaries. It records mitigations where
