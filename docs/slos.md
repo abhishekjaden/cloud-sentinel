@@ -59,22 +59,37 @@ aws cloudwatch set-alarm-state --profile cs-audit --alarm-name cloudsentinel-slo
 
 **Observed, 13 October 2026** (times UTC). The Observability stack was
 deployed at 14:16:18–14:16:25, changing the topic's policy and nothing else.
-Before it, the alarms' histories held 49 notification attempts since
-13 September, every one `Failed to execute action`, and none that succeeded;
-the subscribed inbox held 15 messages from the topic in that time, all of them
-control-change messages from EventBridge, and not one alarm notification.
+Before it, the alarms' histories — the console keeps 30 days, so they reach
+back to 13 September, a week before the topic existed — held 49 notification
+attempts, every one `Failed to execute action` and none that succeeded, all
+of them in the topic's 23 days; the subscribed inbox held 15 messages from
+the topic in that time, all of them control-change messages from
+EventBridge, and not one alarm notification.
 
 1. At 14:17:43.845 the forced change took findings-stored to ALARM, and at
    14:17:43.884 its history read `Successfully executed action
    arn:aws:sns:us-east-1:118821712739:cloudsentinel-alarms`.
-2. The ALARM email reached the inbox at 14:17:43, within the second: the
-   first alarm notification the platform has delivered.
+2. The ALARM email reached the inbox at 14:17:43 by Gmail's receipt time,
+   within the second: the first alarm notification the platform has
+   delivered. (The timestamp in the message body is the alarm event's, which
+   the alarm's history already gives; the receipt time is Gmail's own, and
+   the inbox view shows it only to the minute, 19:47 IST.)
 3. At its next evaluation, at 14:18:08.447, the alarm returned to OK; that
    action succeeded at 14:18:08.493, and the OK email arrived at 14:18:08.
 4. No control-change message: nothing else reached the inbox.
 
 Every expected signal held. Since then, every experiment's expected signals
 name the notification as well as the state (`docs/chaos-experiments.md`).
+
+What this check shows is delivery, not detection: the alarm was put into
+ALARM by an API call, not by a failure the pipeline noticed. The two
+notifications were executed within 46 ms of their state changes, and Gmail's
+receipt times fall in the same second; the action timestamps are
+CloudWatch's and say when SNS was called, not when the mail arrived, so the
+inbox latency is the receipt time's and is good to the second. The first run
+to check detection and delivery together on an injected failure is E2's
+matched re-run (`docs/chaos-experiments.md`), whose expected signals name
+each notification.
 
 ## Summary
 

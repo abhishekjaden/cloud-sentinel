@@ -92,7 +92,8 @@ of delay the rationale above accepted, in two ways.
   waited no longer only because none had arrived earlier in the hour.
 - **The hold ends in a loss.** The record was dropped 60 min 17 s after it
   arrived. A finding that had arrived 4.6 seconds behind it was past an hour
-  old by then too, and was dropped with it, never delivered — the outcome
+  old by then too, and was never stored: by inference dropped with it, since
+  the second queue message of that minute was purged unread — the outcome
   this decision exists to prevent, for the findings nearest the poison. The
   window is the gap between the poison turning an hour old and the retry
   that drops it: up to a minute at the retry pacing measured.

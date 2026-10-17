@@ -22,7 +22,8 @@ more than a delay.
   minutes, and would have waited the whole hour had they arrived early in it.
 - **The hold ends in a loss.** When the record was dropped, 60 min 17 s after
   it arrived, the finding that had arrived 4.6 seconds behind it was past an
-  hour old as well, and was dropped with it without ever being delivered.
+  hour old as well, and was never stored — dropped with it, by inference from
+  a second queue message that minute, purged unread.
 
 And whoever can write to the stream can repeat it every hour (threat model,
 B3).

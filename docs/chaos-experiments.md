@@ -5,7 +5,20 @@ noticed. An experiment is the failure, caused on purpose, and the record of
 whether it was. The expected signals are written before the experiment runs,
 so the outcome is a comparison, not an interpretation; the observed column is
 filled in afterwards, with the time each signal took, and left honest when a
-signal did not come.
+signal did not come. Two runs are exceptions, and each says so where it is
+recorded: E5, the first run, was written up after it ran; and the E2 re-run's
+expectations are the predictions of ADR 0007, committed five minutes before
+the run rather than in this file. "Written before" means committed to this
+repository before the run, and the commit times are those of the author's
+machine, not of an independent registry; nobody outside the project has
+reproduced a run.
+
+Three words are used exactly. A record is *dropped* when Lambda's own report
+says it gave the record up; a finding is *not stored* when the logs show no
+normalization and the table holds no copy; and a finding is *lost* when the
+automatic path did not store it and only a replay from the stream — by hand,
+within its 24-hour retention — could. Where a record's fate is inferred
+rather than read from a log, a message or a table, the record says so.
 
 Every experiment is run from a terminal with the audit profile, in the live
 environment, and every one is reversible by the step under *Rollback*. The
@@ -23,7 +36,7 @@ signal includes its notification arriving, and is checked in the inbox.
 
 | # | Experiment | Objectives exercised | Status |
 |---|---|---|---|
-| E1 | A record the normalizer cannot read | 1 (stored), 2 (fresh), 8 (controls) | **run, 7 October 2026**; **re-run under ADR 0007, 12 October** — the record held the shard for an hour, and the finding 4.6 seconds behind it was lost with it; **third run under ADR 0008, 13 October** — rejected on first sight, 11 seconds after it arrived, and the finding behind it stored by the same invocation |
+| E1 | A record the normalizer cannot read | 1 (stored), 2 (fresh), 8 (controls) | **run, 7 October 2026**; **re-run under ADR 0007, 12 October** — the record held the shard for an hour, and the finding 4.6 seconds behind it was never stored by the automatic path; **third run under ADR 0008, 13 October** — rejected on first sight, 11 seconds after it arrived, and the finding behind it stored by the same invocation |
 | E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day** |
 | E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** — it fired, but 77 minutes after the last run; **third run 11 October**, on a wall-clock window — fired 49 min 41 s after the last run, as designed |
 | E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
@@ -135,18 +148,22 @@ the finding — run `dwcq`, one finding on `i-0f100ddwcq0000000` — at
    59 min 23 s.
 2. **findings-fresh went OK → ALARM at 18:57:38**, 12 min 06 s after the
    garbage arrived: two five-minute windows over the threshold, as written.
-3. **The drop took the finding with it.** At 19:45:50.111, 60 min 17 s after
-   it arrived, Lambda gave the garbage up: the queue message reads
-   `RecordAgeExceeded`, `approximateInvokeCount` 70, a batch of one — the
-   garbage's own sequence number. A second message reached the queue in the
-   same minute (`NumberOfMessagesSent` 2 at 19:45). It was purged unread at
-   rollback, but the rest identifies it: the finding was the next record on
-   the shard, it was 60 min 12.5 s old by then and so past the limit itself,
-   no log line ever shows it normalized, and the purge found no flood
-   finding in the table to remove. It was dropped without being delivered —
-   lost, recoverable only by replaying its sequence number from the stream
-   within 24 hours. findings-stored went to ALARM at 19:48:42, 2 min 52 s
-   after the drop, and back to OK at 19:53:42.
+3. **At the drop, the finding behind it was not stored.** Observed: at
+   19:45:50.111, 60 min 17 s after it arrived, Lambda gave the garbage up —
+   the queue message reads `RecordAgeExceeded`, `approximateInvokeCount` 70,
+   a batch of one, the garbage's own sequence number; a second message
+   reached the queue in the same minute (`NumberOfMessagesSent` 2 at 19:45);
+   no log line ever shows the finding normalized; and the purge found no
+   flood finding in the table to remove. Inferred: that the second message
+   was the finding's own age-out. It was the next record on the shard and
+   60 min 12.5 s old by then, past the limit itself, and nothing else was on
+   the shard to report; but the message was purged unread at rollback, so
+   its contents were never seen, and the inference rests on the count and
+   the timing. Not done: a replay of the finding's sequence number from the
+   stream, within its 24-hour retention, could still have stored it, and
+   none was attempted; the automatic path did not store it, which is the
+   outcome the policy existed to prevent. findings-stored went to ALARM at
+   19:48:42, 2 min 52 s after the drop, and back to OK at 19:53:42.
 4. **Everything further back was stored at once.** 93 findings had reached
    the stream behind the garbage, all in its last 13 minutes — none in the
    47 before — and were stored in a single delivery at 19:45:50.5–52.3,
@@ -162,13 +179,14 @@ the finding — run `dwcq`, one finding on `i-0f100ddwcq0000000` — at
 6. No control-change message: controls-unchanged did not change state.
 
 ADR 0007 accepted an hour's delay for whatever sits behind a poison record.
-The run shows that the hold is total and that it ends in a loss. Total,
-because Lambda redelivers the batch it has and reads nothing past it, so
-storing the good records of a batch helps only those already in it. A loss,
-because when the poison record is dropped, anything that arrived between its
-turning an hour old and the retry that drops it is past the hour as well and
-goes with it: up to a minute of findings at the pacing measured here, 17
-seconds this time, which was enough to catch the test finding. The 93 real
+The run shows that the hold is total and that it ended with the finding
+behind the record unstored. Total, because Lambda redelivers the batch it
+has and reads nothing past it, so storing the good records of a batch helps
+only those already in it. Unstored, because when the poison record is
+dropped, anything that arrived between its turning an hour old and the retry
+that drops it is past the hour as well, and on this run's evidence went the
+same way: up to a minute of findings at the pacing measured here, 17 seconds
+this time, which was enough to catch the test finding. The 93 real
 findings waited 13 minutes only because none had arrived earlier in the hour;
 one arriving in its first minute would have waited all of it. The
 expectation written into this section was right as far as it went; the
@@ -246,8 +264,9 @@ it. The sender's clock again read 21 seconds ahead of the stream's.
    during the run or for the deploy before it.
 
 Every expected signal held. The record that held the shard for 60 minutes on
-12 October, and took the finding behind it when it went, is now reported in
-eleven seconds, and the finding behind it is stored in the same invocation.
+12 October, and left the finding behind it unstored when it went, is now
+reported in eleven seconds, and the finding behind it is stored in the same
+invocation.
 The hour-long retry still applies to writes that fail for a reason that can
 heal, which is what E2 measured it for.
 
@@ -349,7 +368,12 @@ the flood findings as in E1.
 new policy — no retry count, a record retried until it is an hour old — was
 deployed that afternoon and the experiment repeated against it, with 50
 findings rather than 200: the question was no longer how many are lost but
-whether any are. Under the new policy the expectations change in two places.
+whether any are. The expectations for this run are the predictions written
+into ADR 0007 — the shard holds, iterator age climbs, findings-fresh fires
+after two five-minute windows, and every held record is stored when the
+dependency returns — committed at 11:55 UTC (`c3aa0b5`), five minutes before
+the denial was put in place at 12:00:05; this section was written after the
+run. Under the new policy the expectations change in two places.
 Signal 4 should *not* arrive — no batch exhausts inside an hour, so the queue
 stays empty and findings-stored stays OK — and signal 5 becomes the point:
 every record held in the stream is stored once the denial is lifted. Signal 1
@@ -685,7 +709,10 @@ and `EnableRule`, the SSO administrator role and the source address; both
 events in `/cloudsentinel/control-changes`; the alarm in ALARM within five
 minutes and OK within ten.
 
-**Observed, 3 October 2026.** `DisableRule` at 08:26:41Z and `EnableRule` at
+**Observed, 3 October 2026.** This was the first experiment run, before this
+file existed; its hypothesis and expected signals were written up with the
+result the same day, so it is the one run whose expectations the history
+does not date before its outcome. `DisableRule` at 08:26:41Z and `EnableRule` at
 08:26:44Z were both in the log group and both delivered to the topic within
 the same minute (the messages carried the SSO role ARN, the source address
 and the AWS CLI user agent), and the alarm was in ALARM when checked three

@@ -145,8 +145,9 @@ spurious alerts against 340,000 benign flows.
 This is the number worth discussing, because it is the only one not inflated by
 leakage.
 
-*October 2026: it was mostly the labels. On the corrected release Bot's F1 is
-0.996 (Section 6.1).*
+*October 2026: on the corrected release Bot's F1 is 0.996 (Section 6.1).
+The likeliest reason is the labels, but labels, extraction and test flows
+changed together, so how much each contributed is not separated.*
 
 ### Infiltration is six samples
 
@@ -236,13 +237,16 @@ missing or infinite values, as serving does.
 | PortScan | 0.996 (23,821) | 1.000 (34,625) |
 | WebAttack | 0.986 (327) | 0.933 (16) |
 
-Correcting the labels raised the scores. Section 4 called Bot's precision of
-0.648 the one result the dataset does not make trivial; it was mostly the
-labels. Most flows the original release called botnet were attempted
-connections that carried no botnet traffic and look benign, so a model taught
-to call them Bot called benign flows Bot too. Counted as benign, they leave Bot
-with an F1 of 0.996. WebAttack fell to 0.933, on 16 test flows — too few to
-read. A random split puts flows of the same attack session on both sides of it,
+Retraining on the corrected release raised the scores. Section 4 called
+Bot's precision of 0.648 the one result the dataset does not make trivial,
+and the likeliest reason it rose is the labels: most flows the original
+release called botnet were attempted connections that carried no botnet
+traffic and look benign, so a model taught to call them Bot called benign
+flows Bot too, and counted as benign they leave Bot with an F1 of 0.996. But
+the labels, the extraction, the feature set and the test flows all changed
+together between the two columns, so the rise cannot be credited to the
+labels alone; separating relabelling from re-extraction is future work.
+WebAttack fell to 0.933, on 16 test flows — too few to read. A random split puts flows of the same attack session on both sides of it,
 so scores this close to 1 show that the classes are separable within one
 capture, not that the model generalises.
 
@@ -282,7 +286,7 @@ serving. Attempted attacks count as benign, as above.
 
 | Attack (2018 label) | Flows | Flagged as attack |
 |---|---|---|
-| DoS Hulk | 1,803,160 | 0.0% |
+| DoS Hulk | 1,803,160 | 0.003% |
 | DDoS HOIC | 1,082,293 | 0.0% |
 | DDoS LOIC-HTTP | 289,328 | 41.5% |
 | Botnet Ares | 142,921 | 0.6% |
@@ -295,11 +299,11 @@ serving. Attempted attacks count as benign, as above.
 | Web attacks | 283 | 0.0% |
 
 Barely better than chance. DoS Hulk, which the model separated almost
-perfectly within 2017 (DoS F1 1.000 in 6.1), is missed entirely on the new
-network; Slowloris and the nmap scan, whose flows look alike on any network,
-mostly carry over. Of the false positives, 298,874 are attempted FTP
-brute-force connections, counted as benign and flagged almost without
-exception; flows labelled benign alone are flagged at 1.78%, which on this
+perfectly within 2017 (DoS F1 1.000 in 6.1), is missed almost entirely on the
+new network — 47 of 1,803,160 flows flagged; Slowloris and the nmap scan,
+whose flows look alike on any network, mostly carry over. Of the false
+positives, 298,874 are attempted FTP brute-force connections, counted as
+benign and flagged, every one; flows labelled benign alone are flagged at 1.78%, which on this
 dataset is still about a million false alerts. The model learned the 2017
 network as much as the attacks in it. `ml/models/cross_dataset_2018.json`
 holds every label's counts and score histogram; `cross_dataset.py --report`
