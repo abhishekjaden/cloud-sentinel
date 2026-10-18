@@ -138,12 +138,13 @@ case against the live model:
 | 3 Oct 2026 | 2026-10-03.3 | 12 | 36/36 | 9/9 | rerun on the adjudicated band the same evening; every one of the 36 answers identical to the run before |
 | 17 Oct 2026 | 2026-10-17.1 | 12 | 36/36 | 9/9 | the five severity steps defined (ADR 0005), judged against the cases: *medium* answered for the first time, on all three runs of the lone persistence command; the other two medium-centred cases stayed high at medium confidence; the 36 answers moved from 12 critical, 21 high, 0 medium, 3 low to 18, 12, 3, 3 |
 | 17 Oct 2026 | 2026-10-17.1 | 10, independent | 24/30 | 3/3 | the first set the prompt's author did not write — the project author's ten cases, sealed until the prompt was deployed (`docs/triage-eval-protocol.md`, section 6). Two cases failed on every run: the test-data flag set on a real-data case for its made-up-looking bucket and role names, a prompt defect; and a lone suspicious-domain query rated medium against a band of low alone, pending adjudication with the guide. 15 critical, 0 high, 12 medium, 3 low across the thirty answers |
+| 18 Oct 2026 | 2026-10-17.1 | 15, independent: 10 written + 5 honeypot | 39/45 — honeypot 15/15, written 24/30 | 3/3 | the honeypot's five single-finding SSH brute-force incidents, the first cases nobody wrote, labelled low–medium by the project's author and the guide before their notes were read (`docs/triage-eval-protocol.md`, section 7): every answer *low*, the model's confidence medium on the two addresses not listed as malicious and high on the three that were. The written ten repeated the 17 October result, the same two cases failing for the same stated reasons. Five cases of one pattern, so one piece of evidence, not five |
 
-The first six rows are cases written by the prompt's author; the last is the
-first set it did not write, by the project's author, partly blind. Cases from
-a second person and the honeypot's incidents are the more independent sources
-still to come; the first honeypot run (3–8 October) produced no incidents to
-label, and the second runs to 22 October.
+The first six rows are cases written by the prompt's author; the two after
+are the sets it did not write — the project author's ten, partly blind, and
+the honeypot's first five, which nobody wrote. Cases from a second person
+are the independent source still to come, and the honeypot runs to 22
+October; the first honeypot run (3–8 October) produced no incidents to label.
 
 ## 4. The controls
 
@@ -162,8 +163,9 @@ label, and the second runs to 22 October.
   enriches and advises. A finding GuardDuty does not raise never reaches it.
 - Not an accuracy for the model. Thirty-six runs over twelve cases is
   evidence that the containment holds on those cases.
-- Not independent evidence for the model. The twelve cases were written with
-  the prompt; the independent set (`docs/triage-eval-protocol.md`) is the
-  measurement that would be.
+- Thin independent evidence for the model. The twelve cases were written with
+  the prompt; the independent sets (`docs/triage-eval-protocol.md`) are the
+  measurement that counts, and so far they are ten synthetic cases by the
+  project's author and five real incidents of one pattern.
 - Not a production SLA. Each objective's target is what the platform held at
   its volume; the alarms say when it stops.

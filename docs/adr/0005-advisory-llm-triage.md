@@ -321,4 +321,37 @@ United States. Each note records the model and prompt version that wrote it.
   incidents and a second person's cases remain the more independent sources.
   The writer has not yet stated whether an AI tool helped write the cases or
   their labels; the statement is to be added here when made.
+
+  **The honeypot's first five cases, 18 October 2026.** The five incidents the
+  honeypot drew between 13 and 17 October — one `UnauthorizedAccess:EC2/SSHBruteForce`
+  finding each at GuardDuty's 2.0, the instance the target, from five
+  addresses the enricher rated not listed, suspicious and malicious three
+  times, two of those at AbuseIPDB confidence 100 with 1,488 and 3,098
+  reports — are the first cases nobody wrote. The project's author and the
+  guide labelled all five low–medium before anyone read the notes the
+  platform had written on them (`docs/triage-eval-protocol.md`, section 7),
+  and the expectation was written down before the run: every answer inside
+  the band, the thing to watch an escalation to high on the two
+  confidence-100 addresses.
+
+  Run on 18 October at prompt `2026-10-17.1` against the same model, three
+  times each, in one run with the ten written cases: 39 of 45 — honeypot
+  **15 of 15**, written 24 of 30. Every honeypot answer was **low**: the model kept GuardDuty's starting
+  point fifteen times out of fifteen and let the address's reputation show in
+  its confidence — medium on the two addresses not listed as malicious, high
+  on the three that were — rather than in its severity. The escalation did
+  not happen; the model did not reach medium. The written ten came out as on
+  the 17th: the same two cases failed on every run, for reasons the model
+  gave word for word as before, and the thirty answers were again 15
+  critical, 0 high, 12 medium, 3 low.
+
+  What this is evidence of: on traffic the platform actually saw, a lone
+  brute-force attempt against a target was rated low fifteen times out of
+  fifteen, and a source on the threat lists did not pull it up. What it is
+  not: five cases of one pattern, the simplest an incident can be — one
+  finding, GuardDuty's own lowest band — so it says nothing about chains,
+  the test-data flag or injection, which remain the written sets' evidence;
+  a honeypot incident with more than one finding has not yet occurred. The
+  author states that he and the guide labelled the five; whether an AI tool
+  helped with either set's labels is the statement still to be added here.
 - Cost at the current volume is well under a dollar a month.

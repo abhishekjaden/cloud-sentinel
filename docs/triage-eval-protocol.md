@@ -277,3 +277,11 @@ failure to watch is an escalation to `high` on the two addresses with
 confidence 100, which would be the mirror of the first set's
 domain-reputation disagreement, where a listed indicator pulled a lone
 finding up one step.
+
+Run on 18 October at prompt `2026-10-17.1`, three times each, in one run
+with the ten written cases: 15 of 15, every answer `low`, the model's
+confidence medium on the two addresses not listed as malicious and high on
+the three that were. The expectation held and the escalation did not
+happen. The written ten came out 24 of 30 as on the 17th, the same two
+cases failing for the same stated reasons. The record, and what it is and is
+not evidence of, is in ADR 0005.
