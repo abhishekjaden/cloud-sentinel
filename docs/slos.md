@@ -274,6 +274,55 @@ UTC, the alarm fired at 09:25:41: 49 min 41 s after it, and 41 seconds after
 the ninth empty window closed. It cleared 41 seconds after the first window
 holding a run closed. The definition is verified.
 
+**What it caught unprompted (18 October 2026).** The first alarm nobody
+arranged. Commit `197e1e7`, pushed at about 10:35 UTC, moved the correlator
+from scanning the findings table to querying its `source-time-index`; the
+table is imported into the Ingestion stack by name, and `grantReadData()` on
+a by-name import grants the table ARN and no index, so the role never held
+`dynamodb:Query` on the index the new code read. The last completed run was
+at 10:31:39 (12 incidents, 6 multi-stage, 439 findings correlated). The
+deploy landed between that run and the next, and from 10:46:39 every
+scheduled run died in `_recent_threat_findings` with `AccessDeniedException`
+on the index — three times each, EventBridge's asynchronous invocation
+retrying at about one and two minutes — at 10:46, 11:01, 11:16, 11:31, 11:46,
+12:01 and 12:16. No run completed, so no `CorrelationRunsCompleted` was
+published, and the alarm fired at 11:20:14: 48 min 34 s after the last
+completed run and 14 s after the ninth empty window closed, as the third E3
+run said it would. The email arrived in the inbox at 11:20 (16:50 IST), on a
+Sunday afternoon, and the cause was read off the stack code before the log
+was pulled; the log confirmed it. Findings kept being stored throughout — the
+normalizer was untouched — so nothing was lost; incidents went stale for the
+duration and the dashboard showed it.
+
+The fix is `6bb23ff`: the role holds `dynamodb:Query` on the one index, named
+rather than `index/*` as the API's role does, and a CDK test now fails on a
+template without the grant (`cdk/test/observability.test.ts`). It was
+pushed at 12:14 (17:43 IST), 53 minutes after the alarm, and the deploy
+landed inside the 12:16 run's retries: that run's first attempt failed at
+12:16:39 and its retry at 12:19:24 completed — 12 incidents, 6 multi-stage,
+439 findings correlated, the same figures as the last run on the old code,
+which is the check that the index query reads what the scan read. The
+scheduled run at 12:31:39 completed likewise. The alarm returned to OK at
+12:20:14 — 14 s after the 12:15–12:20 window holding the recovered run
+closed, and 60 min 00 s after it had gone to ALARM, the two transitions nine
+milliseconds apart on the minute. Incident building was down for
+1 h 47 min 45 s between completed runs, of which 48 minutes passed before
+anyone was told and 59 between the alarm and the recovery.
+
+Two things this is evidence of. The alarm's definition held in anger exactly
+as it did in the third E3 run: a change nobody tested against production
+permissions was reported within 50 minutes, by email, without anyone
+watching. And it was the only control that caught it: 343 backend tests mock
+DynamoDB, 111 CDK tests pinned the correlator's permissions nowhere, and the
+deploy workflow ends when CloudFormation returns. A post-deploy invocation of
+the correlator from the workflow — one `lambda invoke`, failing the run on a
+`FunctionError` — would have reported this at deploy time rather than 45
+minutes later. It was added the same evening (`6828416`): the workflow
+assumes a role in the audit account that may invoke the correlator and
+nothing else, runs it once after the stacks are deployed, and fails on an
+error. It covers the one function that runs on demand; the data-driven
+functions still have only their alarms (`docs/well-architected-review.md`).
+
 ## 4. Remediation steps run — `cloudsentinel-slo-remediation-runs`
 
 **Measured by** Lambda errors of the router, the approval recorder and the
