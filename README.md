@@ -19,7 +19,7 @@ Built as a portfolio project to demonstrate cloud security engineering end to en
 | **Enrich** | The addresses and domains an incident names are looked up in AbuseIPDB and AlienVault OTX — once a week each, ten a run — and the verdict is shown beside the indicator, printed in the report and given to the triage model as a fact about the indicator, never about the activity. |
 | **Triage** | A language model on Amazon Bedrock drafts an advisory note for each correlated incident — what likely happened and what to check next — contained so that no answer it gives, however steered, can cause an action. |
 | **Observe** | A React SOC dashboard shows live severity/source charts, a filterable findings table, remediation status, and an interactive prediction tool. Any incident downloads as a PDF report: executive summary, affected resources, timeline, an indicative ATT&CK placement, the actions that reached the approval gate, and the advisory note — assembled from the record, with nothing generated. |
-| **Protect** | Cognito authentication with JWT validation enforced on **every** API route — the data cannot be reached by bypassing the UI. Two roles: every operator reads; only the `approvers` group can approve or reject a remediation, checked by the API on the token's claims, not by the page. |
+| **Protect** | Cognito authentication with JWT validation enforced on **every** API route — the data cannot be reached by bypassing the UI. Two roles: every operator reads; only the `approvers` group can approve or reject a remediation, checked by the API on the token's claims, not by the page. A WAF with AWS's managed rules and a per-address rate rule fronts the load balancer, and the API itself allows each user 120 requests a minute, then answers 429. |
 
 ---
 

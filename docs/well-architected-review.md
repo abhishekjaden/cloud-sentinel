@@ -120,6 +120,10 @@ control-change watch and the honeypot.
   `approvers`; the API refuses a decision from any token outside the second,
   the console hides the buttons from the first, and tests pin both the group
   check and the groups' existence (October 2026).
+- *No WAF, no rate limiting* → a WAF with AWS's managed rule groups and a
+  per-address rate rule on the load balancer, created and destroyed with the
+  Api stack, and a per-user limit of 120 requests a minute in the API itself,
+  both pinned by tests (October 2026).
 
 **Gaps / next step**
 - Group membership is one administrator's call, with no second approver and
@@ -129,7 +133,9 @@ control-change watch and the honeypot.
 - A change pushed *through* the deployment pipeline looks like a deploy; the
   control-change watch does not see it (residual risk 2).
 - The normalizer trusts what reaches it; no schema validation at ingestion
-  (residual risk 3). No WAF (residual risk 4, accepted on cost).
+  (residual risk 3).
+- The WAF and the per-user limit (October 2026) have not yet been tested past
+  their limits; the WAF keeps metrics and sampled requests, not logs.
 
 ---
 

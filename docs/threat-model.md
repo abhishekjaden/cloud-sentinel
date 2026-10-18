@@ -74,7 +74,8 @@ tests in `cdk/test/honeypot.test.ts` hold each of those properties.
 | **T** | Request tampering in transit | HTTPS end to end; ALB redirects HTTP; TLS 1.2 floor on CloudFront | None material. |
 | **R** | Operator denies making a request | ALB access logs record every request | Logs identify the source, not the authenticated principal. **An action cannot currently be attributed to a named operator.** |
 | **I** | Cross-origin data theft | CORS restricted to the dashboard origin — previously `*`, which would have let any site issue credentialed requests | None material for browsers that honour CORS. |
-| **D** | Expensive queries | `limit` bounded 1–200 and asserted by tests; every findings route reads an index or a key, and the task role holds no `dynamodb:Scan` on that table, so no request costs the whole table | A determined caller can still issue many small requests; no per-principal throttling. `/incidents` still reads the incidents table in full. |
+| **D** | Expensive queries | `limit` bounded 1–200 and asserted by tests; every findings route reads an index or a key, and the task role holds no `dynamodb:Scan` on that table, so no request costs the whole table | `/incidents` still reads the incidents table in full. Many small requests are now bounded twice — see the next row. |
+| **D** | Flooding the API, from one address or with one stolen session | A WAF on the load balancer, created and destroyed with the Api stack: AWS's managed rule groups (IP reputation, common exploits, known bad inputs) and a rate-based rule that blocks an address above 2,000 requests in five minutes, pinned by a test. Behind it the API counts identities: 120 requests a minute per verified user in a sliding window, then 429 with a Retry-After, counted only after the token is verified so a forged subject cannot spend a real user's window | The per-user counter lives in the one task's memory, so a second task would count separately. WAF logs are not kept, only its metrics and sampled requests; a managed rule that blocks a legitimate request shows there and nowhere else. |
 | **E** | Reaching data without a token | Authorization enforced at the API, not the UI; every data route asserted to return 401 unauthenticated | None known. |
 | **T** | Finding text carried into a document | The incident report is rendered with reportlab, whose paragraphs interpret inline markup. Every value from the record is escaped before it enters one, so a title written to contain `<b>` or `<font>` prints as those characters; a test puts markup in a title and reads the PDF back. The report also contains nothing generated: its one derived element is the ATT&CK placement, from a fixed table | A report is read outside the dashboard, where the advisory label on the triage note is the only reminder that part of it is model output over attacker-influenced text. |
 
@@ -162,7 +163,11 @@ across which anything leaves the account to a party other than AWS.
    rejected on first sight (ADR 0008) rather than holding the shard, as it did
    under ADR 0007 alone (E1 re-run, 12 October 2026); but a well-formed event's
    content is still trusted as it arrives.
-4. **No WAF or rate limiting.** Accepted deliberately on cost grounds.
+4. **WAF and rate limits are bounds, not proofs.** A WAF with AWS's managed
+   rules and a per-address rate rule fronts the load balancer, and the API
+   limits each identity to 120 requests a minute (B2). Neither has been
+   load-tested past its limit yet, the WAF keeps no logs, and the per-user
+   counter is per task.
 
 ## 4. What this analysis changed
 
@@ -171,8 +176,11 @@ restricted from `*` to the dashboard origin; the API container was moved off
 root; and the SOAR approval gate was rebuilt so that the Step Functions task
 token is held server-side rather than emailed, which removed the system's
 highest-ranked residual risk and, in the same change, gave approvals a named
-principal. A fourth followed in October: the single operator role was split
+principal. A fourth and fifth followed in October: the single operator role was split
 into analysts and approvers, so that reading the platform and resuming a
-destructive workflow are no longer the same permission. The rest are recorded
+destructive workflow are no longer the same permission; and the API gained a
+WAF and a per-user rate limit, which had been accepted as a residual risk on
+cost grounds until the serving layer's on-demand pattern made the WAF's cost
+a few rupees a day. The rest are recorded
 above rather than silently resolved, because a threat model whose every threat
 is neatly mitigated is not describing a real system.

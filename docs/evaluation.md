@@ -103,7 +103,9 @@ rather than in the places that quoted them:
   function, every key, the model's notes, the feeds — is about $3.
 - **The API costs about $2.25 a day while up, not $1.60.** Over its ≈71
   hours: the NAT gateway $1.08 a day, the ALB $0.54, the three public
-  addresses $0.34, the task $0.28. The gateway alone is half.
+  addresses $0.34, the task $0.28. The gateway alone is half. The WAF added
+  in October (one web ACL, four rules) adds about $0.30 a day at list price
+  while the stack is up; it is read off the next invoice, not estimated here.
 
 So always-on, the plan for the application window, is $25 + 30 × $2.25 ≈
 **$93 a month net, about ₹10,500 with GST**, not the $40 planned. Two

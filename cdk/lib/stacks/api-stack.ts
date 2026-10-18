@@ -13,6 +13,7 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
+import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import { ACCOUNTS } from '../config';
 import { ALARM_TOPIC_NAME, INTEL_TABLE_NAME, TRIAGE_TABLE_NAME } from '../names';
 import { suppressLambdaBaseline, suppressPublicIngress } from '../nag-suppressions';
@@ -34,6 +35,22 @@ import { APPROVERS_GROUP } from './auth-stack';
  * CloudSentinel-Api` when not actively demoing.
  */
 const API_DOMAIN = 'api.cloudsentinel-soc.com';
+/**
+ * Requests one address may send the load balancer in five minutes before the
+ * WAF blocks it. The console sends about fifty in that time per operator;
+ * two thousand is a bound on abuse, not on use. The per-user limit is the
+ * API's own (backend/app/ratelimit.py): the WAF sees addresses, the API sees
+ * identities. A load test from one machine (scripts, Locust) will meet this
+ * rule, which is the rule working; measure throughput from several addresses
+ * or raise it for the session, on the record.
+ */
+export const WAF_RATE_LIMIT_PER_5_MIN = 2000;
+export const WAF_MANAGED_RULE_GROUPS = [
+  'AWSManagedRulesAmazonIpReputationList',
+  'AWSManagedRulesCommonRuleSet',
+  'AWSManagedRulesKnownBadInputsRuleSet',
+] as const;
+
 const COGNITO_USER_POOL_ID = 'us-east-1_jHroJVSo9';
 const COGNITO_CLIENT_ID = '3i0gv6cm27of4hancq8fjs551t';
 
@@ -241,6 +258,43 @@ export class ApiStack extends cdk.Stack {
       actions: ['states:ListExecutions'],
       resources: [`arn:aws:states:${this.region}:${this.account}:stateMachine:cloudsentinel-remediation`],
     }));
+
+    // ---- Web application firewall ----
+    // In front of the load balancer: AWS's managed rule groups for the IP
+    // reputation list, common web exploits and known bad inputs, and a
+    // rate-based rule per address. Created and destroyed with this stack, so
+    // it costs only while the API is up (about $0.30 a day at list price).
+    // Its metrics are under AWS/WAFV2 in CloudWatch; sampled requests are
+    // kept, full logs are not (cost).
+    const visibility = (metricName: string) => ({
+      cloudWatchMetricsEnabled: true, metricName, sampledRequestsEnabled: true,
+    });
+    const webAcl = new wafv2.CfnWebACL(this, 'ApiWebAcl', {
+      name: 'cloudsentinel-api',
+      scope: 'REGIONAL',
+      defaultAction: { allow: {} },
+      visibilityConfig: visibility('cloudsentinel-api'),
+      rules: [
+        {
+          name: 'rate-per-address',
+          priority: 0,
+          action: { block: {} },
+          statement: { rateBasedStatement: { limit: WAF_RATE_LIMIT_PER_5_MIN, aggregateKeyType: 'IP' } },
+          visibilityConfig: visibility('cloudsentinel-api-rate'),
+        },
+        ...WAF_MANAGED_RULE_GROUPS.map((name, i) => ({
+          name,
+          priority: i + 1,
+          overrideAction: { none: {} },
+          statement: { managedRuleGroupStatement: { vendorName: 'AWS', name } },
+          visibilityConfig: visibility(`cloudsentinel-api-${name}`),
+        })),
+      ],
+    });
+    new wafv2.CfnWebACLAssociation(this, 'ApiWebAclAssociation', {
+      resourceArn: service.loadBalancer.loadBalancerArn,
+      webAclArn: webAcl.attrArn,
+    });
 
     // ---- Service level objectives (docs/slos.md) ----
     // These live here rather than in ObservabilityStack because the load

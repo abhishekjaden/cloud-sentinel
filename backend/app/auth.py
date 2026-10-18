@@ -14,6 +14,8 @@ group is read from the token's claims, which Cognito fills from the pool's
 membership when it issues the token, so an analyst cannot grant it to
 themselves and the console's hiding of the buttons is not what enforces it.
 """
+import logging
+import math
 import os
 from functools import lru_cache
 
@@ -21,6 +23,10 @@ import requests
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
+
+from app.ratelimit import limiter
+
+logger = logging.getLogger("cloudsentinel.auth")
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 USER_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID", "")
@@ -94,7 +100,23 @@ def require_auth(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
     if claims.get("client_id") != CLIENT_ID:
         raise _unauthorized("token not issued for this client")
 
+    _throttle(claims)
     return claims
+
+
+def _throttle(claims: dict) -> None:
+    """The per-user limit (app.ratelimit), applied once the token is verified
+    so that it counts identities, not whatever a caller claims to be. A
+    refused request costs the caller a 429 and the API nothing further."""
+    principal = claims.get("sub") or claims.get("username") or "unknown"
+    wait = limiter.hit(principal)
+    if wait is not None:
+        logger.warning("RATE_LIMITED sub=%s retry_after=%d", principal, math.ceil(wait))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"rate limit: {limiter.limit} requests a minute per user",
+            headers={"Retry-After": str(max(1, math.ceil(wait)))},
+        )
 
 
 def groups_of(claims: dict) -> set:

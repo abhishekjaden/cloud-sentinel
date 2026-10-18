@@ -203,6 +203,30 @@ describe('ApiStack', () => {
     });
   });
 
+  test('a WAF with the managed rule groups and a per-address rate rule fronts the load balancer', () => {
+    const acls = t.findResources('AWS::WAFv2::WebACL');
+    expect(Object.keys(acls)).toHaveLength(1);
+    const [aclId, acl] = Object.entries(acls)[0] as [string, any];
+    expect(acl.Properties.Scope).toBe('REGIONAL');
+    expect(acl.Properties.DefaultAction).toEqual({ Allow: {} });
+    const rules = acl.Properties.Rules as any[];
+    const rate = rules.find((r) => r.Statement.RateBasedStatement);
+    expect(rate.Action).toEqual({ Block: {} });
+    expect(rate.Statement.RateBasedStatement).toEqual({ Limit: 2000, AggregateKeyType: 'IP' });
+    const managed = rules.filter((r) => r.Statement.ManagedRuleGroupStatement)
+      .map((r) => r.Statement.ManagedRuleGroupStatement.Name).sort();
+    expect(managed).toEqual([
+      'AWSManagedRulesAmazonIpReputationList', 'AWSManagedRulesCommonRuleSet', 'AWSManagedRulesKnownBadInputsRuleSet',
+    ]);
+    // Associated with this stack's load balancer, not merely created.
+    const assocs = Object.values(t.findResources('AWS::WAFv2::WebACLAssociation')) as any[];
+    expect(assocs).toHaveLength(1);
+    expect(assocs[0].Properties.WebACLArn).toEqual({ 'Fn::GetAtt': [aclId, 'Arn'] });
+    const albIds = Object.keys(t.findResources('AWS::ElasticLoadBalancingV2::LoadBalancer'));
+    expect(albIds).toHaveLength(1);
+    expect(assocs[0].Properties.ResourceArn).toEqual({ Ref: albIds[0] });
+  });
+
   test('the API task is told which group decides approvals, by the name the pool creates', () => {
     const defs = Object.values(t.findResources('AWS::ECS::TaskDefinition')) as any[];
     expect(defs.length).toBe(1);
