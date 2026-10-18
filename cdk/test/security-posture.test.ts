@@ -184,6 +184,19 @@ describe('CicdStack', () => {
     expect(subs).toContain('repo:abhishekjaden/cloud-sentinel:ref:refs/heads/main');
   });
 
+  test('outside the CDK bootstrap roles, the deploy role may assume one role: the smoke test\'s', () => {
+    // The post-deploy check runs the correlator in the audit account through a
+    // role there (IngestionStack). Anything else this role could assume would
+    // be a second way for a workflow to act in production.
+    const assumes = Object.values(t.findResources('AWS::IAM::Policy'))
+      .filter((p: any) => p.Properties.Roles.some((r: any) => /^GitHubDeployRole/.test(r.Ref)))
+      .flatMap((p: any) => p.Properties.PolicyDocument.Statement)
+      .filter((st: any) => ([] as string[]).concat(st.Action).includes('sts:AssumeRole'))
+      .flatMap((st: any) => ([] as string[]).concat(st.Resource));
+    const outsideCdk = assumes.filter((arn) => !/:role\/cdk-hnb659fds-/.test(arn));
+    expect(outsideCdk).toEqual(['arn:aws:iam::118821712739:role/CloudSentinel-DeploySmokeTest']);
+  });
+
   test('every GitHub role verifies the sts.amazonaws.com audience', () => {
     const roles = t.findResources('AWS::IAM::Role');
     const github = Object.values(roles).filter((r: any) =>

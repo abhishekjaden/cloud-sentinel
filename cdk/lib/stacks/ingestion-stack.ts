@@ -15,8 +15,10 @@ import {
   suppressLambdaBaseline, suppressFailureDestination, suppressStreamEncryption,
 } from '../nag-suppressions';
 import {
-  FAILED_FINDINGS_QUEUE_NAME, FINDINGS_STREAM_NAME, FUNCTION_NAMES, INGESTION_RULE_NAMES,
+  DEPLOY_ROLE_NAME, FAILED_FINDINGS_QUEUE_NAME, FINDINGS_STREAM_NAME, FUNCTION_NAMES,
+  INGESTION_RULE_NAMES, SMOKE_TEST_ROLE_NAME,
 } from '../names';
+import { ACCOUNTS } from '../config';
 
 /**
  * IngestionStack — deploys to the Audit account (118821712739).
@@ -216,6 +218,24 @@ export class IngestionStack extends cdk.Stack {
       targets: [new targets.LambdaFunction(correlator)],
     });
     schedule.node.addDependency(correlator.logGroup); // see the normalizer's event source
+
+    // The deploy workflow runs the correlator once after every deploy and fails
+    // the run if it errors, because a change to what a function reads can ship
+    // without the grant it needs and CloudFormation cannot tell (18 October
+    // 2026: docs/slos.md, objective 3). The workflow's own role lives in the
+    // management account, so it assumes this one, which may invoke the
+    // correlator and nothing else.
+    const smokeTest = new iam.Role(this, 'DeploySmokeTestRole', {
+      roleName: SMOKE_TEST_ROLE_NAME,
+      description: 'Assumed by the deploy workflow to run the correlator once after a deploy',
+      maxSessionDuration: cdk.Duration.hours(1),
+      assumedBy: new iam.ArnPrincipal(`arn:aws:iam::${ACCOUNTS.management}:role/${DEPLOY_ROLE_NAME}`),
+    });
+    smokeTest.addToPolicy(new iam.PolicyStatement({
+      sid: 'RunTheCorrelatorOnce',
+      actions: ['lambda:InvokeFunction'],
+      resources: [correlator.functionArn],
+    }));
 
     new cdk.CfnOutput(this, 'StreamName', { value: stream.streamName });
 

@@ -56,3 +56,11 @@ export const METRIC_NAMESPACE = 'CloudSentinel';
  * watch excludes CloudFormation acting through the execution role.
  */
 export const CDK_QUALIFIER = 'hnb659fds';
+
+/**
+ * The deploy workflow's role in the management account, and the role in the
+ * audit account it assumes to run the correlator once after every deploy.
+ * The workflow names both (.github/workflows/deploy.yml).
+ */
+export const DEPLOY_ROLE_NAME = 'CloudSentinelGitHubDeployRole';
+export const SMOKE_TEST_ROLE_NAME = 'CloudSentinel-DeploySmokeTest';

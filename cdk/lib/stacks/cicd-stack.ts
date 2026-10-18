@@ -3,7 +3,7 @@ import { Construct } from 'constructs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { ACCOUNTS } from '../config';
 import { suppressLambdaBaseline } from '../nag-suppressions';
-import { CDK_QUALIFIER } from '../names';
+import { CDK_QUALIFIER, DEPLOY_ROLE_NAME, SMOKE_TEST_ROLE_NAME } from '../names';
 
 const GITHUB_OWNER = 'abhishekjaden';
 const GITHUB_REPO = 'cloud-sentinel';
@@ -65,7 +65,7 @@ export class CicdStack extends cdk.Stack {
 
     // ---- Deploy: main branch only ----------------------------------------
     const deployRole = new iam.Role(this, 'GitHubDeployRole', {
-      roleName: 'CloudSentinelGitHubDeployRole',
+      roleName: DEPLOY_ROLE_NAME,
       description: 'Assumed by GitHub Actions on main to deploy CloudSentinel stacks',
       maxSessionDuration: cdk.Duration.hours(1),
       // GitHub rewrites the sub claim when a job targets an environment, so a
@@ -105,6 +105,18 @@ export class CicdStack extends cdk.Stack {
         'cloudformation:ListStacks',
       ],
       resources: ['*'],
+    }));
+
+    // CloudFormation returning is not the function working: on 18 October 2026
+    // a correlator that had lost its table access deployed cleanly, and only
+    // the incidents-current alarm said so, 45 minutes later (docs/slos.md,
+    // objective 3). The workflow therefore ends by running the correlator once
+    // in the audit account, through a role there that may do that and nothing
+    // else — the one role outside CDK's that this role may assume.
+    deployRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'AssumeSmokeTestRole',
+      actions: ['sts:AssumeRole'],
+      resources: [`arn:aws:iam::${ACCOUNTS.audit}:role/${SMOKE_TEST_ROLE_NAME}`],
     }));
 
     new cdk.CfnOutput(this, 'CiRoleArn', { value: ciRole.roleArn });

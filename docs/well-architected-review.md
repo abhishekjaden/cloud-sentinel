@@ -44,7 +44,13 @@ control-change watch and the honeypot.
   dashboard reads is emitted by something deployed.
 - A post-deploy smoke test checks the deployed pieces reach each other —
   written after a deploy once shipped a dashboard pointing at localhost
-  while every unit test passed.
+  while every unit test passed. Since 18 October the deploy workflow also
+  ends by running the correlator once and failing the run if it errors,
+  written after a deploy shipped a correlator without the IAM grant its new
+  query needed: CloudFormation returned success, and only the
+  incidents-current alarm said otherwise, 45 minutes later (`docs/slos.md`,
+  objective 3). The role the workflow assumes for it may invoke that one
+  function and nothing else.
 
 **Closed since v1**
 - *No CI/CD* → the workflows above.
@@ -59,6 +65,10 @@ control-change watch and the honeypot.
   and is deferred on cost.
 - The API stack deploys by hand, on demand. That is the cost decision below,
   but it means the API's deploy path is exercised less often than the rest.
+- The post-deploy run covers the correlator because it is the one function
+  that runs on demand. The normalizer, the enricher and the triage function
+  are driven by data, so a change to what they read that ships without its
+  grant is still caught only by their alarms, after the fact.
 - `scripts/measure.py` and `scripts/flood_findings.py` exist to measure
   latency, cost and behaviour under load (`docs/evaluation.md`); the figures
   they produce are not yet in this document.

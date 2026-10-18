@@ -310,6 +310,50 @@ describe('the correlator can read what its code reads', () => {
   });
 });
 
+describe('the deploy workflow can run the correlator once, and only that', () => {
+  // CloudFormation returning is not the function working (18 October 2026,
+  // docs/slos.md, objective 3). The workflow's role is in the management
+  // account; the role it assumes here may invoke the correlator and nothing
+  // else, and trusts that one role and nothing else.
+  const role = resources(ingestion, 'AWS::IAM::Role')
+    .find((r) => r.RoleName === 'CloudSentinel-DeploySmokeTest');
+  const [correlatorId] = Object.entries(ingestion.findResources('AWS::Lambda::Function'))
+    .filter(([, r]: any) => r.Properties.FunctionName === 'CloudSentinel-Correlator')
+    .map(([id]) => id);
+
+  test('the role exists and trusts only the management account\'s deploy role', () => {
+    expect(role).toBeDefined();
+    const trust = role!.AssumeRolePolicyDocument.Statement;
+    expect(trust).toHaveLength(1);
+    expect(trust[0].Action).toBe('sts:AssumeRole');
+    expect(JSON.stringify(trust[0].Principal))
+      .toContain('arn:aws:iam::062345618950:role/CloudSentinelGitHubDeployRole');
+  });
+
+  test('the role may invoke the correlator and nothing else', () => {
+    const statements = resources(ingestion, 'AWS::IAM::Policy')
+      .filter((p) => p.Roles.some((r: any) => /^DeploySmokeTestRole/.test(r.Ref)))
+      .flatMap((p) => p.PolicyDocument.Statement);
+    expect(statements).toEqual([{
+      Sid: 'RunTheCorrelatorOnce',
+      Effect: 'Allow',
+      Action: 'lambda:InvokeFunction',
+      Resource: { 'Fn::GetAtt': [correlatorId, 'Arn'] },
+    }]);
+  });
+
+  test('the deploy workflow assumes that role and runs that function after deploying', () => {
+    const workflow = fs.readFileSync(
+      path.join(__dirname, '..', '..', '.github', 'workflows', 'deploy.yml'), 'utf8');
+    const deployAt = workflow.indexOf('npx cdk deploy');
+    const smokeAt = workflow.indexOf('aws lambda invoke --function-name CloudSentinel-Correlator');
+    expect(deployAt).toBeGreaterThan(0);
+    expect(smokeAt).toBeGreaterThan(deployAt);
+    expect(workflow).toContain('arn:aws:iam::118821712739:role/CloudSentinel-DeploySmokeTest');
+    expect(workflow).toContain('FunctionError');
+  });
+});
+
 describe('a record the normalizer fails on is retried, and kept if it still fails', () => {
   // Objective 1 is only worth alarming on if the pipeline behind it holds. If
   // the checkpoint moved past a record the handler returned from, the finding

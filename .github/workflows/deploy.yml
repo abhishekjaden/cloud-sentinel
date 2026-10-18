@@ -15,6 +15,8 @@ permissions:
 env:
   AWS_REGION: us-east-1
   DEPLOY_ROLE: arn:aws:iam::062345618950:role/CloudSentinelGitHubDeployRole
+  # In the audit account; may run the correlator and nothing else (IngestionStack).
+  SMOKE_TEST_ROLE: arn:aws:iam::118821712739:role/CloudSentinel-DeploySmokeTest
 
   # The serving stack is deliberately excluded. It provisions a NAT gateway,
   # load balancer and Fargate task, so deploying it on every merge would start
@@ -90,3 +92,27 @@ jobs:
 
       - name: Deploy
         run: npx cdk deploy ${{ env.STACKS }} --require-approval never --concurrency 3
+
+      # CloudFormation returning is not the function working. On 18 October
+      # 2026 a correlator that had lost its table access deployed cleanly, and
+      # only the incidents-current alarm said so, 45 minutes later
+      # (docs/slos.md, objective 3). So the deploy ends by running the
+      # correlator once, in the audit account, and fails if the run does. The
+      # role it assumes may invoke that one function and nothing else; a run
+      # on demand is the same as a scheduled one, since the handler ignores
+      # its event.
+      - name: Run the correlator once, and fail if it fails
+        run: |
+          read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN <<< "$(aws sts assume-role \
+            --role-arn "$SMOKE_TEST_ROLE" --role-session-name "cloudsentinel-smoke-${{ github.run_id }}" \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text)"
+          export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+          aws lambda invoke --function-name CloudSentinel-Correlator \
+            --cli-binary-format raw-in-base64-out --payload '{"source": "deploy-smoke-test"}' \
+            response.json > invoke.json
+          cat invoke.json
+          if grep -q FunctionError invoke.json; then
+            echo "::error::the correlator failed on the stacks just deployed (docs/slos.md, objective 3)"
+            cat response.json
+            exit 1
+          fi
