@@ -219,3 +219,24 @@ is a finding about the correlator, to be taken up after the run.
 Run on 17 October at prompt `2026-10-17.1`, three times each: 24 of 30. The
 record, the two failing cases with the model's reasons, and the two
 adjudications left to the writer and the guide are in ADR 0005.
+
+## 7. Honeypot incidents into cases
+
+`scripts/honeypot_cases.py --resource <instance> --out <file>` copies every
+incident against the honeypot out of the tables into the case shape — the
+incident as the correlator recorded it, its findings as the triage function
+reads them, and the enricher's verdict on each address — with the label
+empty. It never reads the triage table, and whoever labels the cases must
+not open the incidents' notes in the console first: the platform wrote a
+note on each of these as it arrived, and a label written after reading the
+note is the note's, not the labeller's.
+
+The labeller fills `why`, the band in `expect.assessed_severity`,
+`labelled_by` and `labelled_on` for each case; the two flags stay false,
+since the traffic is real. The guide reviews the labels. The labelled file
+is then merged into `scripts/triage_eval_cases_independent.json`, each case
+carrying `"source": "honeypot"`, and `scripts/eval_triage.py --independent`
+runs it with the hand-written set and reports the two sources apart. Five
+incidents of one finding each, days apart, are five cases of one pattern,
+and the record says so with the number rather than counting them as five
+kinds of evidence.

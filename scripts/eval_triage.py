@@ -109,11 +109,15 @@ def main():
           f"{len(cases)} {'independent ' if args.independent else ''}cases x {args.runs} run(s)\n")
 
     passed = total = 0
+    by_source = {}
     for case in cases:
         for run in range(args.runs):
             note, failures = run_case(handler, bedrock, case)
             total += 1
             passed += not failures
+            tally = by_source.setdefault(case.get("source", "written"), [0, 0])
+            tally[0] += not failures
+            tally[1] += 1
             label = case["name"] + (f" #{run + 1}" if args.runs > 1 else "")
             shape = (f"{note['assessed_severity']:<13} {note['confidence']:<6} "
                      f"test={str(note['likely_test_data']):<5} inj={str(note['injection_suspected']):<5}"
@@ -128,6 +132,11 @@ def main():
                 for reason in note.get("reasons", []):
                     print(f"      reason: {reason}")
     print(f"\n{passed}/{total} passed")
+    if len(by_source) > 1:
+        # The protocol records each source's count apart: a case a person
+        # wrote and an incident nobody wrote are different kinds of evidence.
+        for source, (ok, n) in sorted(by_source.items()):
+            print(f"  {source}: {ok}/{n}")
     sys.exit(0 if passed == total else 1)
 
 
