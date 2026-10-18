@@ -1,5 +1,5 @@
 {
-  "_about": "Independently written evaluation cases for the advisory triage model, run by scripts/eval_triage.py --independent. Written on the form in docs/triage-eval-protocol.md by someone other than the prompt's author, each labelled before the model ran and never relabelled to pass; converted by scripts/cases_from_form.py, which computes only what the correlator would (span, count, severity, stages) and changes no label. The same shape as triage_eval_cases.json. Access keys are one character short of the real format so that secret scanners ignore them; the account is the documentation one.",
+  "_about": "Independently written evaluation cases for the advisory triage model, run by scripts/eval_triage.py --independent. Written on the form in docs/triage-eval-protocol.md by someone other than the prompt's author, each labelled before the model ran and never relabelled to pass; converted by scripts/cases_from_form.py, which computes only what the correlator would (span, count, severity, stages) and changes no label. The same shape as triage_eval_cases.json. Access keys are one character short of the real format so that secret scanners ignore them; the account is the documentation one. Cases whose source is \"honeypot\" were not written by anyone: scripts/honeypot_cases.py copied them from the incidents the platform recorded against its own honeypot, without reading the triage notes, and the project's author and guide labelled them before anyone read a note; the labels are theirs as written.",
   "cases": [
     {
       "name": "ajv-command-control-exfiltration",
@@ -464,6 +464,296 @@
         ],
         "likely_test_data": false,
         "injection_suspected": true
+      }
+    },
+    {
+      "name": "honeypot-2026-10-13-1-sshbruteforce",
+      "source": "honeypot",
+      "why": "Low to medium for attempted SSH intrusion, treating the instance as the target as stated in the case provenance; the supplied record does not establish successful access, host compromise, or operational impact. For 84.43.239.210, the supplied not-listed verdict, AbuseIPDB confidence of 22 with 6 reports, and zero OTX pulses neither establish benign activity nor demonstrate greater impact; the export omits resource role and authentication outcomes, so the target assumption needs confirmation before finalising this band.",
+      "written_by": "nobody: GuardDuty, against the honeypot (docs/triage-eval-protocol.md, section 1)",
+      "labelled_by": "Abhishek Jaden Vethanayagam; Dr. Antoni Doss",
+      "labelled_on": "2026-10-18",
+      "incident_id": "00a2f41bcde2af0c85c1640e586bca93",
+      "incident": {
+        "resource": "i-0056dd9b1a24c9c16",
+        "account_id": "118821712739",
+        "first_seen": "2026-10-13T00:55:36.409000+00:00",
+        "last_seen": "2026-10-13T00:55:36.409000+00:00",
+        "duration_seconds": 0,
+        "finding_count": 1,
+        "max_severity": 22,
+        "attack_stages": [
+          "initial-access"
+        ],
+        "finding_types": [
+          "UnauthorizedAccess:EC2/SSHBruteForce"
+        ],
+        "indicators": {
+          "ips": [
+            "84.43.239.210"
+          ]
+        }
+      },
+      "findings": [
+        {
+          "created_at": "2026-10-13T00:55:36.409Z",
+          "finding_type": "UnauthorizedAccess:EC2/SSHBruteForce",
+          "severity": 22,
+          "title": "An EC2 instance was involved in SSH brute force attacks.",
+          "resource": "{\"instanceDetails\": {\"availabilityZone\": \"us-east-1a\", \"iamInstanceProfile\": null, \"imageDescription\": \"Amazon Linux 2023 AMI 2023.12.20260930.0 arm64 HVM kernel-6.1\", \"imageId\": \"ami-0ae8605ed708e3c3e\", \"instanceId\": \"i-0056dd9b1a24c9c16\", \"instanceState\": \"running\", \"instanceType\": \"t4g.nano\", \"launchTime\": \"2026-10-12T18:05:25.000Z\", \"networkInterfaces\": [{\"ipv6Addresses\": [], \"networkInterfaceId\": \"eni-02e2ca8db60a0e603\", \"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\", \"privateIpAddresses\": [{\"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\"}], \"publicDnsName\": \"ec2-44-202-234-149.compute-1.amazonaws.com\", \"publicIp\": \"44.202.234.149\", \"securityGroups\": [{\"groupId\": \"sg-0f6a2cfea3b973d66\", \"groupName\": \"CloudSentinel-Honeypot-LureC8F255D5-39ZHqZYcpEXD\"}], \"subnetId\": \"subnet-0c4b3428e80751964\", \"vpcId\": \"vpc-0b555d79b87a34ce8\"}], \"outpostArn\": null, \"platform\": null, \"productCodes\": [], \"tags\": [{\"key\": \"aws:cloudformation:logical-id\", \"value\": "
+        }
+      ],
+      "expect": {
+        "assessed_severity": [
+          "low",
+          "medium"
+        ],
+        "likely_test_data": false,
+        "injection_suspected": false
+      },
+      "intel": {
+        "ip:84.43.239.210": {
+          "verdict": "not-listed",
+          "abuseipdb": {
+            "confidence": 22,
+            "reports": 6
+          },
+          "otx": {
+            "pulses": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "honeypot-2026-10-14-2-sshbruteforce",
+      "source": "honeypot",
+      "why": "Low to medium for attempted SSH intrusion, treating the instance as the target as stated in the case provenance; the supplied record does not establish successful access, host compromise, or operational impact. For 118.193.33.8, the supplied suspicious verdict and AbuseIPDB confidence of 52 with 13 reports support concern, while zero OTX pulses do not clear the activity; the export omits resource role and authentication outcomes, so the target assumption needs confirmation before finalising this band.",
+      "written_by": "nobody: GuardDuty, against the honeypot (docs/triage-eval-protocol.md, section 1)",
+      "labelled_by": "Abhishek Jaden Vethanayagam; Dr. Antoni Doss",
+      "labelled_on": "2026-10-18",
+      "incident_id": "92aca4129d07e90f5082622e0f440bca",
+      "incident": {
+        "resource": "i-0056dd9b1a24c9c16",
+        "account_id": "118821712739",
+        "first_seen": "2026-10-14T07:35:11.729000+00:00",
+        "last_seen": "2026-10-14T07:35:11.729000+00:00",
+        "duration_seconds": 0,
+        "finding_count": 1,
+        "max_severity": 22,
+        "attack_stages": [
+          "initial-access"
+        ],
+        "finding_types": [
+          "UnauthorizedAccess:EC2/SSHBruteForce"
+        ],
+        "indicators": {
+          "ips": [
+            "118.193.33.8"
+          ]
+        }
+      },
+      "findings": [
+        {
+          "created_at": "2026-10-14T07:35:11.729Z",
+          "finding_type": "UnauthorizedAccess:EC2/SSHBruteForce",
+          "severity": 22,
+          "title": "An EC2 instance was involved in SSH brute force attacks.",
+          "resource": "{\"instanceDetails\": {\"availabilityZone\": \"us-east-1a\", \"iamInstanceProfile\": null, \"imageDescription\": \"Amazon Linux 2023 AMI 2023.12.20260930.0 arm64 HVM kernel-6.1\", \"imageId\": \"ami-0ae8605ed708e3c3e\", \"instanceId\": \"i-0056dd9b1a24c9c16\", \"instanceState\": \"running\", \"instanceType\": \"t4g.nano\", \"launchTime\": \"2026-10-12T18:05:25.000Z\", \"networkInterfaces\": [{\"ipv6Addresses\": [], \"networkInterfaceId\": \"eni-02e2ca8db60a0e603\", \"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\", \"privateIpAddresses\": [{\"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\"}], \"publicDnsName\": \"ec2-44-202-234-149.compute-1.amazonaws.com\", \"publicIp\": \"44.202.234.149\", \"securityGroups\": [{\"groupId\": \"sg-0f6a2cfea3b973d66\", \"groupName\": \"CloudSentinel-Honeypot-LureC8F255D5-39ZHqZYcpEXD\"}], \"subnetId\": \"subnet-0c4b3428e80751964\", \"vpcId\": \"vpc-0b555d79b87a34ce8\"}], \"outpostArn\": null, \"platform\": null, \"productCodes\": [], \"tags\": [{\"key\": \"aws:cloudformation:logical-id\", \"value\": "
+        }
+      ],
+      "expect": {
+        "assessed_severity": [
+          "low",
+          "medium"
+        ],
+        "likely_test_data": false,
+        "injection_suspected": false
+      },
+      "intel": {
+        "ip:118.193.33.8": {
+          "verdict": "suspicious",
+          "abuseipdb": {
+            "confidence": 52,
+            "reports": 13
+          },
+          "otx": {
+            "pulses": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "honeypot-2026-10-14-3-sshbruteforce",
+      "source": "honeypot",
+      "why": "Low to medium for attempted SSH intrusion, treating the instance as the target as stated in the case provenance; the supplied record does not establish successful access, host compromise, or operational impact. For 154.125.120.7, the supplied malicious verdict, AbuseIPDB confidence of 77 with 50 reports, and 39 OTX pulses strengthen concern about the address but do not establish a successful attack here; the export omits resource role and authentication outcomes, so the target assumption needs confirmation before finalising this band.",
+      "written_by": "nobody: GuardDuty, against the honeypot (docs/triage-eval-protocol.md, section 1)",
+      "labelled_by": "Abhishek Jaden Vethanayagam; Dr. Antoni Doss",
+      "labelled_on": "2026-10-18",
+      "incident_id": "ab3a0660f73c0a2efad98344270693cd",
+      "incident": {
+        "resource": "i-0056dd9b1a24c9c16",
+        "account_id": "118821712739",
+        "first_seen": "2026-10-14T12:15:15.833000+00:00",
+        "last_seen": "2026-10-14T12:15:15.833000+00:00",
+        "duration_seconds": 0,
+        "finding_count": 1,
+        "max_severity": 22,
+        "attack_stages": [
+          "initial-access"
+        ],
+        "finding_types": [
+          "UnauthorizedAccess:EC2/SSHBruteForce"
+        ],
+        "indicators": {
+          "ips": [
+            "154.125.120.7"
+          ]
+        }
+      },
+      "findings": [
+        {
+          "created_at": "2026-10-14T12:15:15.833Z",
+          "finding_type": "UnauthorizedAccess:EC2/SSHBruteForce",
+          "severity": 22,
+          "title": "An EC2 instance was involved in SSH brute force attacks.",
+          "resource": "{\"instanceDetails\": {\"availabilityZone\": \"us-east-1a\", \"iamInstanceProfile\": null, \"imageDescription\": \"Amazon Linux 2023 AMI 2023.12.20260930.0 arm64 HVM kernel-6.1\", \"imageId\": \"ami-0ae8605ed708e3c3e\", \"instanceId\": \"i-0056dd9b1a24c9c16\", \"instanceState\": \"running\", \"instanceType\": \"t4g.nano\", \"launchTime\": \"2026-10-12T18:05:25.000Z\", \"networkInterfaces\": [{\"ipv6Addresses\": [], \"networkInterfaceId\": \"eni-02e2ca8db60a0e603\", \"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\", \"privateIpAddresses\": [{\"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\"}], \"publicDnsName\": \"ec2-44-202-234-149.compute-1.amazonaws.com\", \"publicIp\": \"44.202.234.149\", \"securityGroups\": [{\"groupId\": \"sg-0f6a2cfea3b973d66\", \"groupName\": \"CloudSentinel-Honeypot-LureC8F255D5-39ZHqZYcpEXD\"}], \"subnetId\": \"subnet-0c4b3428e80751964\", \"vpcId\": \"vpc-0b555d79b87a34ce8\"}], \"outpostArn\": null, \"platform\": null, \"productCodes\": [], \"tags\": [{\"key\": \"aws:cloudformation:logical-id\", \"value\": "
+        }
+      ],
+      "expect": {
+        "assessed_severity": [
+          "low",
+          "medium"
+        ],
+        "likely_test_data": false,
+        "injection_suspected": false
+      },
+      "intel": {
+        "ip:154.125.120.7": {
+          "verdict": "malicious",
+          "abuseipdb": {
+            "confidence": 77,
+            "reports": 50
+          },
+          "otx": {
+            "pulses": 39
+          }
+        }
+      }
+    },
+    {
+      "name": "honeypot-2026-10-16-4-sshbruteforce",
+      "source": "honeypot",
+      "why": "Low to medium for attempted SSH intrusion, treating the instance as the target as stated in the case provenance; the supplied record does not establish successful access, host compromise, or operational impact. For 103.24.63.85, the supplied malicious verdict, AbuseIPDB confidence of 100 with 1,488 reports, and 50 OTX pulses document substantial address reputation concerns rather than proven compromise of this instance; the export omits resource role and authentication outcomes, so the target assumption needs confirmation before finalising this band.",
+      "written_by": "nobody: GuardDuty, against the honeypot (docs/triage-eval-protocol.md, section 1)",
+      "labelled_by": "Abhishek Jaden Vethanayagam; Dr. Antoni Doss",
+      "labelled_on": "2026-10-18",
+      "incident_id": "993f747891cecfabf37581d8a206fcbb",
+      "incident": {
+        "resource": "i-0056dd9b1a24c9c16",
+        "account_id": "118821712739",
+        "first_seen": "2026-10-16T09:45:54.871000+00:00",
+        "last_seen": "2026-10-16T09:45:54.871000+00:00",
+        "duration_seconds": 0,
+        "finding_count": 1,
+        "max_severity": 22,
+        "attack_stages": [
+          "initial-access"
+        ],
+        "finding_types": [
+          "UnauthorizedAccess:EC2/SSHBruteForce"
+        ],
+        "indicators": {
+          "ips": [
+            "103.24.63.85"
+          ]
+        }
+      },
+      "findings": [
+        {
+          "created_at": "2026-10-16T09:45:54.871Z",
+          "finding_type": "UnauthorizedAccess:EC2/SSHBruteForce",
+          "severity": 22,
+          "title": "An EC2 instance was involved in SSH brute force attacks.",
+          "resource": "{\"instanceDetails\": {\"availabilityZone\": \"us-east-1a\", \"iamInstanceProfile\": null, \"imageDescription\": \"Amazon Linux 2023 AMI 2023.12.20260930.0 arm64 HVM kernel-6.1\", \"imageId\": \"ami-0ae8605ed708e3c3e\", \"instanceId\": \"i-0056dd9b1a24c9c16\", \"instanceState\": \"running\", \"instanceType\": \"t4g.nano\", \"launchTime\": \"2026-10-12T18:05:25.000Z\", \"networkInterfaces\": [{\"ipv6Addresses\": [], \"networkInterfaceId\": \"eni-02e2ca8db60a0e603\", \"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\", \"privateIpAddresses\": [{\"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\"}], \"publicDnsName\": \"ec2-44-202-234-149.compute-1.amazonaws.com\", \"publicIp\": \"44.202.234.149\", \"securityGroups\": [{\"groupId\": \"sg-0f6a2cfea3b973d66\", \"groupName\": \"CloudSentinel-Honeypot-LureC8F255D5-39ZHqZYcpEXD\"}], \"subnetId\": \"subnet-0c4b3428e80751964\", \"vpcId\": \"vpc-0b555d79b87a34ce8\"}], \"outpostArn\": null, \"platform\": null, \"productCodes\": [], \"tags\": [{\"key\": \"aws:cloudformation:logical-id\", \"value\": "
+        }
+      ],
+      "expect": {
+        "assessed_severity": [
+          "low",
+          "medium"
+        ],
+        "likely_test_data": false,
+        "injection_suspected": false
+      },
+      "intel": {
+        "ip:103.24.63.85": {
+          "verdict": "malicious",
+          "abuseipdb": {
+            "confidence": 100,
+            "reports": 1488
+          },
+          "otx": {
+            "pulses": 50
+          }
+        }
+      }
+    },
+    {
+      "name": "honeypot-2026-10-17-5-sshbruteforce",
+      "source": "honeypot",
+      "why": "Low to medium for attempted SSH intrusion, treating the instance as the target as stated in the case provenance; the supplied record does not establish successful access, host compromise, or operational impact. For 77.239.124.204, the supplied malicious verdict, AbuseIPDB confidence of 100 with 3,098 reports, and 18 OTX pulses support investigation, but those address-level reports are not this incident's attempt count or evidence of greater impact; the export omits resource role and authentication outcomes, so the target assumption needs confirmation before finalising this band.",
+      "written_by": "nobody: GuardDuty, against the honeypot (docs/triage-eval-protocol.md, section 1)",
+      "labelled_by": "Abhishek Jaden Vethanayagam; Dr. Antoni Doss",
+      "labelled_on": "2026-10-18",
+      "incident_id": "5b954b7dba60d86080ab1fc1085e231d",
+      "incident": {
+        "resource": "i-0056dd9b1a24c9c16",
+        "account_id": "118821712739",
+        "first_seen": "2026-10-17T19:45:11.027000+00:00",
+        "last_seen": "2026-10-17T19:45:11.027000+00:00",
+        "duration_seconds": 0,
+        "finding_count": 1,
+        "max_severity": 22,
+        "attack_stages": [
+          "initial-access"
+        ],
+        "finding_types": [
+          "UnauthorizedAccess:EC2/SSHBruteForce"
+        ],
+        "indicators": {
+          "ips": [
+            "77.239.124.204"
+          ]
+        }
+      },
+      "findings": [
+        {
+          "created_at": "2026-10-17T19:45:11.027Z",
+          "finding_type": "UnauthorizedAccess:EC2/SSHBruteForce",
+          "severity": 22,
+          "title": "An EC2 instance was involved in SSH brute force attacks.",
+          "resource": "{\"instanceDetails\": {\"availabilityZone\": \"us-east-1a\", \"iamInstanceProfile\": null, \"imageDescription\": \"Amazon Linux 2023 AMI 2023.12.20260930.0 arm64 HVM kernel-6.1\", \"imageId\": \"ami-0ae8605ed708e3c3e\", \"instanceId\": \"i-0056dd9b1a24c9c16\", \"instanceState\": \"running\", \"instanceType\": \"t4g.nano\", \"launchTime\": \"2026-10-12T18:05:25.000Z\", \"networkInterfaces\": [{\"ipv6Addresses\": [], \"networkInterfaceId\": \"eni-02e2ca8db60a0e603\", \"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\", \"privateIpAddresses\": [{\"privateDnsName\": \"ip-10-99-0-9.ec2.internal\", \"privateIpAddress\": \"10.99.0.9\"}], \"publicDnsName\": \"ec2-44-202-234-149.compute-1.amazonaws.com\", \"publicIp\": \"44.202.234.149\", \"securityGroups\": [{\"groupId\": \"sg-0f6a2cfea3b973d66\", \"groupName\": \"CloudSentinel-Honeypot-LureC8F255D5-39ZHqZYcpEXD\"}], \"subnetId\": \"subnet-0c4b3428e80751964\", \"vpcId\": \"vpc-0b555d79b87a34ce8\"}], \"outpostArn\": null, \"platform\": null, \"productCodes\": [], \"tags\": [{\"key\": \"aws:cloudformation:logical-id\", \"value\": "
+        }
+      ],
+      "expect": {
+        "assessed_severity": [
+          "low",
+          "medium"
+        ],
+        "likely_test_data": false,
+        "injection_suspected": false
+      },
+      "intel": {
+        "ip:77.239.124.204": {
+          "verdict": "malicious",
+          "abuseipdb": {
+            "confidence": 100,
+            "reports": 3098
+          },
+          "otx": {
+            "pulses": 18
+          }
+        }
       }
     }
   ]

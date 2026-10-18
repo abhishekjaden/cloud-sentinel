@@ -16,10 +16,11 @@ It calls Amazon Bedrock with your credentials, so it costs a few cents and
 needs the account's daily token quota to be above zero.
 
 Two case files exist. triage_eval_cases.json was written by the prompt's
-author; triage_eval_cases_independent.json holds cases written by someone who
-has not read the prompt, labelled before the model ran (see
+author; triage_eval_cases_independent.json holds cases the prompt's author did
+not write — a person's, written without reading the prompt, and the honeypot's,
+which nobody wrote — each labelled before the model ran (see
 docs/triage-eval-protocol.md). They are run separately so their results are
-never mixed.
+never mixed, and a run of the independent file reports each source apart.
 
 Usage:
     python scripts/eval_triage.py                        # the author's cases

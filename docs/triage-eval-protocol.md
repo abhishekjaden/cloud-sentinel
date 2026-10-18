@@ -178,7 +178,7 @@ not a detection rate, and the project does not quote one.
 |---|---|---|---|
 | The twelve existing cases | the prompt's author (for the last five, the project's author picked the finding types in the console; the scenarios and labels are still the prompt author's) | no | the author |
 | Hand-written set | the project's author, on the form, 13 October 2026 (section 6) | partly: the author had read earlier versions of the prompt; the revision judged on these cases was written and deployed before they were opened | the writer; disagreements adjudicated with the project guide |
-| Honeypot incidents | nobody | yes | the project's author, then the guide |
+| Honeypot incidents | nobody (five cases so far, 18 October 2026; section 7) | yes | the project's author and the guide |
 | Cases from a second person | a classmate or the guide, given this document | yes | the writer |
 
 The second person is the most independent source and the slowest to arrange.
@@ -240,3 +240,40 @@ runs it with the hand-written set and reports the two sources apart. Five
 incidents of one finding each, days apart, are five cases of one pattern,
 and the record says so with the number rather than counting them as five
 kinds of evidence.
+
+**The first five, labelled 18 October 2026.** The five incidents of the
+second run (section 1) were exported on the 18th as
+`honeypot-2026-10-13-1-sshbruteforce` to `honeypot-2026-10-17-5-sshbruteforce`:
+one `UnauthorizedAccess:EC2/SSHBruteForce` finding each at GuardDuty's
+severity 2.0 (22 on the platform's 0–100 scale), the instance the target,
+from 84.43.239.210, 118.193.33.8, 154.125.120.7, 103.24.63.85 and
+77.239.124.204. Each case carries the enricher's verdict on its address as
+`intel`: not listed (AbuseIPDB confidence 22, six reports, no OTX pulse);
+suspicious (52, thirteen reports, none); and malicious three times (77 with
+fifty reports and 39 pulses; 100 with 1,488 reports and 50 pulses; 100 with
+3,098 reports and 18 pulses). Two things about the cases' data: the
+incidents keep the audit account they were recorded under (section 1), and
+each finding's `resource` is cut at 1,024 characters, the normalizer's cap,
+which for an EC2 finding ends mid-way through the tags — the model sees the
+same in production.
+
+The project's author and the guide labelled all five `low`–`medium` on the
+18th, before anyone opened a note. The `why` entries are theirs as written —
+one reasoning for the one pattern, repeated with each address's verdict —
+and rate on the record alone: the finding does not say whether any attempt
+succeeded (section 1 does — none could). The author states that he and the
+guide wrote the labels; whether an AI tool helped is, as for the first set,
+the labellers' statement, recorded with the run in ADR 0005. The labelled
+cases were merged into `scripts/triage_eval_cases_independent.json` with
+`"source": "honeypot"`, no label changed; the merged file's SHA-256 is
+`fa1687eddef9ffb85feacc7df085bab11de5d7c98a1486d6846f7acd2deb5675`.
+
+Expected before the run, by the prompt's author and not the labellers: at
+prompt `2026-10-17.1` GuardDuty's 2.0 is the starting point, a lone
+brute-force attempt against an instance that is the target is the scale's
+`low`, and an address's reputation is a reason to leave it for `medium`, not
+for `high` — so all fifteen answers are expected inside the band. The
+failure to watch is an escalation to `high` on the two addresses with
+confidence 100, which would be the mirror of the first set's
+domain-reputation disagreement, where a listed indicator pulled a lone
+finding up one step.
