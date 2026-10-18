@@ -241,8 +241,11 @@ than three of fifteen.
 
 **When it fires.** Check `/aws/lambda/CloudSentinel-Correlator` and that the
 `cloudsentinel-correlation` EventBridge rule is enabled. The dashboard graphs
-run time against the 5-minute timeout: each run scans the whole findings table,
-so run time grows with it.
+run time against the 5-minute timeout: since 18 October each run queries the
+findings table's `source-time-index` for the threat findings in its lookback
+rather than scanning the table, so run time grows with the threat findings in
+the lookback, not with the table. A run that throws publishes nothing, which
+is what this alarm is for — see what it found on 18 October, below.
 
 **On first deploy** the alarm can fire once before the correlator's first run
 publishes the metric, then clears once that run's 5-minute window has closed.

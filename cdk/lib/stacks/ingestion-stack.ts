@@ -187,6 +187,19 @@ export class IngestionStack extends cdk.Stack {
     const incidentsTable = dynamodb.Table.fromTableName(
       this, 'IncidentsTableRef', 'cloudsentinel-incidents');
     findingsTable.grantReadData(correlator);
+    // fromTableName() carries no knowledge of the table's indexes either, so
+    // grantReadData() stops at the table ARN and the index the correlator
+    // queries has to be granted by name. Learned the hard way: the run that
+    // moved the correlator from a scan to this query shipped without it, every
+    // run from then on failed on AccessDenied, and the incidents-current alarm
+    // fired 45 minutes later (docs/slos.md, objective 3, 18 October 2026).
+    correlator.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'QueryFindingsBySourceAndTime',
+      actions: ['dynamodb:Query'],
+      resources: [
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/cloudsentinel-findings/index/source-time-index`,
+      ],
+    }));
     incidentsTable.grantWriteData(correlator);
     correlator.addToRolePolicy(new iam.PolicyStatement({
       sid: 'UseFindingsKeyForCorrelation',

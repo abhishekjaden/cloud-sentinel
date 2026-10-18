@@ -283,6 +283,33 @@ describe('objectives', () => {
 });
 
 // ------------------------------------------------------- what makes 1 true
+describe('the correlator can read what its code reads', () => {
+  // The correlator queries findings through the source-time index. The table
+  // is imported by name, and a by-name import grants nothing on indexes, so
+  // the grant has to be explicit. The 18 October 2026 deployment that moved
+  // the correlator from a scan to this query shipped without it: every run
+  // failed on AccessDenied and the incidents-current alarm fired 45 minutes
+  // later. This pins the grant so that the next index read cannot ship blind.
+  const statementsOf = (roleMatch: RegExp) => resources(ingestion, 'AWS::IAM::Policy')
+    .filter((p) => p.Roles.some((r: any) => roleMatch.test(r.Ref)))
+    .flatMap((p) => p.PolicyDocument.Statement);
+
+  test('the correlator may query the source-time index of the findings table', () => {
+    const queries = statementsOf(/^CorrelatorServiceRole/)
+      .filter((st: any) => ([] as string[]).concat(st.Action).includes('dynamodb:Query'))
+      .filter((st: any) => /table\/cloudsentinel-findings\/index\/source-time-index"/
+        .test(JSON.stringify(st.Resource)));
+    expect(queries.length).toBe(1);
+    expect(queries[0].Effect).toBe('Allow');
+  });
+
+  test('the grant names the one index, not every index', () => {
+    const wildcard = statementsOf(/^CorrelatorServiceRole/)
+      .filter((st: any) => JSON.stringify(st.Resource).includes('index/*'));
+    expect(wildcard).toEqual([]);
+  });
+});
+
 describe('a record the normalizer fails on is retried, and kept if it still fails', () => {
   // Objective 1 is only worth alarming on if the pipeline behind it holds. If
   // the checkpoint moved past a record the handler returned from, the finding
