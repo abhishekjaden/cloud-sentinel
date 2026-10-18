@@ -49,12 +49,26 @@ def _finding(minutes_ago, finding_type, instance="i-0abc", finding_id=None):
     }
 
 
+def _condition_values(condition):
+    """The literal values inside a boto3 condition, however it is nested:
+    (source = :s AND sk >= :t) yields ["guardduty", "<cutoff>"]."""
+    from boto3.dynamodb.conditions import ConditionBase
+    found = []
+    for value in condition.get_expression()["values"]:
+        if isinstance(value, ConditionBase):
+            found.extend(_condition_values(value))
+        elif isinstance(value, str):
+            found.append(value)
+    return found
+
+
 def _serve(correlator, items):
-    """Return `items` for the GuardDuty scan and nothing for Inspector."""
-    def scan(**kwargs):
-        prefix = kwargs.get("ExpressionAttributeValues", {}).get(":p", "")
-        return {"Items": list(items) if prefix == "guardduty#" else []}
-    correlator._findings.scan.side_effect = scan
+    """Return `items` for the GuardDuty query of the source-time index and
+    nothing for any other source."""
+    def query(**kwargs):
+        values = _condition_values(kwargs["KeyConditionExpression"])
+        return {"Items": list(items) if "guardduty" in values else []}
+    correlator._findings.query.side_effect = query
 
 
 def _written_keys(correlator):
@@ -179,20 +193,27 @@ def test_every_attribute_name_is_a_placeholder(correlator):
 
 
 # ---------------------------------------------------------------------- scope
-def test_only_guardduty_findings_are_correlated(correlator):
+def test_only_guardduty_findings_are_correlated_and_read_through_the_index(correlator):
     """Security Hub posture checks and Inspector CVEs are standing weaknesses,
     not attack events. Grouping an image's CVEs by resource would present one
-    vulnerability scan as a multi-finding "attack"."""
+    vulnerability scan as a multi-finding "attack". The read is one range
+    query per source on the source-time index — every account, nothing older
+    than the lookback — never a scan of the table."""
     requested = []
 
-    def scan(**kwargs):
-        requested.append(kwargs.get("ExpressionAttributeValues", {}).get(":p"))
+    def query(**kwargs):
+        requested.append((kwargs.get("IndexName"), _condition_values(kwargs["KeyConditionExpression"])))
         return {"Items": []}
 
-    correlator._findings.scan.side_effect = scan
+    correlator._findings.query.side_effect = query
     correlator.handler({}, None)
 
-    assert requested == ["guardduty#"]
+    assert len(requested) == 1
+    index, values = requested[0]
+    assert index == "source-time-index"
+    assert "guardduty" in values
+    assert any(v.startswith("20") and "T" in v for v in values)   # the cutoff, as text
+    correlator._findings.scan.assert_not_called()
 
 
 # ----------------------------------------------------------------- clustering

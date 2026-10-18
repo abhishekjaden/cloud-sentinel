@@ -212,7 +212,14 @@ def _normalize(event):
         return {
             "finding_id": detail.get("id"),
             "source": "guardduty",
-            "account_id": event.get("account"),
+            # The finding's own account, not the envelope's. The audit account
+            # is the delegated administrator, so every member account's
+            # finding arrives in an event whose top-level account is the
+            # administrator's; only detail.accountId names the account the
+            # finding is about. Read the envelope's and every member's finding
+            # is filed under the administrator, which the honeypot's first
+            # findings showed (docs/triage-eval-protocol.md, section 1).
+            "account_id": detail.get("accountId") or event.get("account"),
             "region": event.get("region"),
             "severity": _severity_to_score("guardduty", detail.get("severity")),
             "raw_severity_label": str(detail.get("severity")),
@@ -244,7 +251,7 @@ def _normalize(event):
         return {
             "finding_id": detail.get("findingArn"),
             "source": "inspector",
-            "account_id": event.get("account"),
+            "account_id": detail.get("awsAccountId") or event.get("account"),
             "region": event.get("region"),
             "severity": _inspector_score(detail),
             "raw_severity_label": detail.get("severity"),

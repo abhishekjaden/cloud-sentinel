@@ -51,6 +51,7 @@ LOOKBACK_HOURS = int(os.environ.get("CORRELATION_LOOKBACK_HOURS", "168"))
 
 # Sources whose findings describe events rather than a standing weakness.
 THREAT_SOURCES = ("guardduty",)
+SOURCE_TIME_INDEX = "source-time-index"   # pinned by the datastores stack and its test
 
 _ddb = boto3.resource("dynamodb")
 _findings = _ddb.Table(FINDINGS_TABLE)
@@ -136,29 +137,29 @@ def _parse_ts(value):
 
 
 def _recent_threat_findings(cutoff):
-    """Every threat finding written since the cutoff, across all threat sources."""
+    """Every threat finding written since the cutoff, across all threat sources
+    and every account.
+
+    The source-time index is keyed by source alone, with the table's sort key
+    "<created_at>#<finding_id>" as its own, so one range query per source
+    reads the lookback window of the whole organization and nothing older.
+    An earlier version read one account's partition by ACCOUNT_ID and fell
+    back to a filtered scan of the table when that was unset — which it
+    always was, so every run scanned every finding ever stored. The cutoff
+    is compared as text; created_at is stored as each source sent it, with
+    "Z" or "+00:00", and either sorts correctly against a bare timestamp."""
+    since = cutoff.strftime("%Y-%m-%dT%H:%M:%S")
     out = []
     for source in THREAT_SOURCES:
         kwargs = {
-            "KeyConditionExpression": Key("pk").eq(
-                f"{source}#{os.environ.get('ACCOUNT_ID', '')}")
+            "IndexName": SOURCE_TIME_INDEX,
+            "KeyConditionExpression": Key("source").eq(source) & Key("sk").gte(since),
         }
-        # The partition key embeds the account, which is not known ahead of time
-        # in every deployment, so fall back to a filtered scan when it is absent.
-        if not os.environ.get("ACCOUNT_ID"):
-            kwargs = {
-                "FilterExpression": "begins_with(pk, :p)",
-                "ExpressionAttributeValues": {":p": f"{source}#"},
-            }
-            paginate = _findings.scan
-        else:
-            paginate = _findings.query
-
-        resp = paginate(**kwargs)
+        resp = _findings.query(**kwargs)
         out.extend(resp.get("Items", []))
         while "LastEvaluatedKey" in resp:
             kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
-            resp = paginate(**kwargs)
+            resp = _findings.query(**kwargs)
             out.extend(resp.get("Items", []))
 
     fresh = []

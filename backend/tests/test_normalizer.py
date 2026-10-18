@@ -97,6 +97,42 @@ def test_guardduty_event_is_normalized(normalizer):
     assert out["finding_type"] == "Backdoor:EC2/C&CActivity.B!DNS"
 
 
+def test_a_member_accounts_finding_is_filed_under_the_member_not_the_administrator(normalizer):
+    """The audit account is the organization's delegated administrator, so a
+    member account's finding arrives in an EventBridge event whose top-level
+    account is the administrator's; detail.accountId is the account the
+    finding is about. The honeypot's first five findings (workload account,
+    13–17 October 2026) were filed under the audit account for want of this."""
+    event = {
+        "source": "aws.guardduty", "account": "118821712739", "region": "us-east-1",
+        "time": "2026-10-13T00:55:40Z",
+        "detail": {"id": "gd-honeypot-1", "accountId": "743181156000", "severity": 2.0,
+                   "title": "84.43.239.210 is performing SSH brute force attacks against i-0056dd9b1a24c9c16.",
+                   "type": "UnauthorizedAccess:EC2/SSHBruteForce",
+                   "resource": {"instanceDetails": {"instanceId": "i-0056dd9b1a24c9c16"}},
+                   "createdAt": "2026-10-13T00:55:36.409Z"},
+    }
+    out = normalizer._normalize(event)
+    assert out["account_id"] == "743181156000"
+    normalizer._persist(out)
+    item = normalizer._table.put_item.call_args.kwargs["Item"]
+    assert item["pk"] == "guardduty#743181156000"
+
+
+def test_an_inspector_finding_is_filed_under_its_own_account_too(normalizer):
+    event = dict(INSPECTOR_EVENT, account="118821712739",
+                 detail=dict(INSPECTOR_EVENT["detail"], awsAccountId="777788889999"))
+    assert normalizer._normalize(event)["account_id"] == "777788889999"
+
+
+def test_a_finding_without_its_own_account_falls_back_to_the_envelope(normalizer):
+    out = normalizer._normalize({"source": "aws.guardduty", "account": "111122223333", "region": "us-east-1",
+                                 "time": "2026-01-01T00:00:00Z",
+                                 "detail": {"id": "x", "severity": 2.0, "title": "t", "type": "Recon:EC2/Portscan",
+                                            "resource": {}, "createdAt": "2026-01-01T00:00:00Z"}})
+    assert out["account_id"] == "111122223333"
+
+
 def _guardduty(action, finding_type="UnauthorizedAccess:EC2/SSHBruteForce"):
     return {"source": "aws.guardduty", "account": "111122223333", "region": "us-east-1",
             "time": "2026-01-01T00:00:00Z",

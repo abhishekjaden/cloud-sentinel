@@ -60,6 +60,20 @@ brute force can happen and no attempt can succeed. The settings in force are
 written to the serial console at boot and read with `aws ec2
 get-console-output`, without logging in. It runs for ten days, to 22 October.
 
+Checked on 18 October: five findings, all `UnauthorizedAccess:EC2/SSHBruteForce`
+at GuardDuty's severity 2.0, from five addresses, at 00:55 on the 13th, 07:35
+and 12:15 on the 14th, 09:45 on the 16th and 19:45 on the 17th (UTC). The
+pipeline stored all five and the correlator built five single-finding
+incidents, days apart as they were — and filed every one under the audit
+account. The normalizer read the EventBridge envelope's account, which for a
+delegated administrator is the administrator's, rather than the finding's own
+`accountId`; fixed the same day, with a test, and the same for Inspector.
+The five incidents keep the account they were recorded with, so that their
+identifiers do not change under the notes written about them. The password
+change did what the first run suggested it would: brute force happened, and
+GuardDuty saw it. The incidents are the first cases nobody wrote; turning
+them into cases is section 7.
+
 ## 2. The label comes first
 
 A case's `expect` block is written **before** the model is run on it, and is
