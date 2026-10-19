@@ -251,6 +251,12 @@ def test_the_cloudtrail_derived_purposes_have_a_stage(correlator):
     assert correlator._stage("ResourceDevelopment:SES/CompromiseAccounts") == "resource-development"
     # A sequence finding summarises several stages; it gets none of its own.
     assert correlator._stage("AttackSequence:IAM/CompromisedCredentials") == "unknown"
+    # A Behavior finding is a departure from the resource's baseline, recorded
+    # as such and not as the tactic it might turn out to be. Before 19 October
+    # 2026 these reached the triage model as "unknown".
+    assert correlator._stage("Behavior:EC2/NetworkPortUnusual") == "anomalous-behavior"
+    assert correlator._stage("Behavior:EC2/TrafficVolumeUnusual") == "anomalous-behavior"
+    assert correlator.STAGE_ORDER.index("impact") < correlator.STAGE_ORDER.index("anomalous-behavior")
     # Every stage a purpose maps to has a place in the order, and the two new
     # ones sit where the chain puts them: tooling before access, movement
     # before the callback.

@@ -34,17 +34,19 @@ STAGE_BY_PURPOSE = {
     "DefenseImpairment": "defense-evasion",
     "LateralMovement": "lateral-movement",
     "ResourceDevelopment": "resource-development",
+    "Behavior": "anomalous-behavior",
 }
 
 STAGE_ORDER = [
     "reconnaissance", "resource-development", "initial-access", "credential-access",
     "discovery", "execution", "persistence", "privilege-escalation", "defense-evasion",
     "lateral-movement", "command-and-control", "exfiltration", "impact",
-    "policy-violation", "unknown",
+    "anomalous-behavior", "policy-violation", "unknown",
 ]
 
-# ATT&CK Enterprise tactics, by the correlator's stage name. Policy violations
-# and unknown stages have no tactic.
+# ATT&CK Enterprise tactics, by the correlator's stage name. Anomalous
+# behaviour, policy violations and unknown stages have no tactic: the first
+# is a departure from a baseline that GuardDuty does not place on the matrix.
 TACTICS = {
     "reconnaissance": ("TA0043", "Reconnaissance"),
     "resource-development": ("TA0042", "Resource Development"),

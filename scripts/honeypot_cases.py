@@ -17,6 +17,9 @@ label; whoever labels these must not open the notes in the console either.
 Usage, from a terminal with the audit profile logged in:
 
     python scripts/honeypot_cases.py --resource i-0056dd9b1a24c9c16 --out ~/Downloads/honeypot-cases.json
+    # later, only what arrived since, numbered after the five already in the file:
+    python scripts/honeypot_cases.py --resource i-0056dd9b1a24c9c16 --since 2026-10-18 --number-from 6 \
+        --out ~/Downloads/honeypot-cases-2.json
 
 Then, in the file, fill each case's "why", "expect.assessed_severity" (the
 band, lowest to highest), "labelled_by" and "labelled_on"; the two flags are
@@ -120,6 +123,15 @@ def verdicts_for(ddb, incident):
     return rows
 
 
+def incidents_since(incidents, since):
+    """The incidents first seen at or after `since` (an ISO prefix such as
+    2026-10-18 or 2026-10-18T12:00:00), compared as text against the
+    incident's own first_seen; all of them when since is empty."""
+    if not since:
+        return list(incidents)
+    return [inc for inc in incidents if str(inc.get("first_seen", "")) >= since]
+
+
 def case_of(ddb, incident, n):
     findings = findings_of(ddb, incident)
     first_day = str(incident.get("first_seen", ""))[:10]
@@ -168,13 +180,20 @@ def main():
     parser.add_argument("--resource", required=True, help="the honeypot instance ID")
     parser.add_argument("--out", required=True, help="where to write the unlabelled cases")
     parser.add_argument("--profile", default=PROFILE)
+    parser.add_argument("--since", help="export only incidents first seen at or after this UTC time "
+                        "(e.g. 2026-10-18T00:00:00), for the ones not yet labelled")
+    parser.add_argument("--number-from", type=int, default=1,
+                        help="the number of the first case written, so that a later export continues "
+                             "the file's numbering rather than restarting at 1")
     args = parser.parse_args()
 
     ddb = boto3.Session(profile_name=args.profile, region_name=REGION).resource("dynamodb")
     incidents = incidents_for(ddb, args.resource)
+    incidents = incidents_since(incidents, args.since)
     if not incidents:
-        raise SystemExit(f"no incident names {args.resource}")
-    cases = [case_of(ddb, inc, n + 1) for n, inc in enumerate(incidents)]
+        raise SystemExit(f"no incident names {args.resource}"
+                         + (f" from {args.since} on" if args.since else ""))
+    cases = [case_of(ddb, inc, args.number_from + n) for n, inc in enumerate(incidents)]
     out = Path(args.out).expanduser()
     out.write_text(json.dumps({
         "_about": ("Unlabelled cases copied from the honeypot's incidents by scripts/honeypot_cases.py, "

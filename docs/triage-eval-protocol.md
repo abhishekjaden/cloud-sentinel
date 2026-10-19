@@ -152,9 +152,11 @@ Independent cases go in `scripts/triage_eval_cases_independent.json`, never
 in the author's file, so the two sets' results are never mixed. The unit
 tests check both files' shapes. A filled-in form is converted by
 `scripts/cases_from_form.py`, which copies every label and reason as written
-and computes only what the correlator would — the incident's span, count,
-highest severity, finding types and stages — plus each finding's resource
-block in GuardDuty's shape; it shortens an access key written in the real
+and computes only what the pipeline would — each finding's severity on the
+platform's 0–100 scale by the normalizer's own conversion from GuardDuty's
+0–8.9, and the incident's span, count, highest severity, finding types and
+stages by the correlator's own table — plus each finding's resource block in
+GuardDuty's shape; it shortens an access key written in the real
 format by one character, as the authored cases are, so that secret scanners
 ignore it, and places the incident in the documentation account.
 
@@ -223,6 +225,26 @@ kill-chain stage, because the correlator's stage table has no entry for
 GuardDuty's `Behavior` purpose, so that incident reaches the model with its
 stages marked `unknown`. The run measures the pipeline as deployed; the gap
 is a finding about the correlator, to be taken up after the run.
+
+Taken up on 19 October, together with a second mechanical defect found the
+day before: the converter had scaled GuardDuty's severity by ten (8.0 → 80)
+where the normalizer scales it to 0–100 by 100/8.9 (8.0 → 90), so the form's
+cases reached the model a shade lower than production shows them. The
+correlator now records a `Behavior` finding's stage as `anomalous-behavior` —
+a departure from the resource's baseline, which GuardDuty reports without
+naming a tactic, recorded as what it is rather than as the command-and-control
+or exfiltration it might be — and the converter uses the normalizer's own
+conversion. The ten cases' mechanical fields were regenerated from the sealed
+form with the corrected converter: severities 20 → 22, 50 → 56, 80 → 90 and
+the one case's stage `unknown` → `anomalous-behavior`, with every label,
+reason and flag byte-identical, checked field by field before the file was
+written. The two runs of 17 and 18 October stand as recorded, on the fields
+as they were. Expected before the re-baseline run at the same prompt, written
+by the prompt's author: the same 24 of 30 and 15 of 15 with the same two
+failures, since no finding moved more than ten points on a scale of a hundred
+and the one stage that changed names a baseline departure rather than a
+tactic; the case to watch is unusual-outbound-traffic (band low–medium,
+answered medium so far), the only one whose input changed in kind.
 
 Run on 17 October at prompt `2026-10-17.1`, three times each: 24 of 30. The
 record, the two failing cases with the model's reasons, and the two

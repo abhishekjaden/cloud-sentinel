@@ -88,13 +88,22 @@ STAGE_BY_PURPOSE = {
     "DefenseImpairment": "defense-evasion",
     "LateralMovement": "lateral-movement",
     "ResourceDevelopment": "resource-development",
+    # A departure from the resource's own baseline — an unusual port, an
+    # unusual volume — that GuardDuty reports without naming a tactic. It is a
+    # post-compromise signal that could be command-and-control or exfiltration,
+    # and the incident records it as what it is rather than as either guess;
+    # the triage model reads the finding types beside the stages. Until
+    # 19 October 2026 the purpose was missing here and such findings reached
+    # the model with their stage "unknown" (docs/triage-eval-protocol.md,
+    # section 6).
+    "Behavior": "anomalous-behavior",
 }
 
 STAGE_ORDER = [
     "reconnaissance", "resource-development", "initial-access", "credential-access",
     "discovery", "execution", "persistence", "privilege-escalation", "defense-evasion",
     "lateral-movement", "command-and-control", "exfiltration", "impact",
-    "policy-violation", "unknown",
+    "anomalous-behavior", "policy-violation", "unknown",
 ]
 
 

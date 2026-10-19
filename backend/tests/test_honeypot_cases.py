@@ -96,3 +96,19 @@ def test_findings_are_read_by_the_attacks_span_and_filtered_by_id(exporter):
     assert "guardduty#118821712739" in values
     assert any(str(v).startswith("2026-10-13T00:55:35") for v in values)   # a second either side
     assert any(str(v).startswith("2026-10-13T00:55:37") for v in values)
+
+
+def test_a_later_export_can_take_only_what_arrived_since_and_number_on(exporter):
+    """The five labelled on 18 October stay as they are; an export before the
+    honeypot is destroyed takes the incidents after them and numbers from six,
+    so the names say which case is which across the two exports."""
+    earlier = dict(INCIDENT, first_seen="2026-10-17T19:45:11.027000+00:00")
+    later = dict(INCIDENT, incident_id="b" * 32, first_seen="2026-10-19T01:45:11.350000+00:00",
+                 last_seen="2026-10-19T01:45:11.350000+00:00")
+    assert exporter.incidents_since([earlier, later], "2026-10-18") == [later]
+    assert exporter.incidents_since([earlier, later], "2026-10-17T19:45:11") == [earlier, later]
+    assert exporter.incidents_since([earlier, later], None) == [earlier, later]
+    ddb, tables = _ddb()
+    tables.setdefault("cloudsentinel-findings", mock.MagicMock()).query.return_value = {"Items": [FINDING]}
+    assert exporter.case_of(ddb, later, 6)["name"] == "honeypot-2026-10-19-6-sshbruteforce"
+

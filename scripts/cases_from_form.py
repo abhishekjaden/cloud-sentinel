@@ -10,10 +10,15 @@ scripts/eval_triage.py reads, without touching a label: the band is the
 levels between the lowest and highest the writer chose, the flags are the
 writer's, and the reasoning is copied as written.
 
-What it computes is only what the correlator would compute from the same
-findings — the incident's span, count, highest severity, finding types and
-kill-chain stages, using the correlator's own stage table — plus the resource
-block each finding would carry, in the shape GuardDuty gives it. Two
+What it computes is only what the pipeline would compute from the same
+findings — each finding's severity on the platform's 0–100 scale, using the
+normalizer's own conversion from GuardDuty's 0–8.9, and the incident's span,
+count, highest severity, finding types and kill-chain stages, using the
+correlator's own stage table — plus the resource block each finding would
+carry, in the shape GuardDuty gives it. (Until 19 October 2026 the severity
+was scaled by ten instead, so an 8.0 reached the model as 80 where production
+shows 90; the first set was regenerated on the corrected scale, labels
+untouched.) Two
 mechanical adjustments are made to the writer's identifiers and nothing
 else: an access key written in the real format (AKIA or ASIA and sixteen
 characters) is shortened by one character, as the authored cases are, so
@@ -37,6 +42,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 CORRELATOR = ROOT / "cdk" / "lambda" / "correlator" / "handler.py"
+NORMALIZER = ROOT / "cdk" / "lambda" / "normalizer" / "handler.py"
 OUT = ROOT / "scripts" / "triage_eval_cases_independent.json"
 ACCOUNT = "111122223333"
 LEVELS = ["informational", "low", "medium", "high", "critical"]
@@ -51,12 +57,20 @@ ABOUT = ("Independently written evaluation cases for the advisory triage model, 
          "secret scanners ignore them; the account is the documentation one.")
 
 
-def load_correlator():
-    spec = importlib.util.spec_from_file_location("correlator_handler", CORRELATOR)
+def load_handler(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     with mock.patch("boto3.resource"), mock.patch("boto3.client"):
         spec.loader.exec_module(module)
     return module
+
+
+def load_correlator():
+    return load_handler("correlator_handler", CORRELATOR)
+
+
+def load_normalizer():
+    return load_handler("normalizer_handler", NORMALIZER)
 
 
 def rows(sheet):
@@ -156,6 +170,7 @@ def band(lowest, highest):
 def convert(workbook_path):
     import openpyxl
     correlator = load_correlator()
+    normalizer = load_normalizer()
     wb = openpyxl.load_workbook(workbook_path, data_only=True)
     cases_rows = rows(wb["Cases"])
     findings_rows = rows(wb["Findings"])
@@ -179,7 +194,7 @@ def convert(workbook_path):
             findings.append({
                 "created_at": stamp,
                 "finding_type": str(col(f, "GuardDuty finding type")).strip(),
-                "severity": int(round(float(col(f, "Severity")) * 10)),
+                "severity": normalizer._severity_to_score("guardduty", col(f, "Severity")),
                 "title": str(col(f, "Title")).strip(),
                 "resource": block,
                 "_moment": moment,
