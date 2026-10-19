@@ -8,10 +8,19 @@ the paper describes it. This index goes from each table, figure and number in
 the paper to the record it was taken from, so that a reader can check the
 one against the other.
 
-Figure and table numbers are those of the authors' draft of 13 October
-(Figs. 1–3, Tables I–III). The reworded manuscript of 15 October adds the
-state machine and the console as its Figs. 2 and 3, so its Fig. 4 is the
-draft's Fig. 2 and its Fig. 5 the draft's Fig. 3; the records are the same.
+Figure and table numbers below are those of the authors' draft of 13 October
+(Figs. 1–3, Tables I–III). The manuscript that was submitted — confirmed on
+19 October from the submitted file, `CloudSentinel_ICSSS_Corrected` — is
+the reworded one of 15 October, with three authors (Abhishek Jaden
+Vethanayagam, Rahul C, A. Antoni Doss) and sections headed Introduction,
+Literature survey, Methodology, System architecture and design, System
+implementation details, Results and discussion, Conclusion and future work.
+It adds the state machine and the console as its Figs. 2 and 3, so its
+Fig. 4 is the draft's Fig. 2 and its Fig. 5 the draft's Fig. 3; the records
+are the same. It carries no acknowledgment section, so the disclosure of AI
+assistance that IEEE's policy asks for, present in the draft of 13 October,
+is absent from the submitted text; the camera-ready restores it (see the
+row on who wrote the cases).
 
 ## Dates
 
@@ -91,7 +100,7 @@ Other figures in Section V:
 | Claim | Record |
 |---|---|
 | Twelve synthetic cases written with the prompt; 33 of 36, then 36 of 36 after one disputed label was widened | ADR 0005, consequences; `docs/evaluation.md`, section 3; `scripts/triage_eval_cases.json`; `scripts/eval_triage.py` |
-| Who wrote the cases | `docs/triage-eval-protocol.md`, section 5: the prompt's author wrote the scenarios and labels, and for the last five the project's author picked the finding types in the GuardDuty console. The prompt's author is the AI assistant named in the paper's acknowledgment |
+| Who wrote the cases | `docs/triage-eval-protocol.md`, section 5: the prompt's author wrote the scenarios and labels, and for the last five the project's author picked the finding types in the GuardDuty console. The prompt's author is the AI assistant the draft's acknowledgment named; the submitted manuscript has no acknowledgment, and the camera-ready is to carry one |
 | The independent evaluation is pending | true when the paper was submitted; the first independent set was run on 17 October and the honeypot's first five cases on 18 October, both after submission — `scripts/triage_eval_cases_independent.json`, ADR 0005, `docs/evaluation.md` section 3 |
 
 ## What is not in the repository
