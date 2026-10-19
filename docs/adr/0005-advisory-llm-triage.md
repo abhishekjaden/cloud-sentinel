@@ -363,4 +363,30 @@ United States. Each note records the model and prompt version that wrote it.
   a honeypot incident with more than one finding has not yet occurred. The
   author states that he and the guide labelled the five by hand; his
   statement on AI assistance, for both sets, is above.
+
+  **Re-baseline on the corrected mechanics, 19 October 2026.** The ten form
+  cases regenerated on the normalizer's severity scale and with the
+  `Behavior` stage named (`docs/triage-eval-protocol.md`, section 6), run
+  three times each at `2026-10-17.1` against the same model with the five
+  honeypot cases: **42 of 45** — honeypot 15 of 15 as before, written
+  **27 of 30**. The expectation written before the run was 24 of 30 with the
+  same two failures; it was wrong on one case, in the direction of passing,
+  and the way it was wrong is the finding. *`ajv-unusual-bucket-writes`*,
+  whose test-data flag had been set on every run of the 17th and the 18th,
+  came back with the flag clear on all three runs, its only change being
+  severities of 22 and 56 in place of 20 and 50. A flag the prompt defines on
+  structure alone — placeholder markers, nothing else — turned on a
+  difference of two and six points on a scale of a hundred, and the earlier
+  runs' reasons had already named the "moderate" severities beside the
+  made-up-looking names. The defect stands as recorded above, with those
+  reasons as its evidence; what this run adds is that the flag is also
+  sensitive to severity, which the next revision should say in so many words
+  is no evidence either way, beside naming the markers as a closed set. The
+  case is now a regression check for the flag staying clear.
+  *`ajv-isolated-domain-reputation`* was unchanged: medium on all three runs,
+  the same four reasons, now citing 22 of 100. The thirty answers were again
+  15 critical, 0 high, 12 medium, 3 low; the model's confidence on the
+  command-and-control chain rose from medium to high with its findings at
+  90 rather than 80. These are the baseline the next prompt revision is
+  judged against.
 - Cost at the current volume is well under a dollar a month.

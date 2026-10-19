@@ -74,6 +74,15 @@ change did what the first run suggested it would: brute force happened, and
 GuardDuty saw it. The incidents are the first cases nobody wrote; turning
 them into cases is section 7.
 
+A sixth finding arrived at 01:45 UTC on the 19th, from 135.148.217.213
+(the enricher: malicious), two attempts by 01:56 — the first finding stored
+after the attribution fix, and the findings table holds it under
+`guardduty#743181156000`, the workload account, where the five before it
+sit under the audit account's partition. Exported the same morning as
+`honeypot-2026-10-19-6-sshbruteforce` with `--since 2026-10-18
+--number-from 6`, to be labelled by hand, held with whatever else arrives
+by the 22nd, and merged and run once.
+
 ## 2. The label comes first
 
 A case's `expect` block is written **before** the model is run on it, and is
@@ -245,6 +254,14 @@ failures, since no finding moved more than ten points on a scale of a hundred
 and the one stage that changed names a baseline departure rather than a
 tactic; the case to watch is unusual-outbound-traffic (band low–medium,
 answered medium so far), the only one whose input changed in kind.
+
+Run on 19 October: 42 of 45 — honeypot 15 of 15, written 27 of 30. The
+expectation held for fourteen cases and was wrong for one, in the direction
+of passing: the bucket-writes case's test-data flag, set on every earlier
+run, cleared on all three with its severities 22 and 56 instead of 20 and
+50 — a flag defined on structure alone turning on a few points of severity.
+The domain-reputation case failed as before. What this means for the
+record, and for the next revision, is in ADR 0005.
 
 Run on 17 October at prompt `2026-10-17.1`, three times each: 24 of 30. The
 record, the two failing cases with the model's reasons, and the two
