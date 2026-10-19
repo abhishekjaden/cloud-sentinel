@@ -5,6 +5,8 @@
  * later refactor cannot quietly undo them. Each one corresponds to a control
  * described in docs/well-architected-review.md.
  */
+import * as fs from 'fs';
+import * as path from 'path';
 import * as cdk from 'aws-cdk-lib/core';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import { ACCOUNTS, env } from '../lib/config';
@@ -195,6 +197,20 @@ describe('CicdStack', () => {
       .flatMap((st: any) => ([] as string[]).concat(st.Resource));
     const outsideCdk = assumes.filter((arn) => !/:role\/cdk-hnb659fds-/.test(arn));
     expect(outsideCdk).toEqual(['arn:aws:iam::118821712739:role/CloudSentinel-DeploySmokeTest']);
+  });
+
+  test('the scanners gate the deploy: CI runs them, and the deploy follows CI', () => {
+    // The Security workflow ran beside CI and nothing depended on it; a finding
+    // left it red for days in October 2026 while deploys went on. CI now calls
+    // it, so a finding fails CI, and the deploy workflow starts only from a
+    // successful CI run.
+    const read = (name: string) =>
+      fs.readFileSync(path.join(__dirname, '..', '..', '.github', 'workflows', name), 'utf8');
+    expect(read('ci.yml')).toContain('uses: ./.github/workflows/security.yml');
+    expect(read('security.yml')).toContain('workflow_call:');
+    const deploy = read('deploy.yml');
+    expect(deploy).toContain('workflows: [CI]');
+    expect(deploy).toContain("github.event.workflow_run.conclusion == 'success'");
   });
 
   test('every GitHub role verifies the sts.amazonaws.com audience', () => {

@@ -32,8 +32,14 @@ control-change watch and the honeypot.
   alarm is documented and every documented alarm exists.
 - Deployment is a GitHub Actions workflow under OIDC federation (no stored
   AWS keys), with `cdk diff` printed before `cdk deploy` so each run's log
-  records what was about to change. Semgrep and gitleaks run on every push
-  and weekly.
+  records what was about to change. Semgrep and gitleaks run inside CI on
+  every push, so a finding blocks the deploy that follows CI, and weekly over
+  the whole history. They ran beside CI until 19 October 2026, with nothing
+  depending on them: a Semgrep finding — an inline suppression naming the
+  rule in one of the two forms the scanner reports it under — left the
+  Security workflow red for days while deploys went on, noticed only from a
+  screenshot of the Actions list. The span is in the Actions history; the
+  scanner is now a pinned release, and its findings fail CI.
 - Decisions are ADRs (seven so far), objectives are `docs/slos.md` with a
   "when it fires" response under each alarm, the threat model is STRIDE
   across eight boundaries, and the evaluation of the one component whose

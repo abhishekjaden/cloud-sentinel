@@ -1,10 +1,14 @@
 name: Security
 
+# Run from CI on every push and pull request (ci.yml calls this workflow), so
+# that a finding fails CI and the deploy that follows CI does not happen. It
+# used to run beside CI instead, and nothing depended on it: a Semgrep finding
+# left it red for days in October 2026 while deploys went on, unseen until a
+# screenshot of the Actions list (docs/well-architected-review.md has the
+# span). A control nobody has to pass is not one.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_call:
+  workflow_dispatch:
   schedule:
     # Weekly sweep: advisories and secret patterns change even when the code
     # does not, so a scan that only runs on commit will miss new findings.
@@ -30,10 +34,18 @@ jobs:
   sast:
     name: Static analysis (Semgrep)
     runs-on: ubuntu-latest
-    container:
-      image: semgrep/semgrep
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+
+      # A pinned release rather than the semgrep/semgrep container's floating
+      # tag: the scanner's version changed under this workflow once, and with it
+      # the form of the rule ids an inline suppression has to name.
+      - name: Install Semgrep
+        run: pip install semgrep==1.181.0
 
       - name: Scan for insecure patterns
         # Actions are pinned to commit SHAs above; Dependabot updates the pins.

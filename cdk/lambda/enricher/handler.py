@@ -104,8 +104,11 @@ def _get_json(host, path, headers):
     status or a network error; the caller decides what a failed provider
     means."""
     # Certificate and hostname verification are explicit here rather than
-    # relied on as the default, which is the concern the audit rule names.
-    connection = http.client.HTTPSConnection(  # nosemgrep: python.lang.security.audit.httpsconnection-detected
+    # relied on as the default, which is the concern the audit rule names. The
+    # rule is named in both forms Semgrep has reported it under, since the
+    # registry's form carries the file name twice and a release's may not;
+    # naming one form only left the Security workflow red for days, unseen.
+    connection = http.client.HTTPSConnection(  # nosemgrep: python.lang.security.audit.httpsconnection-detected, python.lang.security.audit.httpsconnection-detected.httpsconnection-detected
         host, timeout=TIMEOUT_SECONDS, context=ssl.create_default_context())
     try:
         connection.request("GET", path, headers={**headers, "Accept": "application/json",

@@ -22,6 +22,16 @@ env:
 # and Semgrep runs in its own container. Pinning would only defer meeting 26.04
 # until 24.04 is withdrawn, and defer it to whoever is here then.
 jobs:
+  # The scanners are part of CI so that a secret or an insecure pattern fails
+  # the run and blocks the deploy that follows it, like a failing test does.
+  security:
+    name: Security scanners
+    uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+      security-events: write
+    secrets: inherit
+
   infrastructure:
     name: Infrastructure (CDK)
     runs-on: ubuntu-latest
