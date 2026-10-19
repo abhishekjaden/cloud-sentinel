@@ -24,12 +24,14 @@ env:
 jobs:
   # The scanners are part of CI so that a secret or an insecure pattern fails
   # the run and blocks the deploy that follows it, like a failing test does.
+  # No secrets are passed: the called workflow needs only GITHUB_TOKEN, which
+  # a called workflow receives on its own, and `secrets: inherit` is itself a
+  # finding Semgrep blocks on — which it did, on the gate's own first run.
   security:
     name: Security scanners
     uses: ./.github/workflows/security.yml
     permissions:
       contents: read
-    secrets: inherit
 
   infrastructure:
     name: Infrastructure (CDK)
