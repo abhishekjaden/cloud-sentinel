@@ -204,11 +204,14 @@ describe('CicdStack', () => {
     // left it red for days in October 2026 while deploys went on. CI now calls
     // it, so a finding fails CI, and the deploy workflow starts only from a
     // successful CI run.
-    const read = (name: string) =>
-      fs.readFileSync(path.join(__dirname, '..', '..', '.github', 'workflows', name), 'utf8');
-    expect(read('ci.yml')).toContain('uses: ./.github/workflows/security.yml');
-    expect(read('security.yml')).toContain('workflow_call:');
-    const deploy = read('deploy.yml');
+    // Literal paths, not a name passed in: Semgrep's path-traversal audit
+    // blocks a parameter reaching path.join, even in a test.
+    const workflows = path.join(__dirname, '..', '..', '.github', 'workflows');
+    const ci = fs.readFileSync(path.join(workflows, 'ci.yml'), 'utf8');
+    const security = fs.readFileSync(path.join(workflows, 'security.yml'), 'utf8');
+    const deploy = fs.readFileSync(path.join(workflows, 'deploy.yml'), 'utf8');
+    expect(ci).toContain('uses: ./.github/workflows/security.yml');
+    expect(security).toContain('workflow_call:');
     expect(deploy).toContain('workflows: [CI]');
     expect(deploy).toContain("github.event.workflow_run.conclusion == 'success'");
   });
