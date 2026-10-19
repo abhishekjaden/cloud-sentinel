@@ -319,8 +319,17 @@ United States. Each note records the model and prompt version that wrote it.
   rate, the cases are synthetic and one person's, and the writer is the
   project's author, who had read earlier prompt versions; the honeypot's
   incidents and a second person's cases remain the more independent sources.
-  The writer has not yet stated whether an AI tool helped write the cases or
-  their labels; the statement is to be added here when made.
+
+  **The writer's statement on AI assistance, 19 October 2026.** Asked, as
+  section 6 of the protocol requires, the writer states that no AI tool
+  helped write the ten cases or their labels, and that the five honeypot
+  labels (below) were written and reviewed by hand by him and the guide. The
+  record also notes, because a record that corrects itself silently is worth
+  less than one that shows the correction, that a statement to the contrary
+  was given on 18 October — that an AI tool had assisted with drafting both
+  sets' cases and labels — and withdrawn by the writer the next morning as
+  made in error. The statement that stands is the writer's; nothing in the
+  repository can verify either, and a reader weighs the set accordingly.
 
   **The honeypot's first five cases, 18 October 2026.** The five incidents the
   honeypot drew between 13 and 17 October — one `UnauthorizedAccess:EC2/SSHBruteForce`
@@ -352,6 +361,6 @@ United States. Each note records the model and prompt version that wrote it.
   finding, GuardDuty's own lowest band — so it says nothing about chains,
   the test-data flag or injection, which remain the written sets' evidence;
   a honeypot incident with more than one finding has not yet occurred. The
-  author states that he and the guide labelled the five; whether an AI tool
-  helped with either set's labels is the statement still to be added here.
+  author states that he and the guide labelled the five by hand; his
+  statement on AI assistance, for both sets, is above.
 - Cost at the current volume is well under a dollar a month.

@@ -185,6 +185,13 @@ The second person is the most independent source and the slowest to arrange.
 The honeypot is the most independent *data*: its incidents are what the
 platform would see in use, chosen by whoever happens to be scanning that week.
 
+Whoever writes or labels a case states, with the cases, whether an AI tool
+helped and which; the statement is recorded as given, with the run, and so
+is any later correction of it. A case set drafted with AI assistance is still
+independent of the prompt's author, but not of AI, and the record says so
+beside its number. For the second person's cases the ask is the strongest
+form: write and label them without an AI tool, and say so.
+
 ## 6. The first independent set, 13–17 October 2026
 
 Ten cases on the form, written and labelled by the project's author on 13
@@ -206,8 +213,9 @@ written for the tendency the authored cases measured, had been committed,
 judged on the authored cases and deployed; it was opened on 17 October once
 the triage table held notes at the new version. The revision therefore could
 not have been tuned on these cases, by accident or otherwise. Whether any AI
-tool helped write them is the writer's statement, recorded with the run in
-ADR 0005.
+tool helped write them is the writer's statement, recorded in ADR 0005: that
+none did, stated on 19 October after a contrary statement of the 18th was
+withdrawn as made in error.
 
 One thing the conversion showed before any model saw a case: the two
 `Behavior:EC2/…` findings of the unusual-outbound-traffic case map to no
@@ -262,8 +270,8 @@ The project's author and the guide labelled all five `low`–`medium` on the
 one reasoning for the one pattern, repeated with each address's verdict —
 and rate on the record alone: the finding does not say whether any attempt
 succeeded (section 1 does — none could). The author states that he and the
-guide wrote the labels; whether an AI tool helped is, as for the first set,
-the labellers' statement, recorded with the run in ADR 0005. The labelled
+guide wrote and reviewed the labels by hand; his statement on AI assistance,
+and its history, is in ADR 0005. The labelled
 cases were merged into `scripts/triage_eval_cases_independent.json` with
 `"source": "honeypot"`, no label changed; the merged file's SHA-256 is
 `fa1687eddef9ffb85feacc7df085bab11de5d7c98a1486d6846f7acd2deb5675`.
