@@ -14,9 +14,11 @@ on:
     # does not, so a scan that only runs on commit will miss new findings.
     - cron: '0 6 * * 1'
 
+# Only reading the checkout: neither scanner uploads to code scanning, and a
+# called workflow may hold no permission its caller's workflow lacks — asking
+# for security-events: write here failed CI's first two runs with the gate.
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   secrets:

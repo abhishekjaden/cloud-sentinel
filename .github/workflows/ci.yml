@@ -19,7 +19,7 @@ env:
 # moves from Ubuntu 24.04 to 26.04 between 19 October and 19 November 2026. The
 # label is kept rather than pinned to 24.04: no step uses a tool the image
 # provides. Node and Python come from the setup actions at versions named below,
-# and Semgrep runs in its own container. Pinning would only defer meeting 26.04
+# and Semgrep is a pinned pip release. Pinning would only defer meeting 26.04
 # until 24.04 is withdrawn, and defer it to whoever is here then.
 jobs:
   # The scanners are part of CI so that a secret or an insecure pattern fails
@@ -29,7 +29,6 @@ jobs:
     uses: ./.github/workflows/security.yml
     permissions:
       contents: read
-      security-events: write
     secrets: inherit
 
   infrastructure:
