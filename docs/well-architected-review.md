@@ -135,7 +135,8 @@ control-change watch and the honeypot.
 - *Single administrator, no roles* → two Cognito groups, `analysts` and
   `approvers`; the API refuses a decision from any token outside the second,
   the console hides the buttons from the first, and tests pin both the group
-  check and the groups' existence (October 2026).
+  check and the groups' existence (October 2026); checked live with two
+  accounts on 21 October (`screenshots/approvals-*-2026-10-21.png`).
 - *No WAF, no rate limiting* → a WAF with AWS's managed rule groups and a
   per-address rate rule on the load balancer, created and destroyed with the
   Api stack, and a per-user limit of 120 requests a minute in the API itself,
@@ -150,8 +151,11 @@ control-change watch and the honeypot.
   control-change watch does not see it (residual risk 2).
 - The normalizer trusts what reaches it; no schema validation at ingestion
   (residual risk 3).
-- The WAF and the per-user limit (October 2026) have not yet been tested past
-  their limits; the WAF keeps metrics and sampled requests, not logs.
+- The WAF and the per-user limit were each driven past their limit once, on
+  21 October 2026 (`docs/slos.md`), and the two roles checked against a
+  staged quarantine the same night; one session, one address, one identity.
+  The WAF keeps metrics and sampled requests, not logs, and the rate rule
+  admitted about 400 requests past its nominal 2,000 before it caught up.
 
 ---
 

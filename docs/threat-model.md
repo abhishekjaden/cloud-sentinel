@@ -75,7 +75,7 @@ tests in `cdk/test/honeypot.test.ts` hold each of those properties.
 | **R** | Operator denies making a request | ALB access logs record every request | Logs identify the source, not the authenticated principal. **An action cannot currently be attributed to a named operator.** |
 | **I** | Cross-origin data theft | CORS restricted to the dashboard origin — previously `*`, which would have let any site issue credentialed requests | None material for browsers that honour CORS. |
 | **D** | Expensive queries | `limit` bounded 1–200 and asserted by tests; every findings route reads an index or a key, and the task role holds no `dynamodb:Scan` on that table, so no request costs the whole table | `/incidents` still reads the incidents table in full. Many small requests are now bounded twice — see the next row. |
-| **D** | Flooding the API, from one address or with one stolen session | A WAF on the load balancer, created and destroyed with the Api stack: AWS's managed rule groups (IP reputation, common exploits, known bad inputs) and a rate-based rule that blocks an address above 2,000 requests in five minutes, pinned by a test. Behind it the API counts identities: 120 requests a minute per verified user in a sliding window, then 429 with a Retry-After, counted only after the token is verified so a forged subject cannot spend a real user's window | The per-user counter lives in the one task's memory, so a second task would count separately. WAF logs are not kept, only its metrics and sampled requests; a managed rule that blocks a legitimate request shows there and nowhere else. |
+| **D** | Flooding the API, from one address or with one stolen session | A WAF on the load balancer, created and destroyed with the Api stack: AWS's managed rule groups (IP reputation, common exploits, known bad inputs) and a rate-based rule that blocks an address above 2,000 requests in five minutes, pinned by a test, and both driven past their limits live on 21 October 2026 (`docs/slos.md`). Behind it the API counts identities: 120 requests a minute per verified user in a sliding window, then 429 with a Retry-After, counted only after the token is verified so a forged subject cannot spend a real user's window | The per-user counter lives in the one task's memory, so a second task would count separately. WAF logs are not kept, only its metrics and sampled requests; a managed rule that blocks a legitimate request shows there and nowhere else. |
 | **E** | Reaching data without a token | Authorization enforced at the API, not the UI; every data route asserted to return 401 unauthenticated | None known. |
 | **T** | Finding text carried into a document | The incident report is rendered with reportlab, whose paragraphs interpret inline markup. Every value from the record is escaped before it enters one, so a title written to contain `<b>` or `<font>` prints as those characters; a test puts markup in a title and reads the PDF back. The report also contains nothing generated: its one derived element is the ATT&CK placement, from a fixed table | A report is read outside the dashboard, where the advisory label on the triage note is the only reminder that part of it is model output over attacker-influenced text. |
 
@@ -99,7 +99,7 @@ The highest-consequence boundary in the system.
 
 | Threat | Vector | Mitigation | Residual |
 |---|---|---|---|
-| **S** | Someone other than the operator approves | The task token is written to a KMS-encrypted DynamoDB table and never leaves AWS. Resuming a workflow requires an authenticated `POST /approvals/{id}/decide` from a token in the Cognito `approvers` group; the API reads the group from the verified token's claims, so an analyst's session can list the queue and decide nothing, and the notification email carries no token and cannot approve anything. | An approver's session token remains usable until expiry if stolen. Group membership travels in the token, so a user removed from the group keeps the power until their token expires, up to an hour. |
+| **S** | Someone other than the operator approves | The task token is written to a KMS-encrypted DynamoDB table and never leaves AWS. Resuming a workflow requires an authenticated `POST /approvals/{id}/decide` from a token in the Cognito `approvers` group; the API reads the group from the verified token's claims, so an analyst's session can list the queue and decide nothing, and the notification email carries no token and cannot approve anything. Checked live on 21 October 2026 with two accounts against a staged quarantine: the analyst's decision refused with 403 and the queue readable, the approver's accepted and recorded (`docs/slos.md`, `screenshots/approvals-*-2026-10-21.png`). | An approver's session token remains usable until expiry if stolen. Group membership travels in the token, so a user removed from the group keeps the power until their token expires, up to an hour. |
 | **T** | Altering the remediation definition | State machine defined in CDK and deployed through a reviewed pipeline | An audit-account administrator can edit the state machine directly in the console; there is no drift detection or alarm. |
 | **R** | Denying an approval decision | The deciding principal's Cognito `sub` and a timestamp are written to the approvals record before the workflow resumes; spent tokens are removed and replay returns 409 | Attribution is to a Cognito identity, not to a verified human; a shared account would defeat it. |
 | **I** | Approval payload exposes finding detail | SNS topic requires TLS for publishers | Notification content reaches a mailbox outside AWS's trust boundary. |
@@ -166,9 +166,14 @@ across which anything leaves the account to a party other than AWS.
    content is still trusted as it arrives.
 4. **WAF and rate limits are bounds, not proofs.** A WAF with AWS's managed
    rules and a per-address rate rule fronts the load balancer, and the API
-   limits each identity to 120 requests a minute (B2). Neither has been
-   load-tested past its limit yet, the WAF keeps no logs, and the per-user
-   counter is per task.
+   limits each identity to 120 requests a minute (B2). Both were driven past
+   their limits once, on 21 October 2026 (`docs/slos.md`, *The API session of
+   21 October*): 150 requests in 14 s from one identity gave 110 answers and
+   40 refusals with a Retry-After, and 3,000 unauthenticated requests in
+   3 min 25 s from one address gave 2,436 answers and 564 refusals, 589
+   blocked by the rate rule on CloudWatch's count — with about 400 admitted
+   past the nominal 2,000 before the rule caught up. The WAF keeps metrics
+   and sampled requests, not logs, and the per-user counter is per task.
 
 ## 4. What this analysis changed
 

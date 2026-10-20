@@ -374,6 +374,45 @@ scans any more — `/findings` merges one indexed query per source and `/stats`
 counts a partition at a time — so the work per request no longer grows with the
 table, and the target should hold as it fills.
 
+**The API session of 21 October 2026** (times UTC; the stack was up from
+18:50 to 20:04, 1 h 14 min, and destroyed after). The Api stack is deployed
+on demand, so the roles, the per-user limit and the WAF that shipped on
+17–18 October were first exercised live together, from one laptop in
+Chennai, with the outputs kept in the operator's session log.
+
+- *Roles.* A second user was created in the `analysts` group. Against a
+  made-up approval id the operator's token (in `approvers`) was answered
+  404 — through the gate, nothing to decide — and the analyst's 403,
+  "deciding an approval requires membership of the approvers group", while
+  the analyst could list the queue (200). A sample
+  `Backdoor:EC2/C&CActivity.B!DNS` finding at 19:23:42 staged a quarantine
+  of `i-99999999` within three minutes; the operator's console showed
+  Reject and Approve, the analyst's the same item with "Awaiting an
+  approver's decision" and no buttons (`screenshots/approvals-approver-2026-10-21.png`,
+  `screenshots/approvals-analyst-2026-10-21.png`); the operator rejected it
+  at 19:29, recorded against his identity. An earlier attempt with a token
+  issued more than an hour before was refused outright, 130 of 130 requests
+  401: the hour's validity holds.
+- *Per-user limit.* 130 sequential requests took longer than a minute from
+  Chennai and all 130 were answered — the sliding window never held 120.
+  150 requests ten at a time, 19:39:00–19:39:14: 110 answered, 40 refused
+  with 429, and a request after the burst answered 429 with `Retry-After:
+  13`. The ten short of 120 were the operator's own console, open and
+  polling as the same identity.
+- *WAF.* 3,000 unauthenticated requests to `/health`, twenty at a time,
+  19:46:58–19:50:23: 2,436 answered, 564 refused with the load balancer's
+  empty 403. `AWS/WAFV2 BlockedRequests` for the rate rule summed 589 over
+  19:49–19:51 — the 564 plus the two console windows, blocked from the same
+  address along with the loop. About 400 requests past the nominal 2,000
+  were admitted before the rule caught up, which is the rule's evaluation
+  interval at the rate the loop ran, not a defect.
+- *Neither API alarm fired*: the 403s are the WAF's, not target errors, and
+  the loop's latency stayed under the threshold.
+
+What this is evidence of: that the three controls refuse what they are
+meant to refuse, once each, with numbers. What it is not: a load test, a
+latency measurement, or the API's behaviour under a distributed flood.
+
 ## 8. Controls change only through deployment — `cloudsentinel-slo-controls-unchanged`
 
 Every objective above watches the pipeline doing its job. This one watches
