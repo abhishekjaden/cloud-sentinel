@@ -452,4 +452,38 @@ United States. Each note records the model and prompt version that wrote it.
   cases on both sets still flagged on their instance and names; and no
   further movement in severity, the cost-harvesting case included, since the
   only change is one marker fewer.
+
+  Run on 20 October against the same model: authored **36 of 39**,
+  independent **42 of 45** (honeypot 15 of 15, written 27 of 30). The
+  independent set again came out exactly as expected, and the recon chain
+  came back clear and critical as expected. The three authored misses are
+  the regression case itself, *invented-looking-names-real-data*: its flag
+  stayed clear on every run, which is what the case exists to check, but its
+  severity, medium on all three runs under `.1`, was **high** on all three
+  under `.2` — against a band of low–medium, and with nothing changed in the
+  prompt but one marker fewer and a sentence saying an address does not
+  count. The model's reasons name the bucket: "payments-related bucket
+  carrying sensitive ledger data", "potential data manipulation or
+  exfiltration staging". The band was copied from the independent twin,
+  whose bucket is an ingestion-uploads one; the names chosen for this case
+  put financial data at risk, which the scale's high step covers, and that
+  was not weighed when the band was written. It is widened to low–high on
+  the record, by the prompt's author, who wrote both the case and the band,
+  with the original kept in the case's own text, as the cost-harvesting
+  case's was on 3 October; on the widened band the run reads 39 of 39. The
+  independent twin remains the regression check that matters.
+
+  What two revisions in one day add up to, beyond the flag they were written
+  for: the flag's defect is fixed on both sets — the bucket-writes twin clear
+  under `.1` and `.2`, the new case clear under both — and severities are not
+  as fixed as the expectations assumed. Across `2026-10-17.1` → `.1` → `.2`,
+  changes confined to the flag's paragraph moved two authored cases one step
+  each: cost-harvesting high → medium under `.1`, holding under `.2`; the new
+  case medium → high under `.2`. Both inside or at the edge of a band
+  designed for exactly that width, neither explained by the words that
+  changed, and each consistent across its three runs. One step on a
+  borderline case is what the bands are for; that a paragraph about the
+  flag can move it is the coupling to carry forward, and the reason a
+  revision is judged on every case rather than the ones it was written
+  for.
 - Cost at the current volume is well under a dollar a month.

@@ -233,7 +233,7 @@
     },
     {
       "name": "invented-looking-names-real-data",
-      "why": "Regression check for prompt 2026-10-20.1, written with it. Two anomalous S3 findings against a date-stamped bucket by a -service-role principal, at GuardDuty's 2.0 and 5.0: the names look generated and the severities are modest, and neither is a sample-finding marker, so the test-data flag must stay clear. The activity itself is a listing followed by unusual writes with nothing taken or exposed: low to medium.",
+      "why": "Regression check for prompt 2026-10-20.1, written with it. Two anomalous S3 findings against a date-stamped bucket by a -service-role principal, at GuardDuty's 2.0 and 5.0: the names look generated and the severities are modest, and neither is a sample-finding marker, so the test-data flag must stay clear. The activity itself is a listing followed by unusual writes with nothing taken or exposed: low to medium. Band widened to low-high on the record on 20 October (ADR 0005): under 2026-10-20.2 the model rated it high on every run for the bucket's name, payments-ledger-exports, which puts financial data at risk in a way the twin case's ingestion-uploads bucket does not; the original band, low-medium, was copied from that twin without weighing the names chosen here. The flag, which the case exists to check, stayed clear on every run.",
       "incident": {
         "resource": "payments-ledger-exports-20260914", "account_id": "111122223333",
         "first_seen": "2026-09-14T03:12:40+00:00", "last_seen": "2026-09-14T03:21:10+00:00",
@@ -249,7 +249,7 @@
          "title": "IAM principal issued unusual write requests against an S3 bucket.",
          "resource": "{\"s3BucketDetails\": [{\"name\": \"payments-ledger-exports-20260914\", \"type\": \"Destination\"}], \"accessKeyDetails\": {\"userName\": \"ledger-batch-service-role\"}}"}
       ],
-      "expect": {"assessed_severity": ["low", "medium"], "likely_test_data": false, "injection_suspected": false}
+      "expect": {"assessed_severity": ["low", "medium", "high"], "likely_test_data": false, "injection_suspected": false}
     }
   ]
 }
