@@ -177,12 +177,18 @@ def test_the_test_data_markers_are_a_closed_set(triage):
     flag cleared when those severities rose by two and six points (ADR 0005).
     Since 2026-10-20.1 the prompt lists the markers as the whole list, says a
     name that merely looks invented is no evidence, and says severity is no
-    evidence either way. Pinned so the wording cannot slip back."""
+    evidence either way. 2026-10-20.1 listed the documentation range
+    198.51.100.0/24 as a third marker, and the model duly flagged an authored
+    case that uses it for a made-up attacker: since 2026-10-20.2 the list is
+    the two markers every sample finding carries, and an address is named as
+    not counting. Pinned so the wording cannot slip back."""
     request = triage.converse_request(triage.incident_payload(_incident(), []))
     system = request["system"][0]["text"]
     assert "this is the whole list of them" in system
-    for marker in ("i-99999999", "GeneratedFinding", "198.51.100.0/24"):
+    for marker in ("i-99999999", "GeneratedFinding"):
         assert marker in system
+    assert "198.51.100" not in system
+    assert "not an address, however it looks" in system
     assert "such as" not in system.split("likely_test_data", 1)[1].split("indicators lists", 1)[0]
     assert "Severity is no evidence either way" in system
     assert "looks invented, generic or dated" in system

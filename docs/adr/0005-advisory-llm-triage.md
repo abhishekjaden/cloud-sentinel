@@ -416,4 +416,40 @@ United States. Each note records the model and prompt version that wrote it.
   severity is expected to move on either set: the change touches the flag's
   wording alone, and a severity that moves is a finding about coupling in
   the prompt, to be recorded as such.
+
+  Run on 20 October against the same model: authored **36 of 39**,
+  independent **42 of 45** (honeypot 15 of 15, written 27 of 30). The
+  independent set came out exactly as expected: the bucket-writes case
+  clear on all three runs, the domain-reputation case medium with the same
+  reasoning, the honeypot five low, no severity moved. The authored set did
+  not, and the revision itself was the cause. The list of markers in
+  `2026-10-20.1` had three entries — the placeholder instance, the
+  GeneratedFinding names, and the documentation range 198.51.100.0/24 that
+  GuardDuty's sample findings use for their remote addresses — and the first
+  authored case, *recon-then-brute-force-then-c2*, written on 3 October with
+  198.51.100.23 as its made-up attacker precisely because that range belongs
+  to nobody, was flagged on all three runs for exactly that reason, in the
+  model's own words: "falls within GuardDuty's sample-finding range
+  198.51.100.0/24". The model did what the prompt said. The expectation of
+  39 of 39 was written without checking the authored cases against the new
+  list, and the record says so. Two other things from the run. The new
+  regression case came back clear and medium, as intended. And one authored
+  case moved a step: *bedrock-cost-harvesting*, high on every run since
+  3 October, answered medium on all three — inside its band, with nothing
+  in the prompt changed but the flag's paragraph. That is the coupling the
+  expectation named; one case, one step, in one run, and whether it is the
+  model's reading of the whole prompt or the variation temperature zero does
+  not remove is not decidable from one run. It is recorded, not explained.
+
+  **Prompt `2026-10-20.2`**, the same day: the address range leaves the
+  list. The two markers that remain, the placeholder instance and the
+  GeneratedFinding names, are the ones every sample finding carries, so
+  nothing is lost in detection, and the prompt now says that an address,
+  however it looks, does not count — which is what the authored cases have
+  always assumed of the documentation ranges they use. Nothing else changed.
+  Expected before the run: authored 39 of 39, the recon chain clear again
+  and critical as before; independent 42 of 45 as under `.1`; the sample
+  cases on both sets still flagged on their instance and names; and no
+  further movement in severity, the cost-harvesting case included, since the
+  only change is one marker fewer.
 - Cost at the current volume is well under a dollar a month.
