@@ -389,4 +389,31 @@ United States. Each note records the model and prompt version that wrote it.
   command-and-control chain rose from medium to high with its findings at
   90 rather than 80. These are the baseline the next prompt revision is
   judged against.
+
+  **Prompt `2026-10-20.1`: the markers as a closed set, severity as no
+  evidence.** Written on 20 October for the defect the independent set
+  showed. Prompt `2026-10-17.1` set `likely_test_data` on "placeholder
+  resources such as instance i-99999999, names beginning GeneratedFinding",
+  and the model read "such as" as an open class: it flagged a real-data case
+  for a date-stamped bucket and a `-service-role` principal, citing the
+  findings' "moderate" severities beside the names, and the flag cleared
+  when those severities rose by two and six points. The revision names the
+  markers as the whole list — the placeholder instance, any GeneratedFinding
+  name, a 198.51.100.0/24 address — and says in so many words that a name
+  which merely looks invented, generic or dated is no evidence, and that
+  severity is no evidence either way. Nothing else in the prompt changed;
+  the tool schema's description of the flag says the same. A test pins the
+  wording, and a thirteenth authored case, written with the revision,
+  carries invented-looking names on real data as a regression check beside
+  the independent set's.
+
+  Expected before the run, both sets, three runs each: on the thirteen
+  authored cases 39 of 39, the twelve as on 17 October and the new case
+  clear of the flag; on the independent fifteen, the bucket-writes case
+  clear (its regression check), the domain-reputation case medium as on
+  every run so far — a failure until the adjudication widens the band, a
+  pass after — and the honeypot five at low, so 42 of 45 or 45 of 45. No
+  severity is expected to move on either set: the change touches the flag's
+  wording alone, and a severity that moves is a finding about coupling in
+  the prompt, to be recorded as such.
 - Cost at the current volume is well under a dollar a month.

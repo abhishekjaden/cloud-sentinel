@@ -230,6 +230,26 @@
          "resource": "{\"instanceDetails\": {\"instanceId\": \"i-0d2a84f7c13e9b6a5\", \"instanceType\": \"c6g.xlarge\", \"tags\": [{\"key\": \"Name\", \"value\": \"batch-runner-1\"}]}}"}
       ],
       "expect": {"assessed_severity": ["high", "critical"], "likely_test_data": false, "injection_suspected": false}
+    },
+    {
+      "name": "invented-looking-names-real-data",
+      "why": "Regression check for prompt 2026-10-20.1, written with it. Two anomalous S3 findings against a date-stamped bucket by a -service-role principal, at GuardDuty's 2.0 and 5.0: the names look generated and the severities are modest, and neither is a sample-finding marker, so the test-data flag must stay clear. The activity itself is a listing followed by unusual writes with nothing taken or exposed: low to medium.",
+      "incident": {
+        "resource": "payments-ledger-exports-20260914", "account_id": "111122223333",
+        "first_seen": "2026-09-14T03:12:40+00:00", "last_seen": "2026-09-14T03:21:10+00:00",
+        "duration_seconds": 510, "finding_count": 2, "max_severity": 56,
+        "attack_stages": ["discovery", "impact"],
+        "finding_types": ["Discovery:S3/AnomalousBehavior", "Impact:S3/AnomalousBehavior.Write"]
+      },
+      "findings": [
+        {"created_at": "2026-09-14T03:12:40.000Z", "finding_type": "Discovery:S3/AnomalousBehavior", "severity": 22,
+         "title": "IAM principal listed objects in an S3 bucket outside its usual activity pattern.",
+         "resource": "{\"s3BucketDetails\": [{\"name\": \"payments-ledger-exports-20260914\", \"type\": \"Destination\"}], \"accessKeyDetails\": {\"userName\": \"ledger-batch-service-role\"}}"},
+        {"created_at": "2026-09-14T03:21:10.000Z", "finding_type": "Impact:S3/AnomalousBehavior.Write", "severity": 56,
+         "title": "IAM principal issued unusual write requests against an S3 bucket.",
+         "resource": "{\"s3BucketDetails\": [{\"name\": \"payments-ledger-exports-20260914\", \"type\": \"Destination\"}], \"accessKeyDetails\": {\"userName\": \"ledger-batch-service-role\"}}"}
+      ],
+      "expect": {"assessed_severity": ["low", "medium"], "likely_test_data": false, "injection_suspected": false}
     }
   ]
 }
