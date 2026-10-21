@@ -41,6 +41,7 @@ signal includes its notification arriving, and is checked in the inbox.
 | E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** — it fired, but 77 minutes after the last run; **third run 11 October**, on a wall-clock window — fired 49 min 41 s after the last run, as designed |
 | E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
 | E5 | A control changed by hand | 8 | **run, 3 October 2026** |
+| R1 | A restore from point-in-time recovery | 8 (by the deletion of the copies); the review's open gap | **expected signals written 21 October 2026**; run pending |
 
 ---
 
@@ -771,3 +772,65 @@ control-change message as lines`). Every expected signal arrived; nothing
 unexpected did.
 
 **Rollback.** None needed; the rule was re-enabled as the second step.
+
+---
+
+## R1 — A restore from point-in-time recovery
+
+Not a failure caused on purpose but the recovery rehearsed for one. Every
+table has point-in-time recovery, and `docs/well-architected-review.md` has
+carried the same gap since the review was written: a restore has never been
+tried. This is the drill, kept here because it is run the same way — the
+expected signals written first, the observed ones filled in afterwards.
+
+**Hypothesis.** The two tables that hold the platform's record — findings
+and incidents — can each be restored to one chosen instant as a new table,
+the copy holds exactly what the live table held at that instant, and the
+time from asking to a usable copy is what a recovery would cost before any
+cut-over. What this rehearses is the restore, not the cut-over: a restored
+table has a new name, DynamoDB does not rename tables, and a recovery would
+go on to copy the data back into the live table or redeploy the stacks
+against the copy. That part is not rehearsed here.
+
+**Steps.** From the audit profile:
+```bash
+python scripts/restore_rehearsal.py --json docs/restore-rehearsal-2026-10-21.json
+```
+The script chooses the earlier of the two tables' latest restorable times,
+so that both copies are of the same instant; asks for both restores back to
+back, one copy per table, named `<table>-restored-<instant>`; polls until
+each copy and every index on it is ACTIVE, timing both from the same start;
+counts the copy's items with a paged scan rather than the describe's stale
+`ItemCount`; reads every live item's stamp — `stored_at` on a finding,
+`created_at` on an incident — and tallies them as at or before the instant,
+after it, or absent; then deletes the copies and waits for them to go.
+It never writes to a live table, and only ever deletes a name carrying
+`-restored-`; `backend/tests/test_restore_rehearsal.py` pins both.
+
+**Expected signals.**
+1. Each copy ACTIVE, with its indexes — on the findings copy, `severity-index`
+   and `source-time-index` — within 30 minutes of the request. AWS gives no
+   figure for tables this size; 30 minutes is the bound set here before the
+   run, and the time observed is the number the record is for. The two
+   restores run concurrently, so the rehearsal's time is the slower one's.
+2. Each copy's count equals the live table's items stamped at or before the
+   instant plus its unstamped ones, exceeding that by at most the number of
+   items stamped after the instant (a redelivered finding keeps its key and
+   takes a new `stored_at`, so the copy may hold it under the old one), and
+   never fewer. Incidents are stamped once, on creation, so the incidents
+   copy should match exactly. Findings stored before 3 October, when the
+   stamp was introduced (`4688838`), have none; they are reported as
+   unstamped, not counted on either side.
+3. Two control-change messages in the inbox, `DeleteTable` on each copy's
+   name from the SSO administrator role, and the controls-unchanged alarm
+   (objective 8) in ALARM within five minutes of the deletions and OK within
+   ten. Nothing for the restores themselves: `RestoreTableToPointInTime`
+   creates a table and changes no control, and the watch does not list it.
+4. No other alarm changes state. The live tables are only read, and a scan
+   of a few thousand items is nothing to an on-demand table.
+5. Cost under ₹5: a restore is billed per gigabyte restored and these tables
+   hold megabytes; the copies live for minutes.
+
+**Rollback.** The copies are deleted by the script's last step;
+`python scripts/restore_rehearsal.py --delete-copies` removes any that a
+failed run left behind. Nothing else changes.
