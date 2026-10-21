@@ -527,6 +527,37 @@ def test_a_completed_note_records_what_produced_it(triage):
     assert {k: item[k] for k in _note()} == _note()
 
 
+def test_the_first_note_s_time_survives_the_rewrites_that_follow(triage):
+    """A note is rewritten whenever the prompt changes or the incident gains
+    activity, and the table keeps only the latest; the time to the first note
+    is kept on the record so that a week's latency can be measured after a
+    revision rather than only before one."""
+    # The first complete note stamps first_triaged_at with its own write.
+    _serve(triage, [_incident()])
+    triage._bedrock.converse.return_value = _answer(_note())
+    triage.handler({}, None)
+    (first,) = _stored(triage)
+    assert first["first_triaged_at"] == first["triaged_at"]
+
+    # A rewrite — the fingerprint no longer matches — carries it unchanged.
+    triage._triage.put_item.reset_mock()
+    _serve(triage, [_incident()], settled=[{"incident_id": "inc-1", "fingerprint": "stale",
+                                           "first_triaged_at": "2026-10-14T09:00:00+00:00"}])
+    triage.handler({}, None)
+    (rewrite,) = _stored(triage)
+    assert rewrite["first_triaged_at"] == "2026-10-14T09:00:00+00:00"
+    assert rewrite["triaged_at"] != rewrite["first_triaged_at"]
+
+    # An answer rejected on every attempt is not a note: it carries a first
+    # time it was given and sets none of its own.
+    triage._triage.put_item.reset_mock()
+    _serve(triage, [_incident()])
+    triage._bedrock.converse.return_value = _answer({"not": "a note"})
+    triage.handler({}, None)
+    (rejected,) = _stored(triage)
+    assert rejected["status"] == "invalid_output" and "first_triaged_at" not in rejected
+
+
 def test_other_model_errors_skip_the_incident_and_continue(triage):
     _serve(triage, [_incident("a", severity=90), _incident("b", severity=80)])
     denied = ClientError({"Error": {"Code": "ValidationException", "Message": "bad"}}, "Converse")

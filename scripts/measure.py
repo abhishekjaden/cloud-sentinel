@@ -21,7 +21,13 @@ What it measures, and what each number means:
                                                            for a finding GuardDuty re-reported,
                                                            the time since its first report)
   correlated  incident first_seen -> incident created      (ingestion + the 15-minute schedule)
-  triaged     incident created -> note written             (the 15-minute schedule + the model)
+  triaged     incident created -> first note written       (the 15-minute schedule + the model;
+                                                           a note is rewritten when the prompt
+                                                           changes or the incident gains activity,
+                                                           and the record keeps the first note's
+                                                           time from 21 October 2026 — before
+                                                           that only the latest's, which the
+                                                           report counts separately)
 
 Usage:
     python scripts/measure.py                        # everything in the tables
@@ -87,10 +93,18 @@ def latency(findings, incidents, notes):
     figures = {name: percentiles(gap(f, start, end) for f in findings) for name, start, end in MEASURES}
     figures["correlated"] = percentiles(gap(i, "first_seen", "created_at") for i in incidents)
     by_id = {n.get("incident_id"): n for n in notes}
+    noted = [(i, by_id[i["incident_id"]]) for i in incidents
+             if i.get("incident_id") in by_id and by_id[i["incident_id"]].get("status") == "complete"]
+    # The first note's time where the record kept it; the latest note's where
+    # it did not, which is every note written before 21 October 2026 — and a
+    # latest note may be a rewrite, so those gaps are counted and named.
     figures["triaged"] = percentiles(
-        gap({"created_at": i.get("created_at"), "triaged_at": by_id[i["incident_id"]].get("triaged_at")},
-            "created_at", "triaged_at")
-        for i in incidents if i.get("incident_id") in by_id and by_id[i["incident_id"]].get("status") == "complete")
+        gap({"created_at": i.get("created_at"), "noted_at": n.get("first_triaged_at") or n.get("triaged_at")},
+            "created_at", "noted_at")
+        for i, n in noted)
+    figures["triaged"]["from_latest_note"] = sum(
+        1 for i, n in noted if not n.get("first_triaged_at")
+        and gap({"created_at": i.get("created_at"), "noted_at": n.get("triaged_at")}, "created_at", "noted_at") is not None)
     return figures
 
 
@@ -149,6 +163,10 @@ def report(figures, cost, findings_count, since):
         f = figures[name]
         lines.append(f"| {name} | {f['n']} | {seconds(f.get('p50'))} | {seconds(f.get('p95'))} | {seconds(f.get('max'))} |")
     lines.append("")
+    if figures["triaged"].get("from_latest_note"):
+        lines.append(f"triaged: {figures['triaged']['from_latest_note']} of {figures['triaged']['n']} measured to the "
+                     "latest note, not the first — notes written before 21 October 2026 keep no first time")
+        lines.append("")
     if cost:
         per_thousand = cost_per_thousand(cost["total"], findings_count)
         lines.append(f"Cost: ${cost['total']:.2f} for the period, {findings_count} findings stored, "

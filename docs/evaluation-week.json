@@ -1,0 +1,67 @@
+{
+  "measured_at": "2026-10-21T18:08:50+00:00",
+  "since": "2026-10-14T00:00:00+00:00",
+  "findings": 920,
+  "incidents": 9,
+  "latency": {
+    "queued": {
+      "n": 920,
+      "p50": 0.789,
+      "p95": 7.534,
+      "max": 17.135
+    },
+    "stored": {
+      "n": 920,
+      "p50": 6.3,
+      "p95": 10.348,
+      "max": 12.033
+    },
+    "ingested": {
+      "n": 920,
+      "p50": 7.387,
+      "p95": 16.991,
+      "max": 27.568
+    },
+    "detected": {
+      "n": 920,
+      "p50": 8532681.449,
+      "p95": 10810666.631,
+      "max": 10822039.567
+    },
+    "correlated": {
+      "n": 9,
+      "p50": 668.600054,
+      "p95": 983.808378,
+      "max": 983.808378
+    },
+    "triaged": {
+      "n": 9,
+      "p50": 146326.234941,
+      "p95": 557622.57591,
+      "max": 557622.57591
+    }
+  },
+  "cost": {
+    "total": 8.4,
+    "by_service": {
+      "Amazon Kinesis": 2.6,
+      "Claude Haiku 4.5 (Amazon Bedrock Edition)": 2.04,
+      "AWS Security Hub": 1.15,
+      "Amazon Inspector": 0.93,
+      "AWS Config": 0.79,
+      "AWS Key Management Service": 0.27,
+      "EC2 - Other": 0.12,
+      "AWS Secrets Manager": 0.1,
+      "Amazon DynamoDB": 0.09,
+      "Amazon GuardDuty": 0.08,
+      "Amazon EC2 Container Registry (ECR)": 0.07,
+      "AmazonCloudWatch": 0.05,
+      "Amazon Elastic Load Balancing": 0.05,
+      "Amazon Virtual Private Cloud": 0.02,
+      "AWS WAF": 0.02,
+      "Amazon Elastic Container Service": 0.01,
+      "AWS Cost Explorer": 0.01
+    }
+  },
+  "cost_per_thousand_findings": 9.13
+}

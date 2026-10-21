@@ -68,7 +68,29 @@ def test_latency_reads_each_stage_from_the_records_that_carry_it(measure):
     assert figures["stored"]["n"] == 2 and figures["detected"]["n"] == 2
     assert figures["correlated"] == {"n": 2, "p50": 180.0, "p95": 720.0, "max": 720.0}
     # Only a completed note is a triage latency; a rejected one is not a note.
-    assert figures["triaged"] == {"n": 1, "p50": 480.0, "p95": 480.0, "max": 480.0}
+    assert figures["triaged"] == {"n": 1, "p50": 480.0, "p95": 480.0, "max": 480.0, "from_latest_note": 1}
+
+
+def test_triage_latency_is_to_the_first_note_where_the_record_kept_it(measure):
+    """A note is rewritten when the prompt changes; the latest note's time is
+    not the latency to a note. Where the record carries first_triaged_at the
+    gap is measured to that, and the gaps that could only be measured to a
+    latest note are counted beside the figure."""
+    incidents = [
+        {"incident_id": "a", "first_seen": "2026-10-20T09:00:00+00:00", "created_at": "2026-10-20T09:12:00+00:00"},
+        {"incident_id": "b", "first_seen": "2026-10-20T09:00:00+00:00", "created_at": "2026-10-20T09:12:00+00:00"},
+    ]
+    notes = [
+        {"incident_id": "a", "status": "complete", "first_triaged_at": "2026-10-20T09:20:00+00:00",
+         "triaged_at": "2026-10-22T18:00:00+00:00"},   # rewritten two days later; the first time stands
+        {"incident_id": "b", "status": "complete", "triaged_at": "2026-10-22T18:00:00+00:00"},  # no first time kept
+    ]
+    figures = measure.latency([], incidents, notes)
+    assert figures["triaged"]["n"] == 2 and figures["triaged"]["p50"] == 480.0
+    assert figures["triaged"]["max"] == 2 * 86400 + 8 * 3600 + 48 * 60
+    assert figures["triaged"]["from_latest_note"] == 1
+    text = measure.report(figures, None, 0, None)
+    assert "triaged: 1 of 2 measured to the latest note, not the first" in text
 
 
 def test_cost_per_thousand_is_plain_division(measure):

@@ -20,11 +20,11 @@ nearest-rank percentiles with the count behind each.
 
 | Measure | Meaning | n | p50 | p95 | max | Measured |
 |---|---|---|---|---|---|---|
-| queued, normal traffic | EventBridge event → stream arrival | 786 | 0.8 s | 7.5 s | 15.5 s | 17 Oct 2026, the 4.6 days of the organization's own traffic since the E1 re-run's rollback (`docs/evaluation-normal.json`, `measure.py --since 2026-10-12T20:10:00Z`) |
-| stored, normal traffic | stream arrival → written | 786 | 6.1 s | 10.4 s | 11.9 s | 17 Oct 2026, as above. First measured 13 Oct over about 17 hours of the same traffic as 610 findings, 6.3 s and 10.2 s, read from the terminal — the figure the paper quotes |
-| ingested, normal traffic | EventBridge event → stored | 786 | 7.2 s | 13.4 s | 22.4 s | 17 Oct 2026, as above |
-| correlated, normal traffic | first finding seen → incident made (includes the 15-minute schedule) | 4 | 11.5 min | 16.4 min | 16.4 min | 17 Oct 2026, as above — four incidents, so a reading, not a distribution |
-| triaged, normal traffic | incident made → note written | 4 | 8.6 min | 8.6 min | 8.6 min | 17 Oct 2026, as above — four incidents |
+| queued, normal traffic | EventBridge event → stream arrival | 920 | 0.8 s | 7.5 s | 17.1 s | 21 Oct 2026, the 7.8 days of the organization's own traffic from 00:00 UTC on the 14th, after E1's last run (`docs/evaluation-week.json`, `measure.py --since 2026-10-14T00:00Z`). The 4.6-day reading of 17 Oct, 786 findings since the E1 re-run's rollback: 0.8 s, 7.5 s, 15.5 s (`docs/evaluation-normal.json`) |
+| stored, normal traffic | stream arrival → written | 920 | 6.3 s | 10.3 s | 12.0 s | 21 Oct 2026, as above. 17 Oct over 4.6 days: 6.1 s, 10.4 s, 11.9 s. First measured 13 Oct over about 17 hours of the same traffic as 610 findings, 6.3 s and 10.2 s, read from the terminal — the figure the paper quotes |
+| ingested, normal traffic | EventBridge event → stored | 920 | 7.4 s | 17.0 s | 27.6 s | 21 Oct 2026, as above. 17 Oct: 7.2 s, 13.4 s, 22.4 s |
+| correlated, normal traffic | first finding seen → incident made (includes the 15-minute schedule) | 9 | 11.1 min | 16.4 min | 16.4 min | 21 Oct 2026, as above — nine incidents, so a reading, not a distribution. 17 Oct, four incidents: 11.5, 16.4, 16.4 min |
+| triaged, normal traffic | incident made → first note written | 4 | 8.6 min | 8.6 min | 8.6 min | 17 Oct 2026, four incidents. The week's figure, n = 9 at 40.6 h, 154.9 h, 154.9 h, is not this latency and is not entered as it: a note is rewritten whenever the prompt changes or the incident gains activity, the table keeps only the latest, and the three revisions of the 17th and 20th rewrote every note in the week, so those nine gaps run to the latest note (`docs/evaluation-week.json` holds them under `triaged`). From the deploy of 21 Oct a note keeps the first note's time (`first_triaged_at`), and the next week's measurement is to it |
 | queued | EventBridge event → stream arrival | 10,075 | 2.2 s | 24.7 s | 27.2 s | 8 Oct 2026, E4 — a 200/s flood; the sender's clock was 20 s ahead, so read these 20 s short |
 | stored | stream arrival → written | 10,075 | 1.3 min | 2.4 min | 2.5 min | 8 Oct 2026, E4 — the single shard's consumer draining a burst at about 50 records a second |
 | ingested | EventBridge event → stored | 10,075 | 1.4 min | 2.8 min | 3.0 min | 8 Oct 2026, E4; 20 s short, as `queued` |
@@ -38,16 +38,19 @@ nearest-rank percentiles with the count behind each.
 | outage alarmed | first record held on the shard → findings-fresh in ALARM | 2 | 10.5 min | 12.1 min | 12.1 min | 8 Oct 2026, E2 re-run (ADR 0007), held by a failing write; 12 Oct 2026, E1 re-run, held by a record that cannot be read |
 | silence alarmed | last completed correlation run → incidents-current in ALARM | 1 | 49.7 min | 49.7 min | 49.7 min | 11 Oct 2026, E3 third run, on the wall-clock window — 45 to 50 minutes by design; the superseded three-window definition took 76.9 min in the re-run (`docs/chaos-experiments.md`) |
 
-The five `normal traffic` rows are the organization's own findings over
-4.6 days, and the five rows after them are E4, the pipeline under ten times
-its volume. Under normal traffic `stored` reads seconds: a batch that is not
-queued behind nine thousand others is written within its ten-second window,
-and the 11.9 s maximum is that window plus the write. The same measurement
-over a full week, once the stamps added on 3 October 2026 have been in place
-for one, replaces these rows. `measure.py` also reports `detected`, the
-finding's own creation time to its write; over this traffic it reads in
-thousands of hours, because Security Hub re-emits findings it first created
-in June, so it is not a latency of the pipeline and is left out.
+The five `normal traffic` rows are the organization's own findings over a
+week — 7.8 days, 920 findings, with the 4.6-day reading of 17 October kept
+beside each for comparison — and the five rows after them are E4, the
+pipeline under ten times its volume. Under normal traffic `stored` reads
+seconds: a batch that is not queued behind nine thousand others is written
+within its ten-second window, and the 12.0 s maximum is that window plus the
+write. The week moved no median by more than 0.2 s; `ingested`'s 95th
+percentile rose from 13.4 s to 17.0 s and its maximum from 22.4 s to 27.6 s,
+which is `queued` — EventBridge to the stream — stretching at the tail, not
+the normalizer. `measure.py` also reports `detected`, the finding's own
+creation time to its write; over this traffic it reads in thousands of hours,
+because Security Hub re-emits findings it first created in June, so it is
+not a latency of the pipeline and is left out.
 
 ## 2. Cost
 
@@ -57,6 +60,7 @@ period by the findings stored in it.
 | Period | Findings | Cost | Per 1,000 findings | Notes |
 |---|---|---|---|---|
 | 12–17 Oct 2026, 4.6 days | 786 | $3.67 | $4.67 | the audit account's Cost Explorer total for the period (`docs/evaluation-normal.json`): the Kinesis shard $1.80, Security Hub $0.69, Inspector $0.66, KMS $0.19, the rest under a dollar together; not a full month, and the API was not up |
+| 14–21 Oct 2026, 7.8 days | 920 | $8.40 | $9.13 | the audit account's Cost Explorer total for the period as posted by the 21st, which lags about a day (`docs/evaluation-week.json`): the Kinesis shard $2.60; Bedrock $2.04 — the three prompt revisions re-noting every open incident, and the evaluation runs of 18 to 20 October, which call the model on this account from the operator's machine; Security Hub $1.15, Inspector $0.93, Config $0.79, KMS $0.27, EC2-Other $0.12, Secrets Manager $0.10. Per thousand findings this is twice the 4.6-day figure, and the difference is the model: without Bedrock the period reads $6.91 per 1,000. The API session of the 21st (IST) is in it at what its hour cost — load balancing $0.05, WAF $0.02, ECS $0.01; the honeypot is not, since it runs in the workload account |
 | | | | | pending — the first full month with the stamps |
 
 ### September 2026, from the invoices

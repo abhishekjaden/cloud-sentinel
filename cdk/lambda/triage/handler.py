@@ -469,15 +469,25 @@ def pending(incidents, settled, intel=None):
     return stale
 
 
-def _record(incident, status, note=None, usage=None, intel=None):
+def _record(incident, status, note=None, usage=None, intel=None, first_noted=None):
+    """Write the incident's record, replacing the last one. triaged_at is this
+    write; first_triaged_at is carried from the record being replaced, or set
+    now when this is the incident's first complete note, so that the time to
+    a first note survives the rewrites a prompt change or new activity cause
+    (scripts/measure.py reads it)."""
+    now = datetime.now(timezone.utc).isoformat()
     item = {
         "incident_id": incident["incident_id"],
         "fingerprint": fingerprint(incident, intel),
         "status": status,
         "model_id": MODEL_ID,
         "prompt_version": PROMPT_VERSION,
-        "triaged_at": datetime.now(timezone.utc).isoformat(),
+        "triaged_at": now,
     }
+    if first_noted:
+        item["first_triaged_at"] = first_noted
+    elif status == "complete":
+        item["first_triaged_at"] = now
     if note:
         item.update(note)
     if usage:
@@ -520,8 +530,11 @@ def handler(event, context):
     # answered invalidly once in twenty-one and validly the other twenty times.
     # Settling on the first bad answer therefore left roughly one incident in
     # twenty with no note at all until the incident itself changed.
-    settled = {t["incident_id"]: t.get("fingerprint")
-               for t in _scan(_triage, ProjectionExpression="incident_id, fingerprint")}
+    settled, first_noted = {}, {}
+    for t in _scan(_triage, ProjectionExpression="incident_id, fingerprint, first_triaged_at"):
+        settled[t["incident_id"]] = t.get("fingerprint")
+        if t.get("first_triaged_at"):
+            first_noted[t["incident_id"]] = t["first_triaged_at"]
     intel = intel_for(incidents)
     queue = pending(incidents, settled, intel)
 
@@ -556,10 +569,12 @@ def handler(event, context):
             rejected += 1
             logger.warning("TRIAGE_REJECTED %s", json.dumps(
                 {"incident_id": incident["incident_id"], "attempts": discarded}))
-            _record(incident, "invalid_output", usage=_spent(responses), intel=intel)
+            _record(incident, "invalid_output", usage=_spent(responses), intel=intel,
+                    first_noted=first_noted.get(incident["incident_id"]))
             continue
         resampled += bool(discarded)
-        _record(incident, "complete", note, usage=_spent(responses), intel=intel)
+        _record(incident, "complete", note, usage=_spent(responses), intel=intel,
+                first_noted=first_noted.get(incident["incident_id"]))
         triaged += 1
 
     waiting = len(queue) - triaged - rejected
