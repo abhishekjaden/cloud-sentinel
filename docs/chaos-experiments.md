@@ -41,7 +41,7 @@ signal includes its notification arriving, and is checked in the inbox.
 | E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** — it fired, but 77 minutes after the last run; **third run 11 October**, on a wall-clock window — fired 49 min 41 s after the last run, as designed |
 | E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
 | E5 | A control changed by hand | 8 | **run, 3 October 2026** |
-| R1 | A restore from point-in-time recovery | 8 (by the deletion of the copies); the review's open gap | **expected signals written 21 October 2026**; run pending |
+| R1 | A restore from point-in-time recovery | 8 (by the deletion of the copies); the review's open gap | **run, 21 October 2026** — the incidents copy usable in 14 min 1 s, the findings copy (3,728 items, two indexes) in 18 min 20 s, every item accounted for; the deletions in the inbox within the minute and alarmed in 98 s; the alarm cleared in 15 min, not the ten expected |
 
 ---
 
@@ -834,3 +834,52 @@ It never writes to a live table, and only ever deletes a name carrying
 **Rollback.** The copies are deleted by the script's last step;
 `python scripts/restore_rehearsal.py --delete-copies` removes any that a
 failed run left behind. Nothing else changes.
+
+**Observed, 21 October 2026.** The expectations above were committed as
+`80a77e1` at 18:04:59Z and pushed; the script asked for both restores at
+18:05:10Z, eleven seconds later. Its own record is
+`docs/restore-rehearsal-2026-10-21.json`; the alarm history and the inbox
+supply the rest. Times are UTC; the script's wall-clock stamps are the
+operator's machine's, the alarm's and CloudTrail's are AWS's.
+
+1. Both copies came active inside the bound, timed from one start: the
+   incidents copy after **840.6 s** (14 min 1 s), with `status-index`; the
+   findings copy — 3,728 items — after **1,100.0 s** (18 min 20 s), with
+   `severity-index` and `source-time-index`. The durations are from the
+   machine's monotonic clock. Its wall clock was again fast: it stamped the
+   findings copy active at 18:23:31, while CloudTrail puts the first
+   deletion, which followed four scans of that copy and the live tables, at
+   18:23:21Z — of the order of fifteen seconds, as E1 found (12 to 21 s).
+2. The incidents copy held 17 items against 17 stamped at or before the
+   instant: exact. The findings copy held 3,728 against 1,423 stamped at or
+   before it, 2,303 without a stamp — findings stored before 3 October,
+   when `stored_at` was introduced — and 2 stamped after it; the live table
+   held 3,728 in all, the same as the copy, so the two written since were
+   rewrites of findings the copy already held, not new ones: the one excess
+   the expectation allowed for. Nothing was short.
+3. Two control-change messages, `DeleteTable` from the SSO administrator
+   role on each copy — events `d72076d9-…` at 18:23:21Z and `8eed5df4-…`
+   at 18:23:22Z — both in the inbox within the minute (Gmail: 11:53 PM
+   IST). `controls-unchanged` went to ALARM at 18:24:58.9Z, **98 s** after
+   the first call: inside the five minutes expected, and past E5's previous
+   maximum of 91 s. Nothing came for the restores themselves. The alarm
+   cleared at 18:39:58.9Z, **15 min 0 s** later — not within the ten
+   expected, and the same 15 to 16 minutes as on 11 October (ALARM
+   12:47:52Z, OK 13:03:52Z). The ten was copied from E5, which never
+   measured a clearing; the cause is the one E3 found in objective 3's
+   alarm: with the period at five minutes and a metric that emits only when
+   a change happens, the sliding evaluation keeps judging on the last real
+   data point for three periods before it treats the silence as not
+   breaching. For a watch that exists to raise an alarm, a slow clearing
+   costs nothing; it is recorded, not fixed.
+4. No other alarm changed state between 17:55Z and 19:00Z — the Triage
+   deploy of `f7011cc`, pushed at 18:19Z and run through the CDK execution
+   role, included.
+5. Cost: not posted by Cost Explorer when this was written; the next
+   measurement's cost row in `docs/evaluation.md` carries the period.
+
+Every signal came as expected except the clearing time, which is now a
+measured fifteen minutes rather than an assumed ten. The gap the review has
+carried since it was written — "a restore has never been rehearsed" — is
+closed with a number: eighteen minutes to a usable copy of the findings
+table, and the cut-over still unrehearsed.

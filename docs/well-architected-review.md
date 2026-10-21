@@ -190,13 +190,22 @@ control-change watch and the honeypot.
 - *PITR could be enabled* → enabled on every table.
 - *No failure handling at ingestion* → partial batch failures, retries, the
   failure queue, and the objective that watches it.
+- *No disaster-recovery drill* → a restore rehearsed and timed on 21 October
+  2026 (`docs/chaos-experiments.md`, R1): the findings and incidents tables
+  restored to one instant as new tables, the incidents copy usable in
+  14 min 1 s and the findings copy — 3,728 items, two indexes — in
+  18 min 20 s, every item accounted for against the live tables' stamps,
+  and the copies' deletion reported by the control watch as the hand-made
+  change it was. `scripts/restore_rehearsal.py` runs it again.
 
 **Gaps / next step**
 - Single Fargate task, single Kinesis shard, single Region. Appropriate for
   the volume; named rather than hidden. A second task is a one-line change;
   resharding is a capacity decision the flow metrics would signal.
-- No disaster-recovery drill. PITR is enabled but a restore has never been
-  rehearsed.
+- The restore is rehearsed; the cut-over is not. A restored table has a new
+  name and DynamoDB does not rename tables, so a recovery would go on to
+  redeploy the stacks against the copy or copy its data back into the live
+  table — time on top of the eighteen minutes, not yet measured.
 - All five chaos experiments in `docs/chaos-experiments.md` have run.
   E1 (malformed input) behaved as designed under the first retry policy.
   E2 (the normalizer denied its

@@ -1,0 +1,57 @@
+{
+  "rehearsed_at": "2026-10-21T18:05:10+00:00",
+  "restore_point": "2026-10-21T17:59:57+00:00",
+  "tables": {
+    "cloudsentinel-findings": {
+      "copy": "cloudsentinel-findings-restored-20261021T175957Z",
+      "requested_at": "2026-10-21T18:05:10+00:00",
+      "copy_is_of": "2026-10-21T17:59:57+00:00",
+      "seconds_to_active": 1100.0,
+      "active_at": "2026-10-21T18:23:31+00:00",
+      "indexes": [
+        "severity-index",
+        "source-time-index"
+      ],
+      "copy_items": 3728,
+      "live": {
+        "stamp": "stored_at",
+        "at_or_before": 1423,
+        "after": 2,
+        "unstamped": 2303,
+        "total_now": 3728
+      },
+      "comparison": {
+        "expected": 3726,
+        "excess": 2,
+        "verdict": "2 more than the stamps say, within the 2 written since"
+      }
+    },
+    "cloudsentinel-incidents": {
+      "copy": "cloudsentinel-incidents-restored-20261021T175957Z",
+      "requested_at": "2026-10-21T18:05:10+00:00",
+      "copy_is_of": "2026-10-21T17:59:57+00:00",
+      "seconds_to_active": 840.6,
+      "active_at": "2026-10-21T18:19:11+00:00",
+      "indexes": [
+        "status-index"
+      ],
+      "copy_items": 17,
+      "live": {
+        "stamp": "created_at",
+        "at_or_before": 17,
+        "after": 0,
+        "unstamped": 0,
+        "total_now": 17
+      },
+      "comparison": {
+        "expected": 17,
+        "excess": 0,
+        "verdict": "matches"
+      }
+    }
+  },
+  "copies_deleted": [
+    "cloudsentinel-findings-restored-20261021T175957Z",
+    "cloudsentinel-incidents-restored-20261021T175957Z"
+  ]
+}

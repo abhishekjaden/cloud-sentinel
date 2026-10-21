@@ -454,7 +454,12 @@ recent changes with who made them.
 
 **When it fires.** Read the topic message. If the change was yours — a hotfix
 in the console, a key rotated by hand — record why, in the incident log or the
-commit that follows. If it was not, treat it as an intrusion in progress and
+commit that follows. It clears on its own about fifteen minutes after the
+last change (16 min on 11 October, 15 min 0 s on 21 October): the metric
+emits only when a change happens, and the sliding evaluation judges on the
+last real data point for three periods before the silence counts as not
+breaching — slow to clear, which costs nothing for a watch whose job is to
+fire. If it was not, treat it as an intrusion in progress and
 start from the caller: the ARN says which role or user, and the audit
 account's CloudTrail says what else that identity did. The control changed is
 the one that would have reported the attacker, so check the others next.
