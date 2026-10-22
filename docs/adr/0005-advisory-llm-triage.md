@@ -486,4 +486,20 @@ United States. Each note records the model and prompt version that wrote it.
   flag can move it is the coupling to carry forward, and the reason a
   revision is judged on every case rather than the ones it was written
   for.
+
+  **The honeypot's last five cases, 22 October 2026.** The honeypot was
+  destroyed on the 22nd after nine days and nine hours (`docs/triage-eval-protocol.md`,
+  section 1), having drawn ten incidents of one pattern — a lone
+  `SSHBruteForce` finding at GuardDuty's 2.0, never a chain. The sixth,
+  labelled on the 20th, and the last four, labelled on the 22nd, are all
+  low–medium by the author and the guide, each with the labeller's
+  statement that no AI tool helped; the labelling of the four took three
+  files, the first two with reasons the cases do not support and the
+  second raising three bands, the third citing the record alone — kept,
+  all three, in section 7 of the protocol. Merged with no label changed:
+  twenty independent cases, ten of them the honeypot's. Expected before
+  the run, at prompt `2026-10-20.2`: honeypot 30 of 30, every answer
+  `low`; written 27 of 30; 57 of 60. The thing to watch is the escalation
+  that the first five did not produce, on five addresses more heavily
+  reported than any before them.
 - Cost at the current volume is well under a dollar a month.

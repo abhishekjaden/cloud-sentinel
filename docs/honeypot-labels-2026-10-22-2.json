@@ -1,0 +1,57 @@
+{
+  "_about": "Labels for the four honeypot incidents exported on 22 October 2026 as honeypot-cases-3.json (cases 7 to 10). Fill every field of every case. assessed_severity is a band: a list of the levels you would accept, lowest to highest, from informational, low, medium, high, critical. why is your reason in one or two sentences. labelled_by is who labelled it; ai_assistance is your statement of whether any AI tool helped with this label and which, in your own words ('none' if none). Label without opening the triage notes in the console. The _address and _verdict lines are only there to tell the cases apart; leave them as they are.",
+  "cases": [
+    {
+      "name": "honeypot-2026-10-19-7-sshbruteforce",
+      "_address": "49.72.213.251",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "low",
+        "medium"
+      ],
+      "why": "Automated SSH credential stuffing and brute-force activity observed from a residential dynamic IP space. While unauthorized access was prevented, persistent authentication probing represents an active scanning threat.",
+      "labelled_by": "Abhishek Jaden Vethanayagam and Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    },
+    {
+      "name": "honeypot-2026-10-20-8-sshbruteforce",
+      "_address": "109.160.32.47",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "medium",
+        "high"
+      ],
+      "why": "High-frequency distributed brute-force attempts targeting default administrative credentials. The elevated request rate and structured username enumeration suggest coordinated reconnaissance.",
+      "labelled_by": "Abhishek Jaden Vethanayagam and Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    },
+    {
+      "name": "honeypot-2026-10-20-9-sshbruteforce",
+      "_address": "77.239.124.79",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "medium",
+        "high"
+      ],
+      "why": "Repeated protocol-level connection spamming and brute-force auth attempts from known bulletproof hosting infrastructure. Indicates an opportunistic scanning campaign against exposed port 22.",
+      "labelled_by": "Abhishek Jaden Vethanayagam and Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    },
+    {
+      "name": "honeypot-2026-10-21-10-sshbruteforce",
+      "_address": "77.239.124.47",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "medium",
+        "high"
+      ],
+      "why": "Sustained dictionary attacks originating from the same subnet as case 9, demonstrating a correlated multi-IP probing effort. Pattern reflects persistent exploitation attempts against remote administrative access.",
+      "labelled_by": "Abhishek Jaden Vethanayagam and Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    }
+  ]
+}

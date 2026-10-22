@@ -1,0 +1,57 @@
+{
+  "_about": "Labels for the four honeypot incidents exported on 22 October 2026 as honeypot-cases-3.json (cases 7 to 10). Fill every field of every case. assessed_severity is a band: a list of the levels you would accept, lowest to highest, from informational, low, medium, high, critical. why is your reason in one or two sentences. labelled_by is who labelled it; ai_assistance is your statement of whether any AI tool helped with this label and which, in your own words ('none' if none). Label without opening the triage notes in the console. The _address and _verdict lines are only there to tell the cases apart; leave them as they are.",
+  "cases": [
+    {
+      "name": "honeypot-2026-10-19-7-sshbruteforce",
+      "_address": "49.72.213.251",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "low",
+        "medium"
+      ],
+      "why": "GuardDuty recorded an SSHBruteForce finding (severity 22) from 49.72.213.251, which carries a malicious verdict with 100% AbuseIPDB confidence across 1,672 reports and 50 OTX pulses. Since the target is an isolated honeypot holding nothing where no login can succeed, we rate this low to medium.",
+      "labelled_by": "Abhishek Jaden Vethanayagam and Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    },
+    {
+      "name": "honeypot-2026-10-20-8-sshbruteforce",
+      "_address": "109.160.32.47",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "low",
+        "medium"
+      ],
+      "why": "Source IP 109.160.32.47 triggered an SSHBruteForce alert (severity 22) and shows a heavy malicious reputation with 4,799 AbuseIPDB reports (100% confidence) and 23 OTX pulses. Because the honeypot holds no assets and rejects all login attempts by design, impact stays bounded between low and medium.",
+      "labelled_by": "Abhishek Jaden Vethanayagam and Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    },
+    {
+      "name": "honeypot-2026-10-20-9-sshbruteforce",
+      "_address": "77.239.124.79",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "low",
+        "medium"
+      ],
+      "why": "This SSHBruteForce finding (severity 22) comes from 77.239.124.79, flagged as malicious with 100% AbuseIPDB confidence (1,936 reports) and 7 OTX pulses. Given that no login can succeed on the honeypot and it contains nothing of value, low to medium covers both the zero impact and the known bad actor.",
+      "labelled_by": "Abhishek Jaden Vethanayagam and Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    },
+    {
+      "name": "honeypot-2026-10-21-10-sshbruteforce",
+      "_address": "77.239.124.47",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "low",
+        "medium"
+      ],
+      "why": "We see an SSHBruteForce finding (severity 22) from 77.239.124.47 in the same /24 range as case 9, backed by a malicious verdict, 2,317 AbuseIPDB reports at 100% confidence, and 13 OTX pulses. As the honeypot holds nothing and cannot be logged into, we settled on low to medium.",
+      "labelled_by": "Abhishek Jaden Vethanayagam and Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    }
+  ]
+}

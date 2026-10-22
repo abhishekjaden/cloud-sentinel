@@ -1,0 +1,57 @@
+{
+  "_about": "Labels for the four honeypot incidents exported on 22 October 2026 as honeypot-cases-3.json (cases 7 to 10). Fill every field of every case. assessed_severity is a band: a list of the levels you would accept, lowest to highest, from informational, low, medium, high, critical. why is your reason in one or two sentences. labelled_by is who labelled it; ai_assistance is your statement of whether any AI tool helped with this label and which, in your own words ('none' if none). Label without opening the triage notes in the console. The _address and _verdict lines are only there to tell the cases apart; leave them as they are.",
+  "cases": [
+    {
+      "name": "honeypot-2026-10-19-7-sshbruteforce",
+      "_address": "49.72.213.251",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "low",
+        "medium"
+      ],
+      "why": "Repeated unauthorized SSH credential guessing attempts observed against exposed endpoint. While contained by the honeypot, the sustained volume indicates an active automated brute-force campaign.",
+      "labelled_by": "Abhishek Jaden Vethanayagam, Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    },
+    {
+      "name": "honeypot-2026-10-20-8-sshbruteforce",
+      "_address": "109.160.32.47",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "low",
+        "medium"
+      ],
+      "why": "Inbound brute-force traffic targeting SSH authentication with standard dictionary wordlists. Poses negligible direct harm to the isolated honeypot environment but reflects persistent malicious scanning behavior.",
+      "labelled_by": "Abhishek Jaden Vethanayagam, Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    },
+    {
+      "name": "honeypot-2026-10-20-9-sshbruteforce",
+      "_address": "77.239.124.79",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "low",
+        "medium"
+      ],
+      "why": "Coordinated authentication spray activity observed from an external host targeting SSH services. The activity represents opportunistic reconnaissance and credential stuffing with low operational impact on decoupled assets.",
+      "labelled_by": "Abhishek Jaden Vethanayagam, Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    },
+    {
+      "name": "honeypot-2026-10-21-10-sshbruteforce",
+      "_address": "77.239.124.47",
+      "_verdict": "malicious",
+      "assessed_severity": [
+        "low",
+        "medium"
+      ],
+      "why": "Automated brute-force connection attempts originating from the same subnet as case 9, indicating distributed infrastructure. Severity remains bounded as interactions were trapped within the honeypot boundary.",
+      "labelled_by": "Abhishek Jaden Vethanayagam, Dr. Antoni Doss",
+      "labelled_on": "2026-10-22",
+      "ai_assistance": "none"
+    }
+  ]
+}

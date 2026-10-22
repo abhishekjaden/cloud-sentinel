@@ -83,6 +83,18 @@ sit under the audit account's partition. Exported the same morning as
 --number-from 6`, to be labelled by hand, held with whatever else arrives
 by the 22nd, and merged and run once.
 
+**Destroyed 22 October 2026.** Generation 3 was launched at 18:05:25Z on
+the 12th; the instance was gone at 02:59:07Z on the 22nd and the stack at
+02:59:48Z — nine days and nine hours, short of the ten planned, because the
+destroy was run in the morning IST rather than the evening. Four more
+incidents arrived after the sixth, all `UnauthorizedAccess:EC2/SSHBruteForce`
+at GuardDuty's 2.0, one finding each: 19:26Z on the 19th, 19:15Z and
+21:35Z on the 20th, 13:15Z on the 21st, the last two from adjacent
+addresses in 77.239.124.0/24. They were exported minutes before the destroy
+with `--since 2026-10-19T01:46:00 --number-from 7` and labelled the same
+afternoon (section 7). Ten incidents in all, from ten addresses, over the
+run — one pattern, never a chain.
+
 ## 2. The label comes first
 
 A case's `expect` block is written **before** the model is run on it, and is
@@ -189,7 +201,7 @@ not a detection rate, and the project does not quote one.
 |---|---|---|---|
 | The twelve existing cases | the prompt's author (for the last five, the project's author picked the finding types in the console; the scenarios and labels are still the prompt author's) | no | the author |
 | Hand-written set | the project's author, on the form, 13 October 2026 (section 6) | partly: the author had read earlier versions of the prompt; the revision judged on these cases was written and deployed before they were opened | the writer; disagreements adjudicated with the project guide |
-| Honeypot incidents | nobody (five cases so far, 18 October 2026; section 7) | yes | the project's author and the guide |
+| Honeypot incidents | nobody (ten cases, 13–21 October 2026; section 7) | yes | the project's author and the guide |
 | Cases from a second person | a classmate or the guide, given this document | yes | the writer |
 
 The second person is the most independent source and the slowest to arrange.
@@ -332,3 +344,50 @@ the three that were. The expectation held and the escalation did not
 happen. The written ten came out 24 of 30 as on the 17th, the same two
 cases failing for the same stated reasons. The record, and what it is and is
 not evidence of, is in ADR 0005.
+
+**The sixth and the last four, 20–22 October 2026.** The sixth incident
+(135.148.217.213, malicious at AbuseIPDB confidence 100 with 1,056 reports
+and 33 OTX pulses) was labelled low–medium on 20 October by the author with
+the guide, with the statement `none — the author's statement of 20 October
+2026: labelled manually, with Dr. Antoni Doss`, and held. The four exported
+on the 22nd (49.72.213.251, 109.160.32.47, 77.239.124.79 and 77.239.124.47;
+all malicious at confidence 100, with 1,672, 4,799, 1,936 and 2,317 reports
+and 50, 23, 7 and 13 pulses) were labelled by the author and the guide that
+afternoon, every case stating `none` for AI assistance. From this export on
+the statement is a field of the case, written by the labeller beside the
+band (`ai_assistance`), and the export carries it empty.
+
+The labelling took three files in forty-one minutes, all kept as
+`docs/honeypot-labels-2026-10-22-{1,2,3}.json`. The first (16:05 IST) put
+all four at low–medium, with reasons that asserted things the cases do not
+hold — "standard dictionary wordlists", "coordinated authentication spray",
+"distributed infrastructure"; the prompt's author pointed this out before
+merging, since a case holds one finding's type, severity and time, the
+address, and the enricher's verdict with its figures, and nothing else. The
+second (16:13) raised cases 8, 9 and 10 to medium–high with no new evidence
+and asserted more ("default administrative credentials", "structured
+username enumeration", "known bulletproof hosting infrastructure"); the
+prompt's author said so, restated the rule — cite only what the case holds
+and section 1 — and left the bands to the labellers. The third (16:46) put
+all four back at low–medium, with reasons citing the finding's type and
+severity, the verdict and its figures, and that the honeypot holds nothing
+and admits no login; every figure cited was checked against the case's
+intel and matches. The third is the label. None of this is a correction
+after a run — the model had not been run on any of the four — and the
+record keeps it because the protocol keeps every version of a label.
+
+The five were merged on the 22nd with no label changed; the file holds
+twenty cases, ten of them the honeypot's, SHA-256
+`b2ba50edb8769faee8ab7fa6b108a57f0758d1c1b44e94781f36d47c85756c28`.
+
+Expected before the run, by the prompt's author and not the labellers: at
+prompt `2026-10-20.2`, every one of the thirty honeypot answers `low`, as
+all fifteen were on the 18th and under both revisions of the 20th, the
+confidence high on the eight addresses listed as malicious and medium on
+the two that are not, the flag clear and no injection suspected on any;
+the written ten 27 of 30 as on the 19th and 20th, the domain-reputation
+case still failing on every run — 57 of 60. The failure to watch is an
+escalation to `medium` or `high` on the five new addresses, the most
+heavily reported the set has seen (1,056 to 4,799 reports, all at
+confidence 100), which would be the escalation the first five did not
+produce.

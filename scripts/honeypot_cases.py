@@ -22,8 +22,10 @@ Usage, from a terminal with the audit profile logged in:
         --out ~/Downloads/honeypot-cases-2.json
 
 Then, in the file, fill each case's "why", "expect.assessed_severity" (the
-band, lowest to highest), "labelled_by" and "labelled_on"; the two flags are
-false for real traffic. The labelled file is merged into
+band, lowest to highest), "labelled_by", "labelled_on" and "ai_assistance" —
+the labeller's own statement of whether an AI tool helped with the label and
+which, "none" if none (docs/triage-eval-protocol.md, section 5); the two
+flags are false for real traffic. The labelled file is merged into
 scripts/triage_eval_cases_independent.json with "source": "honeypot", and
 scripts/eval_triage.py --independent runs it and reports each source apart.
 """
@@ -144,6 +146,7 @@ def case_of(ddb, incident, n):
         "written_by": "nobody: GuardDuty, against the honeypot (docs/triage-eval-protocol.md, section 1)",
         "labelled_by": "",
         "labelled_on": "",
+        "ai_assistance": "",
         "incident_id": str(incident.get("incident_id")),
         "incident": {
             "resource": str(incident.get("resource")),
@@ -197,9 +200,9 @@ def main():
     out = Path(args.out).expanduser()
     out.write_text(json.dumps({
         "_about": ("Unlabelled cases copied from the honeypot's incidents by scripts/honeypot_cases.py, "
-                   "without reading the triage notes. Fill why, expect.assessed_severity, labelled_by and "
-                   "labelled_on before anyone looks at a note; then merge into "
-                   "scripts/triage_eval_cases_independent.json."),
+                   "without reading the triage notes. Fill why, expect.assessed_severity, labelled_by, "
+                   "labelled_on and ai_assistance (the labeller's statement on AI help, 'none' if none) "
+                   "before anyone looks at a note; then merge into scripts/triage_eval_cases_independent.json."),
         "cases": cases}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"{len(cases)} unlabelled case(s) written to {out}:")
     for c in cases:

@@ -58,6 +58,9 @@ def test_an_incident_becomes_an_unlabelled_case_in_the_authored_shape(exporter):
     assert case["source"] == "honeypot"
     assert case["name"] == "honeypot-2026-10-13-1-sshbruteforce"
     assert case["why"] == "" and case["labelled_by"] == ""
+    # The labeller's statement on AI assistance is a field of the case, to be
+    # filled with the label (protocol section 5); the export leaves it empty.
+    assert case["ai_assistance"] == ""
     assert case["expect"] == {"assessed_severity": [], "likely_test_data": False, "injection_suspected": False}
     assert case["incident"]["resource"] == "i-0056dd9b1a24c9c16"
     assert case["incident"]["max_severity"] == 22 and isinstance(case["incident"]["max_severity"], int)
