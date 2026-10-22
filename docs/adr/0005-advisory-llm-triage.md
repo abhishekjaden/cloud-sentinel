@@ -527,4 +527,27 @@ United States. Each note records the model and prompt version that wrote it.
   author's ten cases, which the prompt's author did not write but AI
   helped draft. The honeypot is destroyed; a third run, if one is wanted,
   needs a lure that draws more than password guesses.
+
+  **The domain-reputation adjudication, 22 October 2026.** The one written
+  case the model failed on every run since 17 October — a lone
+  `Impact:EC2/SuspiciousDomainRequest.Reputation` at GuardDuty's 2.2,
+  banded `low` alone, answered `medium` at medium confidence eighteen
+  times out of eighteen across six runs, with the same four reasons each time: fits an attack and
+  fits a misconfiguration, no verdict on the domain, the detector's own
+  score low, no follow-on — was put to the writer and the guide with the
+  scale's text beside it. They widened the band to low–medium, for the
+  reason they gave: the query is the instance's own outbound contact, not
+  inbound reconnaissance or a failed probe, and a lone outbound request to
+  a suspicious-reputation domain with no harmful follow-on is the scale's
+  single ambiguous step as well as the detector's low (`docs/triage-eval-protocol.md`,
+  section 6, verbatim). The original band stays in the case's text, as the
+  cost-harvesting and invented-names widenings did; the recorded runs stand
+  as run, and read 60 of 60 on the 22nd on the widened band. This is the
+  third label to widen on the record and the first written by someone other
+  than the prompt's author; in each the model's answer sat one step from
+  the band on a case the scale's own words reach, which is what a one-step
+  band is for. The model's reasons here all pointed down while its answer
+  stayed at medium — consistent with the scale's instruction that the
+  doubt belongs in confidence, and worth watching: a model that argues low
+  and answers medium is following the scale, not weighing the case.
 - Cost at the current volume is well under a dollar a month.

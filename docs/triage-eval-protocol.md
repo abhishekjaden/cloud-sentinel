@@ -279,6 +279,28 @@ Run on 17 October at prompt `2026-10-17.1`, three times each: 24 of 30. The
 record, the two failing cases with the model's reasons, and the two
 adjudications left to the writer and the guide are in ADR 0005.
 
+**The domain-reputation adjudication, 22 October 2026.** The one case the
+model failed on every run of every prompt — `ajv-isolated-domain-reputation`,
+a lone `Impact:EC2/SuspiciousDomainRequest.Reputation` finding at GuardDuty's
+2.2, labelled `low` alone, answered `medium` at medium confidence eighteen
+times out of eighteen across six runs — was adjudicated by the writer and the guide, with the
+case, the model's four reasons and the scale's text for `low` and `medium`
+in front of them. Their decision, as given: widen the band to
+`["low", "medium"]`. Their reason, as given: "While GuardDuty's 2.2
+severity and the absence of corroborating findings support `low`, this
+finding is an outbound DNS query originating from the instance itself rather
+than inbound reconnaissance or failed external probing. Because a lone
+outbound request to a suspicious-reputation domain is a single ambiguous
+step where the harmful follow-on has not been seen, the prompt scale's
+definition of `medium` legitimately covers it as well." Decided by Abhishek
+Jaden Vethanayagam and Dr. Antoni Doss. The band is widened in the file
+with the original kept in the case's own text, as the two authored
+widenings were; every run recorded above stands as run, and on the widened
+band they read 27, 42, 45, 45, 45 and 60 of 30, 45, 45, 45, 45 and 60.
+Both adjudications the first set left open are now closed: one a prompt
+defect, fixed; one a label the scale's own words cover a step wider than
+the writer first drew it.
+
 ## 7. Honeypot incidents into cases
 
 `scripts/honeypot_cases.py --resource <instance> --out <file>` copies every

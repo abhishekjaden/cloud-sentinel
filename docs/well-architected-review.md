@@ -37,9 +37,13 @@ control-change watch and the honeypot.
   the whole history. They ran beside CI until 19 October 2026, with nothing
   depending on them: a Semgrep finding — an inline suppression naming the
   rule in one of the two forms the scanner reports it under — left the
-  Security workflow red for days while deploys went on, noticed only from a
-  screenshot of the Actions list. The span is in the Actions history; the
-  scanner is now a pinned release, and its findings fail CI.
+  Security workflow red from its scheduled run of 12 October (run #95,
+  12:35Z) to the gate's first green run on the 19th (after `ce5f4a1`,
+  05:44Z): six days and seventeen hours, while deploys went on, noticed only
+  from a screenshot of the Actions list. The run before, #94 on the 11th,
+  had passed, and nothing was pushed between the two, so what changed was
+  the scanner's floating container, not the code. The scanner is now a
+  pinned release, and its findings fail CI.
 - Decisions are ADRs (seven so far), objectives are `docs/slos.md` with a
   "when it fires" response under each alarm, the threat model is STRIDE
   across eight boundaries, and the evaluation of the one component whose

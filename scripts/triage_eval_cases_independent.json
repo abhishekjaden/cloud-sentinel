@@ -337,7 +337,7 @@
     },
     {
       "name": "ajv-isolated-domain-reputation",
-      "why": "One query to a low reputation domain does not establish a known malicious destination or a compromised host. With no corroborating findings, keep this case low and do not escalate.",
+      "why": "One query to a low reputation domain does not establish a known malicious destination or a compromised host. With no corroborating findings, keep this case low and do not escalate. (Band widened from low alone to low-medium after the 22 October 2026 adjudication by the writer and the guide, ADR 0005: a lone outbound query by the instance is the scale's own single ambiguous step as well as the detector's low.)",
       "written_by": "Abhishek Jaden Vethanayagam",
       "labelled_on": "2026-10-13",
       "incident": {
@@ -366,7 +366,8 @@
       ],
       "expect": {
         "assessed_severity": [
-          "low"
+          "low",
+          "medium"
         ],
         "likely_test_data": false,
         "injection_suspected": false
