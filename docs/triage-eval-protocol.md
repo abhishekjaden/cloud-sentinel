@@ -391,3 +391,14 @@ escalation to `medium` or `high` on the five new addresses, the most
 heavily reported the set has seen (1,056 to 4,799 reports, all at
 confidence 100), which would be the escalation the first five did not
 produce.
+
+Run on 22 October at prompt `2026-10-20.2`, three times each, in one run
+with the ten written cases: 57 of 60 — honeypot 30 of 30, written 27 of 30,
+exactly as expected. Every honeypot answer `low`; confidence high on the
+eight listed addresses and medium on the two not; the flag clear and no
+injection suspected on any; the written ten as before, the
+domain-reputation case still open. The honeypot's record closes here: ten
+incidents, ten cases, one pattern, every answer inside the band under
+every prompt version run on them — three for the first five, one for the
+rest. The reasoning, and what the ten are and are not
+evidence of, is in ADR 0005.

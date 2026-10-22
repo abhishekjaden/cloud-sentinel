@@ -101,7 +101,7 @@ Other figures in Section V:
 |---|---|
 | Twelve synthetic cases written with the prompt; 33 of 36, then 36 of 36 after one disputed label was widened | ADR 0005, consequences; `docs/evaluation.md`, section 3; `scripts/triage_eval_cases.json`; `scripts/eval_triage.py` |
 | Who wrote the cases | `docs/triage-eval-protocol.md`, section 5: the prompt's author wrote the scenarios and labels, and for the last five the project's author picked the finding types in the GuardDuty console. The prompt's author is the AI assistant the draft's acknowledgment named; the submitted manuscript has no acknowledgment, and the camera-ready is to carry one |
-| The independent evaluation is pending | true when the paper was submitted; the first independent set was run on 17 October and the honeypot's first five cases on 18 October, both after submission — `scripts/triage_eval_cases_independent.json`, ADR 0005, `docs/evaluation.md` section 3 |
+| The independent evaluation is pending | true when the paper was submitted; the first independent set was run on 17 October, the honeypot's first five cases on 18 October and its ten on 22 October, all after submission — `scripts/triage_eval_cases_independent.json`, ADR 0005, `docs/evaluation.md` section 3 |
 
 ## What is not in the repository
 

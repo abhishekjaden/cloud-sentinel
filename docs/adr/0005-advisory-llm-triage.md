@@ -502,4 +502,29 @@ United States. Each note records the model and prompt version that wrote it.
   `low`; written 27 of 30; 57 of 60. The thing to watch is the escalation
   that the first five did not produce, on five addresses more heavily
   reported than any before them.
+
+  Run on 22 October at `2026-10-20.2` against the same model, three times
+  each, in one run with the ten written cases: **57 of 60** — honeypot
+  **30 of 30**, written 27 of 30. Exactly as expected. Every honeypot answer
+  was `low`, as all forty-five before it; the model's confidence was high
+  on the eight addresses listed as malicious and medium on the two that are
+  not, so the reputation showed where it did on the 18th, in the confidence
+  and not the severity; and the five new addresses, reported 1,056 to 4,799
+  times at AbuseIPDB confidence 100, moved nothing. The flag stayed clear
+  and no injection was suspected on any of the thirty. The written ten came
+  out as on the 19th and 20th, the domain-reputation case the one failure
+  on every run and the one open adjudication.
+
+  What the ten are evidence of: on every incident the platform's own
+  honeypot drew in nine days, a lone brute-force attempt against a target
+  was rated low thirty times out of thirty — the first five under three
+  prompt versions, the last five under one — with the source's reputation — up to the most heavily reported address
+  the set has seen — never pulling it up a step. What they are not: ten
+  cases of one pattern are one piece of evidence ten times over. The
+  honeypot never drew a chain, a probe of another port, or a finding of
+  any other type, so chains, the test-data flag and injection rest on the
+  written sets alone, and the independent evidence for them is the project
+  author's ten cases, which the prompt's author did not write but AI
+  helped draft. The honeypot is destroyed; a third run, if one is wanted,
+  needs a lure that draws more than password guesses.
 - Cost at the current volume is well under a dollar a month.
