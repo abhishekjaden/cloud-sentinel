@@ -119,7 +119,8 @@ address and no NAT gateway (saves about $1.10 a day; the security group
 still admits only the load balancer), and replace the shard with a queue
 (saves $10.80 a month; costs the 24-hour replay by sequence number that E2
 relies on). Both together bring always-on to about $50 net. Each is a
-decision, not a fix, and gets an ADR if taken.
+decision, not a fix: ADR 0009 proposes the first with its numbers, and ADR
+0010 prices the second against the measurements a queue would have to earn.
 
 The honeypot ran from 3 to 8 October — about ₹115 for four and a half days,
 half of it the public address — and was destroyed after raising no GuardDuty
