@@ -166,7 +166,27 @@ low-severity finding up — and nothing about chains, the test-data flag or
 injection, which remain the written sets' evidence. Cases from a second
 person are the independent source still to come.
 
-## 4. The controls
+## 4. The intrusion detector
+
+The detector's record is the model card (`ml/MODEL_CARD.md`). Its figures
+within one dataset are high and, as the card explains, mostly the dataset's
+doing; what it can be trusted with on a network it was not trained on is
+measured here.
+
+| Date | Measurement | Result | Record |
+|---|---|---|---|
+| 13 Oct 2026 | Trained on all of the corrected CICIDS2017 (83 features), scored on all 63,195,088 flows of the corrected CSE-CIC-IDS-2018 | AUC 0.577; F1 0.082 at the served threshold; DoS Hulk 47 of 1,803,160 flows flagged | model card, 6.3 |
+| 24 Oct 2026 | Three datasets — both corrected CIC releases and UNSW-NB15 — on fourteen shared features, trained on each and on each pair and tested on the rest; six expectations pushed before any table existed | G1 and G2 met; G3 not met, a model trained on UNSW-NB15 worse than chance on both CIC releases (AUC 0.260 and 0.363); G4 not met in any direction. Trained on two, tested on the third: AUC **0.634, 0.665, 0.884**, F1 0.250, 0.041, 0.069 | model card, 6.4; `docs/generalization-protocol.md` |
+| 24 Oct 2026 | The same with the destination port added | five of six cross cells lower, three of them now below chance; leave-one-out 0.686, 0.617, 0.693 | model card, 6.4 |
+| from 24 Oct 2026 | The honeypot's own flows, labelled by construction, scored by the model trained on all three (G5, G6) | running; ten days end 3 November | protocol, sections 3 and 6 |
+
+The leave-one-out row is the figure the project quotes. It says a detector
+trained on public datasets does not carry to a network it has not seen, and
+the protocol's fourth expectation, missed, fixed the conclusion before the
+run: a detector for this platform should be trained on this platform's
+traffic.
+
+## 5. The controls
 
 | Experiment | Objective | Result |
 |---|---|---|
@@ -180,7 +200,7 @@ person are the independent source still to come.
 | A deployment that broke the correlator, found by the alarm rather than by an experiment (18 Oct) | 3 | commit `197e1e7` moved the correlator to an index query without granting the index; every run from 10:46 UTC failed on `AccessDeniedException`, and incidents-current fired at 11:20:14 — 48 min 34 s after the last completed run, 14 s after the ninth empty window — and was delivered. Fixed in `6bb23ff`, pushed 53 min after the alarm, with a CDK test that fails on the template as shipped; the first completed run on the fixed role was at 12:19:24 with the same 12 incidents and 439 findings as before the break, and the alarm cleared at 12:20:14, exactly an hour after it fired. The deploy workflow now runs the correlator once after every deploy and fails if it errors (`6828416`). Nothing was lost; incidents were stale for the duration (`docs/slos.md`, objective 3) |
 | The roles, the per-user limit and the WAF, driven past their limits once (21 Oct) | 6, 7 | an analyst's decision refused with 403 and an approver's recorded against a staged quarantine; 150 requests in 14 s from one identity: 110 answered, 40 refused with 429 and a Retry-After; 3,000 requests in 3 min 25 s from one address: 2,436 answered, 564 refused by the WAF, 589 counted blocked, about 400 admitted past the nominal 2,000 before the rule caught up. One session, one address, one identity (`docs/slos.md`, *The API session of 21 October*) |
 
-## 5. What the numbers are not
+## 6. What the numbers are not
 
 - Not a detection rate. GuardDuty detects; the platform stores, correlates,
   enriches and advises. A finding GuardDuty does not raise never reaches it.
@@ -192,3 +212,7 @@ person are the independent source still to come.
   project's author and five real incidents of one pattern.
 - Not a production SLA. Each objective's target is what the platform held at
   its volume; the alarms say when it stops.
+- Not evidence that the intrusion detector works on this platform's traffic.
+  Within one dataset it separates attack from benign almost perfectly;
+  across three it does not (section 4), and the platform's own flows are
+  still being collected.

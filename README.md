@@ -30,7 +30,7 @@ Each figure was measured on the deployed system and is recorded where the last c
 | Alarms | correlation silence alarmed 49.7 min after the last run (45–50 by design); a hand-made control change alarmed in a median of 73 s (n = 8); notifications delivered within the second of each state change since 13 Oct — before that, 0 of 49 ever were | [`docs/slos.md`](docs/slos.md) |
 | Advisory triage model | 20 cases independent of the prompt's author: **57 of 60** runs (60 of 60 on a band adjudicated afterwards); 13 authored cases: 39 of 39 on their widened bands; **12 of 12** injection attempts flagged | [ADR 0005](docs/adr/0005-advisory-llm-triage.md), [`docs/triage-eval-protocol.md`](docs/triage-eval-protocol.md) |
 | Access controls, each driven past its limit once | an analyst's decision refused 403, an approver's recorded; 110 of 150 burst requests answered and 40 refused 429 with Retry-After; 2,436 of 3,000 unauthenticated requests answered and 564 blocked by the firewall | [`docs/slos.md`](docs/slos.md), objective 7 |
-| Intrusion detector | within CICIDS2017 AUC 0.99996 — a documented artefact of the dataset; on the corrected release binary F1 0.9999, macro-F1 0.980; on another network (CSE-CIC-IDS-2018, 63 M flows) AUC **0.58** | [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md) |
+| Intrusion detector | within CICIDS2017 AUC 0.99996 — a documented artefact of the dataset; on the corrected release binary F1 0.9999, macro-F1 0.980; on another network (CSE-CIC-IDS-2018, 63 M flows) AUC **0.58**; on three networks sharing 14 features, trained on two and tested on the third, AUC **0.63, 0.66, 0.88** — never above the better single network, two of four expectations written beforehand met | [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md) 6.3–6.4, [`docs/generalization-protocol.md`](docs/generalization-protocol.md) |
 | Cost | ₹3,763 (about $33) for the whole organization in September 2026; about $25 a month idle; $9.13 per 1,000 findings for the week of 14–21 Oct, Bedrock a quarter of it | [`docs/evaluation.md`](docs/evaluation.md) §2 |
 | Defects found by the project's own tooling | 26, each recorded where it was found and closed with a test or a re-run | [`docs/evaluation.md`](docs/evaluation.md), [`docs/chaos-experiments.md`](docs/chaos-experiments.md) |
 
@@ -160,7 +160,13 @@ features and test flows change together, so the rise cannot be credited to
 the labels alone — while a day held out of training shows the detector
 missing every flow of an attack family it had not seen, and the corrected
 CSE-CIC-IDS-2018, 63 million flows from another network, shows it barely
-better than chance (AUC 0.58).
+better than chance (AUC 0.58). Put on fourteen features shared with
+UNSW-NB15 as well, with the expectations written before any table existed,
+a model trained on two of the three networks never beat the better single
+one on the third, and one trained on UNSW-NB15 was worse than chance on
+both CIC releases: a detector for this platform should be trained on its
+own traffic, and the honeypot's third run is collecting the attack side of
+it.
 
 What has been measured, and what each number is allowed to mean, is in
 [`docs/evaluation.md`](docs/evaluation.md); the platform is reviewed against the
@@ -236,6 +242,12 @@ screenshots/  evidence captures
 **24 October 2026, tagged v2.0.0 — the final release of the project as a final-year work.** Built between 16 August and 24 October by one developer, with Claude (Anthropic) as an AI pair programmer — the commits it co-wrote carry its co-author line, so the history shows which. The four gates the project set itself are closed and tagged: a live, verified pipeline (16 August); chaos experiments and evaluation (v1.2.0, 11 October); hardening — roles, rate limits, a rehearsed restore and a revised prompt, each exercised live (v1.3.0, 22 October); and evaluated and shown — every planned measurement made and recorded, the results in this README with the record each comes from (v2.0.0). [`CHANGELOG.md`](CHANGELOG.md) says what each tag holds.
 
 Outside the tag by the author's decision: the demo video, to be recorded from [`docs/demo-script.md`](docs/demo-script.md) when he chooses; the college's second review, whose date is not set; and the camera-ready of the ICSSS 2026 paper if it is accepted (decision 25 October). Open beyond that, named rather than hidden: cases from a second person for the triage evaluation, written without an AI tool; the matched E2 re-run, whose expectations are committed; the cut-over after a restore; a staging environment and a second Region; schema validation at ingestion; the apex domain, which has no DNS record.
+
+After the tag, towards v2.1.0 (*Generalization and benefit*): the detector
+across three networks on one schema, recorded on 24 October with two of its
+four expectations met (model card, 6.4); the honeypot's third run, which
+keeps packet headers, from 24 October to 3 November; and cases from two
+people who are not the author, written without an AI tool.
 
 This is a production-*grade* portfolio project — screenshot-backed and conservatively described — not a commercial production service.
 

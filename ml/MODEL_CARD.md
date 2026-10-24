@@ -188,7 +188,11 @@ use where a false positive carries direct cost without human review.
   with the leakage described above. Retrained on the corrected release they
   score higher on a random split, but miss an attack family absent from
   training entirely (Section 6.2), and on a second network they are barely
-  better than chance (AUC 0.58, Section 6.3).
+  better than chance (AUC 0.58, Section 6.3). On fourteen features shared
+  by three networks, a model trained on two of them scores AUC 0.63 to 0.88
+  on the third, never better than the better single network, and one
+  trained on UNSW-NB15 is worse than chance on both CIC releases (Section
+  6.4). A detector for this platform should be trained on its own traffic.
 - Bot and Infiltration are supported by too little data to be relied on.
 - No drift monitoring. Performance on traffic unlike the training distribution
   is unmeasured.
@@ -310,19 +314,155 @@ holds every label's counts and score histogram; `cross_dataset.py --report`
 prints the tables again, under another label mapping if need be, without
 reading the data.
 
+### 6.4 Three networks on one schema
+
+Section 6.3 could not say whether the model learned the 2017 network or
+whether CICFlowMeter's 83 features carry any network's fingerprint.
+`docs/generalization-protocol.md` adds a third dataset made by different
+tools — UNSW-NB15 (Moustafa and Slay, *UNSW-NB15: a comprehensive data set
+for network intrusion detection systems*, MilCIS 2015), extracted by Argus
+and Bro — and puts all three on
+fourteen features every source can produce: duration, packets and IP-layer
+bytes each way, mean packet length and inter-arrival time each way, packet
+and byte rates, the ratio of reply to request packets, and TCP or UDP. One
+model at the served settings is trained on each dataset and tested on every
+other, one on each pair and tested on the third (leave one dataset out), and
+the diagonal is a held-out 30% of the same dataset. The datasets' own labels
+are used, attempted attacks counted benign; the threshold is the served 0.5,
+and nothing is tuned on a test set. The six expectations were pushed at 14:20
+UTC on 24 October, before any table existed; the tables were built that
+afternoon — the corrected CICIDS2017, 2,099,976 flows; the corrected
+CSE-CIC-IDS-2018, one flow in thirty, 2,106,505; UNSW-NB15, 2,540,047 — and
+the matrix was run at 15:20.
+
+AUC, with F1 at the served threshold in brackets:
+
+| Trained on ↓ / tested on → | CICIDS2017 | CSE-CIC-IDS-2018 | UNSW-NB15 |
+|---|---|---|---|
+| CICIDS2017 | 1.000 (1.000) | 0.771 (0.044) | 0.902 (0.078) |
+| CSE-CIC-IDS-2018 | 0.954 (0.326) | 1.000 (0.999) | 0.556 (0.018) |
+| UNSW-NB15 | 0.260 (0.039) | 0.363 (0.057) | 1.000 (0.957) |
+| The other two | **0.634** (0.250) | **0.665** (0.041) | **0.884** (0.069) |
+
+| | Expectation, written before the run | Result | |
+|---|---|---|---|
+| G1 | Every diagonal AUC at least 0.95 | 1.000, 1.000, 0.9996 | Met |
+| G2 | CICIDS2017 → CSE-CIC-IDS-2018 at least 0.577, the 83-feature figure of 6.3 | 0.771 | Met |
+| G3 | All six cross cells at least 0.55 | UNSW-NB15 → CICIDS2017 0.260; UNSW-NB15 → CSE-CIC-IDS-2018 0.363 | Not met |
+| G4 | Each leave-one-out cell at least the better cross cell into the same dataset | 0.634 against 0.954; 0.665 against 0.771; 0.884 against 0.902 | Not met |
+
+Each reading below is the one the protocol fixed before the run.
+
+**G1.** Fourteen features are enough to separate attack from benign inside
+one capture, so the other cells measure transfer, not a crippled model.
+
+**G2.** Dropping the dataset-specific features raised the known pair from
+0.577 to 0.771: the 83 features carried the 2017 network's fingerprint rather
+than the attacks. (The 2018 figure is on one flow in thirty, 117,771 of them
+attacks; the AUC's sampling error at that size is far below the difference.)
+The gain is in ranking only. At the served threshold the fourteen-feature
+model flags 2.5% of the 2018 attacks, against 5.9% with 83 features, and
+0.64% of the flows counted benign, against 2.27%: across networks it is no
+more usable as a detector than before.
+
+**G3.** Not met, and the two failing cells are not near chance but inverted.
+A model trained on UNSW-NB15 flags 49.4% of the flows CICIDS2017 counts
+benign and 41.6% of CSE-CIC-IDS-2018's, while the families that make up most
+of their attacks score below that: Portscan 0.02%, DoS Hulk 2.9% and DDoS
+10.0% in 2017; DDoS-HOIC 0.1% and the nmap scan 4.0% in 2018. Inside that
+flood it does flag brute force and HTTP floods — SSH-Patator 99.9%,
+FTP-Patator 74.3%, and in 2018 LOIC-HTTP 99.8% and GoldenEye 99.0%. The pair
+the schema cannot bridge is UNSW-NB15 to either CIC release. The third weak
+cell, CSE-CIC-IDS-2018 → UNSW-NB15, passes the line by 0.006: it flags 10.2%
+of UNSW-NB15's normal traffic and no attack family above 7.2%.
+
+**G4.** Not met in any direction: a model trained on two networks never
+matched the better of the two single-network models on the third. The
+protocol's conclusion, fixed in advance: two networks' idiosyncrasies pull
+against each other, and a detector for this platform should be trained on
+this platform's traffic and nothing else. The shortfall is large where
+UNSW-NB15 is one of the two (0.634 against 0.954; 0.665 against 0.771) and
+small where it is not (0.884 against 0.902) — an observation beside G4, not
+a revision of it.
+
+By family, in the leave-one-out cells, the row the protocol quotes:
+
+- **Never carries**: volume denial of service — DoS Hulk 0.0% into both CIC
+  releases, as in 6.3; DDoS 0.0%; DDoS-HOIC 0.0% — and UNSW-NB15's Generic
+  class, two-thirds of its attacks, 0.3%.
+- **Carries**: slow denial of service (Slowloris 90.3% and 97.8%,
+  Slowhttptest 70.9%), FTP and web-login brute force (FTP-Patator 96.7%, web
+  brute force 98.6% of 73 flows) and scans (Portscan 45.2%, the nmap scan
+  83.2%, UNSW-NB15's Reconnaissance 34.1%) — traffic that looks alike on any
+  network.
+- **SSH brute force**, which the honeypot mostly receives: 9.3% into 2017 and
+  0.0% into 2018, though each training pair held the other CIC release's SSH
+  brute force. Of the six cells that test an SSH family, one flags it above
+  10%: the UNSW-NB15 model on 2017 (99.9%), which flags half of 2017's benign
+  traffic with it.
+- **Flows counted benign** and flagged: 11.1% into 2017 (about 177,000),
+  0.9% into 2018, 1.5% into UNSW-NB15. Into 2018 the 9,980 attempted FTP
+  brute-force connections in the sample, benign by the label rule, are
+  flagged every one, as in 6.3.
+
+With the destination port as a fifteenth feature — the protocol's secondary
+run, read beside the primary; seven UNSW-NB15 rows whose port could not be
+read as a number are dropped from its tables:
+
+| Trained on ↓ / tested on → | CICIDS2017 | CSE-CIC-IDS-2018 | UNSW-NB15 |
+|---|---|---|---|
+| CICIDS2017 | 1.000 (1.000) | 0.756 (0.105) | 0.735 (0.066) |
+| CSE-CIC-IDS-2018 | 0.971 (0.329) | 1.000 (0.999) | 0.324 (0.117) |
+| UNSW-NB15 | 0.223 (0.030) | 0.333 (0.055) | 1.000 (0.959) |
+| The other two | 0.686 (0.256) | 0.617 (0.038) | 0.693 (0.083) |
+
+The protocol expected the diagonal to rise and the cross cells to rise less
+or fall. The diagonals had no room to rise. Five of the six cross cells fell:
+CSE-CIC-IDS-2018 → UNSW-NB15 from 0.556 to 0.324, below chance like both
+UNSW-NB15 cells, and CICIDS2017 → UNSW-NB15 furthest of the rest, from 0.902
+to 0.735. One rose (CSE-CIC-IDS-2018 → CICIDS2017, 0.954 to 0.971), and
+leave-one-out fell into 2018 and UNSW-NB15 and rose into 2017 (0.634 to
+0.686). The expectation held
+with those two exceptions: the port names the service, not the behaviour,
+and the three datasets' attacks sit on different services. SSH-Patator,
+flagged at 9.3% into 2017 without the port, is flagged at 0.07% with it.
+
+The figure to quote from this section is the leave-one-out row: AUC 0.634,
+0.665 and 0.884 on a network the model never saw, with F1 0.250, 0.041 and
+0.069 at the served threshold. A detector trained on public datasets does
+not carry to a new network, on 83 features or on 14, and the platform's
+detector should be trained on the platform's own traffic (G4). The
+honeypot's third run, from 24 October, records flows from the platform's own
+network, labelled by construction, for the protocol's last two expectations:
+whether the model trained on all three datasets recognises the platform's
+attackers (G5) and leaves the platform's own traffic alone (G6). Shared
+feature sets across these datasets were proposed before, to make exactly
+this comparison possible (Sarhan, Layeghy and Portmann, *Towards a Standard
+Feature Set for Network Intrusion Detection System Datasets*,
+arXiv:2101.11315, 2021); this section does not claim the first
+cross-dataset result, only one on the corrected releases with its
+expectations fixed first. `ml/models/harmonized_matrix.json` and
+`harmonized_matrix_port.json` hold every cell with each raw label's count
+and flagged fraction; `cross_matrix.py --report FILE --verbose` prints every
+table again without the data.
+
 ---
 
 ## 7. Future work
 
-- Evaluate against UNSW-NB15, whose features come from different tools
-  (Argus and Bro): mapped to a fourteen-feature schema shared with both CIC
-  releases and trained and tested in every direction, with the expectations
-  written first — `docs/generalization-protocol.md`, 24 October 2026; the
-  figures go to a section 6.4 when the runs are made.
 - Collect labelled flows from the platform's own environment for a small
-  in-domain evaluation set: Section 6.3 says a model trained on one network
-  cannot be trusted on another. The honeypot's third run captures them
-  (`scripts/pcap_flows.py`; the same protocol, section 3).
+  in-domain evaluation set: Sections 6.3 and 6.4 say a model trained on one
+  network, or on two, cannot be trusted on another. The honeypot's third
+  run, from 24 October 2026, captures them (`scripts/pcap_flows.py`;
+  `docs/generalization-protocol.md`, section 3); it gives attack flows by
+  construction, and only a narrow benign side — the honeypot's own traffic
+  and the operator's visits. Training a detector on the platform's own
+  traffic, as Section 6.4 concludes it should be, needs a benign population
+  the platform does not have.
+- Separate relabelling from re-extraction (Section 6.1). The two CICIDS2017
+  releases share no row-level key — the flows themselves were re-extracted —
+  so this means applying the corrected release's labelling to the original
+  flows by address, port and time, not a join.
 - Add drift monitoring so degradation is detected rather than assumed absent.
 - Serve a model trained on the corrected data. Its 83 features are not the
   served models' 78, so `/predict`'s input changes with it.
@@ -361,4 +501,13 @@ python ml/evaluation/retrain_corrected.py --data PATH --holdout-day friday --out
 # 6.3: train on all of the 2017 release, score the 2018 release
 python ml/evaluation/cross_dataset.py --train PATH --test CSECICIDS2018_improved.zip \
     --model ml/models/cross_model.ubj --workers 2 --out ml/models/cross_dataset_2018.json
+
+# 6.4: the three tables (UNSW-NB15_1.csv to _4.csv and NUSW-NB15_features.csv
+# in UNSW), about 8 minutes, then the matrix, about 5; --with-port on all three
+# tables, written to other names, for the secondary run
+python ml/evaluation/harmonize.py cic2017 --data PATH --out ml/harmonized/cic2017.npz
+python ml/evaluation/harmonize.py cic2018 --data CSECICIDS2018_improved.zip --keep-every 30 --out ml/harmonized/cic2018.npz
+python ml/evaluation/harmonize.py unsw --data UNSW --out ml/harmonized/unsw.npz
+python ml/evaluation/cross_matrix.py --data ml/harmonized/cic2017.npz ml/harmonized/cic2018.npz \
+    ml/harmonized/unsw.npz --out ml/models/harmonized_matrix.json
 ```
