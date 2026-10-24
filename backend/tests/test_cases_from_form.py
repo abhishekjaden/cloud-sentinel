@@ -48,11 +48,15 @@ def form(path, ai_column=True, statements=("none", "ChatGPT suggested the findin
     findings.append(["rc-lone-probe", "2026-10-28 03:12:05", "Recon:EC2/PortProbeUnprotectedPort", 2,
                      "Unprotected port on EC2 instance i-0a1b2c3d4e5f67890 is being probed.", "EC2 instance",
                      "i-0a1b2c3d4e5f67890", None, "198.51.100.7", None, None])
+    # The access key ID is one character short of the real format on purpose:
+    # ASIA or AKIA followed by sixteen uppercase alphanumerics makes gitleaks
+    # and GitHub's secret scanning raise a credential alert on a public
+    # repository even when nothing is behind it (124de21, .gitleaksignore).
     findings.append(["rc-key-chain", "2026-10-28 04:00:00", "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS",
                      8, "Credentials for instance role app-role were used from a remote AWS account.", "IAM access key",
-                     "ASIA5RX7QKT2NW4PVB3Q", "app-role", None, None, None])
+                     "ASIA5RX7QKT2NW4PVB3", "app-role", None, None, None])
     findings.append(["rc-key-chain", "2026-10-28 04:10:00", "Persistence:IAMUser/UserPermissions", 5,
-                     "Principal app-role attempted to add a policy.", "IAM access key", "ASIA5RX7QKT2NW4PVB3Q",
+                     "Principal app-role attempted to add a policy.", "IAM access key", "ASIA5RX7QKT2NW4PVB3",
                      "app-role", None, None, None])
     wb.save(path)
     return path

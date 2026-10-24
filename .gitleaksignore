@@ -18,3 +18,10 @@
 6aedfcff4dc49c75dee8fde9ca0209ce1ef62ed4:scripts/triage_eval_cases.json:aws-access-token:91
 6aedfcff4dc49c75dee8fde9ca0209ce1ef62ed4:scripts/triage_eval_cases.json:aws-access-token:100
 6aedfcff4dc49c75dee8fde9ca0209ce1ef62ed4:scripts/triage_eval_cases.json:aws-access-token:103
+
+# Two more of the same shape, in the test fixture for the second-person form
+# converter: an invented access key ID written one character too long, pushed
+# in 80cfb39 and replaced in the next commit with the nineteen-character form
+# the evaluation cases use. Nothing was ever behind it either.
+80cfb39d31c209575342b1596be605dd42de4d91:backend/tests/test_cases_from_form.py:aws-access-token:53
+80cfb39d31c209575342b1596be605dd42de4d91:backend/tests/test_cases_from_form.py:aws-access-token:55
