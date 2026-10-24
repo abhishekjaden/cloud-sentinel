@@ -3,8 +3,12 @@
 # Version-bump PRs were disabled after a batch of eight: three broke the build
 # on genuine incompatibilities and the rest sat red. A queue of failing PRs that
 # nobody reads is worse than none, because the advisory that matters is lost in
-# it. `open-pull-requests-limit: 0` disables version updates while leaving
-# security updates, which ignore this setting, switched on.
+# it. `open-pull-requests-limit: 0` disables version updates; security updates
+# ignore this setting, but they run only while the repository's Dependabot
+# security updates are enabled (Settings → Code security). On 25 October 2026
+# the three manifests carried 28, 42 and 51 published advisories and no security
+# pull request had been raised for any, so the gate that does not depend on a
+# setting is the dependency audit in security.yml.
 version: 2
 updates:
   - package-ecosystem: npm

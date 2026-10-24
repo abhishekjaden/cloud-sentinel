@@ -43,7 +43,11 @@ export class DashboardStack extends cdk.Stack {
     });
 
     const distribution = new cloudfront.Distribution(this, 'DashboardCdn', {
-      // Refuse TLS 1.0/1.1 and SSLv3 for viewer connections.
+      // Not in effect, and never has been: on the default *.cloudfront.net
+      // certificate AWS fixes the viewer policy at TLSv1, so a client can still
+      // negotiate TLS 1.0 or 1.1 (the AwsSolutions-CFR4 suppression below says
+      // so; docs/threat-model.md, B2). Kept so that the floor holds the day the
+      // dashboard moves to a custom domain with its own certificate.
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(siteBucket),
@@ -56,6 +60,12 @@ export class DashboardStack extends cdk.Stack {
         { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' },
       ],
     });
+    // aws-cdk-lib 2.274 warns about the setting above at every synthesis; the
+    // reason it stays is recorded there and in the suppression.
+    cdk.Annotations.of(distribution).acknowledgeWarning(
+      '@aws-cdk/aws-cloudfront:minimumProtocolVersionWithoutCertificate',
+      'Known: the default certificate fixes the policy at TLSv1 (docs/threat-model.md, B2).',
+    );
 
     // Deploy the built dashboard (frontend/dist) to the bucket, invalidate CDN.
     new s3deploy.BucketDeployment(this, 'DeployDashboard', {
