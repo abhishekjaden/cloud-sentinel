@@ -289,14 +289,17 @@ control-change watch and the honeypot.
   about $6.70 a month while it exists, half of that its public address.
 
 **Gaps / next step**
-- The NAT gateway is half the API's daily cost. Endpoints would not remove
-  its hourly charge; running the task in a public subnet with its own
-  address, the security group still admitting only the load balancer,
-  would. A decision for an ADR.
+- The NAT gateway is half the API's daily cost. ADR 0009 prices its
+  replacement — the task in a public subnet with its own address, the
+  security group still admitting only the load balancer, $1.08 a day
+  saved — and defers it while the stack runs on demand, where the gateway
+  costs cents a session.
 - The Kinesis shard is the largest idle item — $10.80 a month, over 40% of
-  the baseline — for a pipeline moving about a thousand findings a day. A
-  queue would do the work for cents and lose the 24-hour replay by sequence
-  number that the chaos experiments rely on. Also an ADR, if taken.
+  the baseline — for a pipeline moving about a thousand findings a day. ADR
+  0010 keeps it through v2.0.0: a queue would do the work for cents, but
+  the retry policy, objective 2 and three experiments are statements about
+  a shard, and the switch is priced at the measurements a queue would have
+  to earn; the record is re-opened after v2.0.0.
 - Teardown depends on discipline. A scheduled teardown would make idle-cost
   control automatic.
 - No Savings Plans or Spot; appropriate at this scale.
@@ -322,11 +325,11 @@ control-change watch and the honeypot.
 
 | Pillar | v1 posture | v2 posture |
 |--------|-----------|-----------|
-| Operational Excellence | IaC + ADRs; no CI/CD, no tests | CI with three suites and cdk-nag, OIDC deploys, SLO runbook; single environment |
-| Security | Isolation, enforced auth with required MFA, gated remediation; single user, no roles | The above plus tested least privilege, server-side approval tokens, contained model triage, control-change alarms, a bounded egress boundary; single user, no roles, pipeline-borne changes unseen |
-| Reliability | Managed backbone; single task/shard/Region | Retries and a failure queue with an objective on it, PITR everywhere, resampling and retry in the advisory components; single task/shard/Region, chaos experiments written but unrun |
-| Performance Efficiency | Right-sized; index-driven findings | The above plus a bounded, cached enrichment path; two whole-table aggregates, load figures pending |
-| Cost Optimization | Measured and controlled; NAT, manual teardown | The above with cost per thousand findings measurable; NAT, manual teardown |
+| Operational Excellence | IaC + ADRs; no CI/CD, no tests | CI with three suites and cdk-nag, the scanners gating the deploy since 19 October, OIDC deploys that end by running the correlator once, SLO runbook; single environment |
+| Security | Isolation, enforced auth with required MFA, gated remediation; single user, no roles | The above plus tested least privilege, server-side approval tokens, contained model triage, control-change alarms, a bounded egress boundary; two roles since 17 October and a WAF and per-user limit since the 18th, each driven past its limit once; pipeline-borne changes unseen |
+| Reliability | Managed backbone; single task/shard/Region | Retries and a failure queue with an objective on it, PITR everywhere and a restore rehearsed (14 and 18 minutes to a usable copy), resampling and retry in the advisory components; five chaos experiments run and four defects fixed; single task/shard/Region, the cut-over unrehearsed |
+| Performance Efficiency | Right-sized; index-driven findings | The above plus a bounded, cached enrichment path; measured — a week of traffic at p50 6.3 s stored, and 10,000 findings at 200 a second with none lost and a 2.5-minute peak backlog |
+| Cost Optimization | Measured and controlled; NAT, manual teardown | The above with cost per thousand findings measured ($4.67 to $9.13); the NAT gateway and the shard each decided in an ADR (0009 deferred, 0010 kept); manual teardown |
 | Sustainability | On-demand, right-sized | On-demand, right-sized, Graviton where there is a choice |
 
 The theme has not changed: production-*grade* standards — isolation, IaC,

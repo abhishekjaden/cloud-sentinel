@@ -1,10 +1,13 @@
 # ADR 0009: The API task gets its own address instead of a NAT gateway
 
 ## Status
-Proposed, 2026-10-24, with the numbers; not yet decided. If taken, the
-change ships with the Api stack, a CDK test pins the new placement, and
-this status becomes *Accepted* with the date. If declined, the reason is
-recorded here and the gateway stays.
+Deferred, 2026-10-24, by the author. The Api stack runs on demand — a few
+hours a week, torn down between sessions — and at that duty cycle the
+gateway costs cents a session; the saving below is a saving on always-on
+serving, which is not the plan at v2.0.0. The decision is taken up when
+always-on serving is wanted: the change then ships with the Api stack, a
+CDK test pins the new placement, and this status becomes *Accepted* with
+the date. The numbers stand as written.
 
 ## Context
 The Api stack places the one Fargate task in a private subnet of a two-AZ

@@ -1,10 +1,9 @@
 # ADR 0010: The Kinesis shard stays, measured against a queue
 
 ## Status
-Proposed, 2026-10-24, with the numbers; not yet decided. The drafter's
-recommendation is to keep the shard through v2.0.0, for the reasons under
-Rationale; the author decides, and whichever way it goes is recorded here
-with the date.
+Accepted, 2026-10-24, by the author: the shard stays through v2.0.0, for
+the reasons under Rationale, and the record is re-opened after v2.0.0 at
+the price set out under Decision.
 
 ## Context
 Every finding reaches the normalizer through one provisioned Kinesis shard:
