@@ -93,7 +93,9 @@ at GuardDuty's 2.0, one finding each: 19:26Z on the 19th, 19:15Z and
 addresses in 77.239.124.0/24. They were exported minutes before the destroy
 with `--since 2026-10-19T01:46:00 --number-from 7` and labelled the same
 afternoon (section 7). Ten incidents in all, from ten addresses, over the
-run — one pattern, never a chain.
+run — one pattern, never a chain. The run cost $2.26 before GST on the
+workload account's Cost Explorer (the instance $0.94, its volume $0.19,
+its public address $1.12): about ₹217, ₹256 with GST, ₹23 a day.
 
 ## 2. The label comes first
 

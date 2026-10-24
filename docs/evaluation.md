@@ -124,8 +124,12 @@ decision, not a fix: ADR 0009 proposes the first with its numbers, and ADR
 
 The honeypot ran from 3 to 8 October — about ₹115 for four and a half days,
 half of it the public address — and was destroyed after raising no GuardDuty
-finding at all (`docs/triage-eval-protocol.md`, section 1). While it exists
-it costs about $6.70 a month. The model triage stays well under
+finding at all (`docs/triage-eval-protocol.md`, section 1). The second run,
+12 to 22 October, nine days and nine hours, cost $2.26 before GST on the
+workload account's Cost Explorer — the instance $0.94, its volume $0.19,
+its public address $1.12 — about ₹217, ₹256 with GST: ₹23 a day, half of it
+the address, as the first run was. While it exists it costs about $7 a
+month. The model triage stays well under
 a dollar a month at current volume; the threat-intelligence feeds are free.
 
 ## 3. The advisory model
