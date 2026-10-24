@@ -30,12 +30,18 @@ Api stack's deploy.
    ```bash
    aws guardduty create-sample-findings --profile cs-audit \
      --detector-id cecf6cd08eefb67a55fd99c961cc728a \
-     --finding-types "Backdoor:EC2/C&CActivity.B!DNS" "Recon:EC2/PortProbeUnprotectedPort"
+     --finding-types 'Backdoor:EC2/C&CActivity.B!DNS' 'Recon:EC2/PortProbeUnprotectedPort'
    ```
+   (Single quotes: in double quotes Bash's history expansion eats the `!`
+   and the command never runs.)
    Within three minutes the C&C finding stages an `ec2_compromise` approval
    against the placeholder instance `i-99999999`; leave it pending — it is
-   decided on camera in scene 5. Note the time: the triage note appears
-   within a quarter of an hour.
+   decided on camera in scene 5. Note the time. One thing the generator
+   does that the script allows for: a sample finding of a type that already
+   exists on the placeholder instance is re-emitted under the *same* finding
+   id with its count raised, not created afresh, so the platform updates the
+   existing sample incident rather than opening a new one. Scene 3 says so,
+   and scene 4 shows a real incident instead.
 8. Screen recording at the display's native resolution; microphone checked;
    notifications off.
 
@@ -84,9 +90,13 @@ then the terminal.*
 
 Here are the two sample findings I generated twenty minutes ago — a
 command-and-control callout and a port probe against the placeholder
-instance. In the console they are already stored, normalized to one schema,
-with GuardDuty's severity on a 0–100 scale beside Security Hub's and
-Inspector's. How long did that take? The platform stamps every finding three
+instance. These are GuardDuty's own samples: its generator re-emits the same
+finding each time with the count raised, and the platform stores a finding
+by its id, so these two updated the sample incident from September rather
+than opening a new one — which is also why the triage model marks that
+incident as test data. In the console they are stored, normalized to one
+schema, with GuardDuty's severity on a 0–100 scale beside Security Hub's and
+Inspector's. How long does that take? The platform stamps every finding three
 times — emitted, queued, stored — and this reads the gaps:
 
 ```bash
@@ -101,33 +111,34 @@ backlog peaked at two and a half minutes. (`docs/evaluation.md`, section 1.)
 
 ### Scene 4 — The incident, enriched and triaged (3:45–5:45)
 
-*On screen: the console's incidents panel, the incident opened, its verdict
-chips and note; then the PDF report.*
+*On screen: the console's incidents panel, the newest honeypot incident
+opened, its verdict chip and note; then the PDF report.*
 
-The correlator has grouped the two findings into one incident, because they
-hit the same resource within thirty minutes, and ordered them by kill-chain
-stage: reconnaissance, then command-and-control. The chips are the enricher's
-verdicts from AbuseIPDB and OTX — a fact about the indicator, never about the
-activity. And this is the advisory note: what likely happened, what to check
-next, a severity and a confidence. Because these are GuardDuty's sample
-findings, the note will also say so — the placeholder instance and the
-GeneratedFinding names are the two markers it is told to recognize, and
-the flag working on camera is the point, not a flaw; say that.
+This one is real. For nine days this project ran a honeypot in its workload
+account — an instance that holds nothing and admits no login — and it drew
+ten SSH brute-force attempts from ten addresses. Here is the last of them.
+The correlator made it an incident and placed it at initial access; the chip
+is the enricher's verdict on the address — malicious, from AbuseIPDB and OTX
+— a fact about the indicator, never about the activity. And this is the
+advisory note: what likely happened, what to check next, a severity and a
+confidence — low, at high confidence: a brute-force attempt that got nowhere
+against a target, with the address's reputation showing in the confidence
+and not the severity. All ten were labelled by hand by me and my guide
+before anyone read these notes, and the model matched the band thirty times
+out of thirty.
 
 Two things about that note. First, the model that wrote it can do nothing
 else: it holds no permission that acts, it reads finding text escaped as
 untrusted data, and its answer must fit one schema. Second, it was evaluated
 before it was trusted to write anything: thirteen cases written with the
-prompt, then twenty it could not have been tuned to — ten written blind, and
-ten real brute-force attempts against a honeypot this project ran for nine
-days, labelled by hand by me and my guide before anyone read the notes. Fifty-
-seven of sixty runs inside the band, sixty of sixty on a band adjudicated
-afterwards, every injection attempt flagged. ADR 0005 holds every run, every
-miss and every adjudication.
+prompt, then twenty it could not have been tuned to — ten written blind and
+these ten real ones. Fifty-seven of sixty runs inside the band, sixty of
+sixty on a band adjudicated afterwards, every injection attempt flagged.
+ADR 0005 holds every run, every miss and every adjudication.
 
 The report button builds a PDF from the record alone — nothing generated —
 and escapes every attacker-influenced value on the way in; a test reads the
-PDF back to prove it.
+PDF back to prove it. Open this incident's report and show its two pages.
 
 ### Scene 5 — Response, with a person in the loop (5:45–7:45)
 
