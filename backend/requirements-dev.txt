@@ -7,3 +7,5 @@ httpx==0.28.1
 pypdf==6.19.0
 # ml/evaluation's harmonized-schema tests read CSVs the way the scripts do.
 pandas==3.1.0
+# scripts/cases_from_form.py reads the case form; its tests build one.
+openpyxl==3.1.5

@@ -30,6 +30,12 @@ Needs openpyxl (`pip install openpyxl`), which the backend does not.
 Usage:
     python scripts/cases_from_form.py FORM.xlsx [--out scripts/triage_eval_cases_independent.json]
     python scripts/cases_from_form.py FORM.xlsx --print        # to stdout, nothing written
+    python scripts/cases_from_form.py FORM.xlsx --source second-person --out /tmp/second-person.json
+        # a second person's cases, to be merged into the independent file with their statements
+
+A form with an "AI assistance" column (the second-person form) must have a
+statement in every row; it is copied as written into each case's
+`ai_assistance`, as the protocol requires from the sixth case on.
 """
 import argparse
 import importlib.util
@@ -167,7 +173,7 @@ def band(lowest, highest):
     return LEVELS[low:high + 1]
 
 
-def convert(workbook_path):
+def convert(workbook_path, source=None):
     import openpyxl
     correlator = load_correlator()
     normalizer = load_normalizer()
@@ -228,6 +234,15 @@ def convert(workbook_path):
             "labelled_on": (col(row, "Labelled on").strftime("%Y-%m-%d")
                             if isinstance(col(row, "Labelled on"), datetime) else str(col(row, "Labelled on"))),
         }
+        if source:
+            case["source"] = source
+        # The second-person form (24 October 2026) asks each row for a
+        # statement on AI assistance; it is copied as given and must be there.
+        if any(h.lower().startswith("ai assistance") for h in row):
+            statement = str(col(row, "AI assistance") or "").strip()
+            if not statement:
+                raise ValueError(f"case {name!r} has no statement on AI assistance; write 'none' or the tool")
+            case["ai_assistance"] = statement
         planted = col(row, "Planted text")
         if yes(col(row, "Injection attempt")):
             if not planted:
@@ -249,9 +264,10 @@ def main():
     parser.add_argument("form", help="the filled-in workbook")
     parser.add_argument("--out", default=str(OUT), help=f"where to write (default {OUT.relative_to(ROOT)})")
     parser.add_argument("--print", action="store_true", help="print the cases instead of writing them")
+    parser.add_argument("--source", help="recorded on every case, e.g. second-person; eval_triage.py counts each source apart")
     args = parser.parse_args()
 
-    cases = convert(args.form)
+    cases = convert(args.form, args.source)
     document = {"_about": ABOUT, "cases": cases}
     text = json.dumps(document, indent=2, ensure_ascii=False) + "\n"
     if args.print:

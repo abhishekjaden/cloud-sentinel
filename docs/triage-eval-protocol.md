@@ -246,7 +246,13 @@ helped and which; the statement is recorded as given, with the run, and so
 is any later correction of it. A case set drafted with AI assistance is still
 independent of the prompt's author, but not of AI, and the record says so
 beside its number. For the second person's cases the ask is the strongest
-form: write and label them without an AI tool, and say so.
+form: write and label them without an AI tool, and say so. The form for them
+(`docs/triage-case-form-second-person.xlsx`, 24 October 2026) is the first
+set's form with a statement column on every row, a Read-me that makes the two
+rules — do not read the prompt, the notes or the existing cases; no AI tool,
+and say so — and an ask for chains among the serious cases, which the twenty
+existing cases lack. `scripts/cases_from_form.py --source second-person`
+copies the statements with the labels and refuses a row without one.
 
 ## 6. The first independent set, 13–17 October 2026
 
