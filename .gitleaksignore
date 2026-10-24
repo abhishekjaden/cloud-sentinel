@@ -19,9 +19,14 @@
 6aedfcff4dc49c75dee8fde9ca0209ce1ef62ed4:scripts/triage_eval_cases.json:aws-access-token:100
 6aedfcff4dc49c75dee8fde9ca0209ce1ef62ed4:scripts/triage_eval_cases.json:aws-access-token:103
 
-# Two more of the same shape, in the test fixture for the second-person form
-# converter: an invented access key ID written one character too long, pushed
-# in 80cfb39 and replaced in the next commit with the nineteen-character form
-# the evaluation cases use. Nothing was ever behind it either.
+# Three more in the test fixture for the second-person form converter, whose
+# key_id rule shortens a real-format access key by one character for exactly
+# this reason. The test for that rule needs a real-format key: 80cfb39 wrote one
+# as a literal (the AWS rule matched it); b693891 shortened the literal, which
+# the AWS rule no longer matched but the generic rule did, since a high-entropy
+# token beside the words "access key" is enough for it — and which no longer
+# tested the shortening. The key is now built at run time from parts, so no
+# literal of either shape is in the source. Nothing was ever behind any of them.
 80cfb39d31c209575342b1596be605dd42de4d91:backend/tests/test_cases_from_form.py:aws-access-token:53
 80cfb39d31c209575342b1596be605dd42de4d91:backend/tests/test_cases_from_form.py:aws-access-token:55
+b693891e901d0aebd7d3c967405b9dc1cd55e312:backend/tests/test_cases_from_form.py:generic-api-key:59

@@ -21,6 +21,16 @@ FINDING_HEADERS = ["Case name", "Time (UTC)", "GuardDuty finding type", "Severit
                    "Resource type", "Resource id", "IAM user or role (keys and buckets)", "Remote IP (optional)",
                    "Domain (optional)", "User agent (optional)"]
 
+# A key in the real format — ASIA or AKIA and sixteen uppercase alphanumerics —
+# which the converter must shorten by one character (cases_from_form.key_id).
+# Built here rather than written, because the literal would itself trip the
+# secret scanners that rule exists for: the AWS rules of gitleaks and GitHub's
+# secret scanning match the shape whatever is behind it, and a high-entropy
+# token beside the words "access key" trips gitleaks's generic rule even one
+# character short (80cfb39, b693891, .gitleaksignore).
+REAL_FORMAT_KEY = "ASIA" + "Q" * 15 + "1"
+
+
 
 @pytest.fixture(scope="module")
 def converter():
@@ -48,15 +58,11 @@ def form(path, ai_column=True, statements=("none", "ChatGPT suggested the findin
     findings.append(["rc-lone-probe", "2026-10-28 03:12:05", "Recon:EC2/PortProbeUnprotectedPort", 2,
                      "Unprotected port on EC2 instance i-0a1b2c3d4e5f67890 is being probed.", "EC2 instance",
                      "i-0a1b2c3d4e5f67890", None, "198.51.100.7", None, None])
-    # The access key ID is one character short of the real format on purpose:
-    # ASIA or AKIA followed by sixteen uppercase alphanumerics makes gitleaks
-    # and GitHub's secret scanning raise a credential alert on a public
-    # repository even when nothing is behind it (124de21, .gitleaksignore).
     findings.append(["rc-key-chain", "2026-10-28 04:00:00", "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS",
                      8, "Credentials for instance role app-role were used from a remote AWS account.", "IAM access key",
-                     "ASIA5RX7QKT2NW4PVB3", "app-role", None, None, None])
+                     REAL_FORMAT_KEY, "app-role", None, None, None])
     findings.append(["rc-key-chain", "2026-10-28 04:10:00", "Persistence:IAMUser/UserPermissions", 5,
-                     "Principal app-role attempted to add a policy.", "IAM access key", "ASIA5RX7QKT2NW4PVB3",
+                     "Principal app-role attempted to add a policy.", "IAM access key", REAL_FORMAT_KEY,
                      "app-role", None, None, None])
     wb.save(path)
     return path
@@ -71,7 +77,7 @@ def test_the_statement_on_ai_assistance_is_copied_as_written_with_the_source(con
                                   "likely_test_data": False, "injection_suspected": False}
     assert cases[1]["expect"]["assessed_severity"] == ["high", "critical"]
     assert cases[1]["incident"]["finding_count"] == 2 and cases[1]["incident"]["duration_seconds"] == 600
-    assert cases[1]["incident"]["resource"] == "ASIA5RX7QKT2NW4PVB3"           # one character short, for the scanners
+    assert cases[1]["incident"]["resource"] == REAL_FORMAT_KEY[:-1] == "ASIA" + "Q" * 15   # shortened, as ABOUT says
 
 
 def test_a_missing_statement_is_refused_and_the_old_form_still_converts(converter, tmp_path):
