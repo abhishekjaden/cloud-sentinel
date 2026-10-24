@@ -97,6 +97,20 @@ run — one pattern, never a chain. The run cost $2.26 before GST on the
 workload account's Cost Explorer (the instance $0.94, its volume $0.19,
 its public address $1.12): about ₹217, ₹256 with GST, ₹23 a day.
 
+**Third run, planned (generation 4, committed 24 October 2026).** The same
+lure with one addition: the instance captures the headers of every packet it
+sees — never the payload, so the passwords tried against it are not kept —
+and sends the files every five minutes to a bucket that outlives the stack,
+through the VPC's own S3 endpoint. The second run's flow logs were lost with
+the stack; the third run's captures are what `docs/generalization-protocol.md`
+scores the detector on. To get the files out, the instance holds a credential
+for the first time — a role that can put objects under one prefix of one
+bucket and do nothing else — and its security group has one outbound rule,
+to Amazon's S3 address range; `docs/threat-model.md` records the change. The
+run's incidents become cases exactly as before (section 7), and the operator's
+visits to the lure page, logged by `scripts/honeypot_visit.py`, are the one
+kind of benign traffic from the internet the capture will hold.
+
 ## 2. The label comes first
 
 A case's `expect` block is written **before** the model is run on it, and is

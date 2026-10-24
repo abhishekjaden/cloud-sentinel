@@ -315,10 +315,14 @@ reading the data.
 ## 7. Future work
 
 - Evaluate against UNSW-NB15, whose features come from different tools
-  (Argus and Bro) and would have to be mapped or the models retrained.
+  (Argus and Bro): mapped to a fourteen-feature schema shared with both CIC
+  releases and trained and tested in every direction, with the expectations
+  written first — `docs/generalization-protocol.md`, 24 October 2026; the
+  figures go to a section 6.4 when the runs are made.
 - Collect labelled flows from the platform's own environment for a small
   in-domain evaluation set: Section 6.3 says a model trained on one network
-  cannot be trusted on another.
+  cannot be trusted on another. The honeypot's third run captures them
+  (`scripts/pcap_flows.py`; the same protocol, section 3).
 - Add drift monitoring so degradation is detected rather than assumed absent.
 - Serve a model trained on the corrected data. Its 83 features are not the
   served models' 78, so `/predict`'s input changes with it.

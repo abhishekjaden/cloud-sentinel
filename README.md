@@ -222,10 +222,10 @@ On every push CI runs the three suites and, inside it, Semgrep and gitleaks pinn
 cdk/          CDK app — all infrastructure (lib/stacks, lib/constructs, lambda/, bin/) and 116 assertion tests
 backend/      FastAPI service (app/), Dockerfile, 358 tests
 frontend/     React + TypeScript SOC console (Vite), 79 tests
-ml/           CICIDS2017 processing, training, evaluation, models, MODEL_CARD.md
+ml/           CICIDS2017 processing, training, evaluation (the corrected-data re-evaluation; the harmonized three-dataset matrix), models, MODEL_CARD.md
 playbooks/    SOAR remediation playbook definitions
-scripts/      measure.py, flood_findings.py, restore_rehearsal.py, eval_triage.py, cases_from_form.py, honeypot_cases.py, the smoke test, the organization-enablement script
-docs/         slos.md · chaos-experiments.md · evaluation.md · threat-model.md · well-architected-review.md · triage-eval-protocol.md · paper-evidence.md · adr/ · the measurement and rehearsal records (*.json)
+scripts/      measure.py, flood_findings.py, restore_rehearsal.py, eval_triage.py, cases_from_form.py, honeypot_cases.py, pcap_flows.py, honeypot_visit.py, the smoke test, the organization-enablement script
+docs/         slos.md · chaos-experiments.md · evaluation.md · threat-model.md · well-architected-review.md · triage-eval-protocol.md · generalization-protocol.md · paper-evidence.md · adr/ · the measurement and rehearsal records (*.json)
 screenshots/  evidence captures
 ```
 
