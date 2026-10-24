@@ -1,0 +1,94 @@
+{
+  "dataset": "CICIDS2017",
+  "source": "cic2017",
+  "features": [
+    "duration_s",
+    "fwd_pkts",
+    "bwd_pkts",
+    "fwd_bytes",
+    "bwd_bytes",
+    "fwd_mean_len",
+    "bwd_mean_len",
+    "fwd_iat_mean_s",
+    "bwd_iat_mean_s",
+    "pkt_rate",
+    "byte_rate",
+    "bwd_fwd_pkt_ratio",
+    "is_tcp",
+    "is_udp",
+    "dst_port"
+  ],
+  "rows": 2099976,
+  "attack": 505431,
+  "dropped_missing_or_infinite": 0,
+  "repeated_headers": 0,
+  "files": [
+    {
+      "file": "friday.csv",
+      "bytes": 285188226,
+      "rows_kept": 547557,
+      "seconds": 4.3
+    },
+    {
+      "file": "monday.csv",
+      "bytes": 207875155,
+      "rows_kept": 371624,
+      "seconds": 3.0
+    },
+    {
+      "file": "thursday.csv",
+      "bytes": 189519159,
+      "rows_kept": 362076,
+      "seconds": 3.0
+    },
+    {
+      "file": "tuesday.csv",
+      "bytes": 178397720,
+      "rows_kept": 322078,
+      "seconds": 2.8
+    },
+    {
+      "file": "wednesday.csv",
+      "bytes": 291290505,
+      "rows_kept": 496641,
+      "seconds": 4.2
+    }
+  ],
+  "raw_labels": {
+    "BENIGN": 1582566,
+    "Botnet": 736,
+    "Botnet - Attempted": 4067,
+    "DDoS": 95144,
+    "Portscan": 159066,
+    "Infiltration": 36,
+    "Infiltration - Attempted": 45,
+    "Infiltration - Portscan": 71767,
+    "Web Attack - Brute Force": 73,
+    "Web Attack - Brute Force - Attempted": 1292,
+    "Web Attack - SQL Injection": 13,
+    "Web Attack - SQL Injection - Attempted": 5,
+    "Web Attack - XSS": 18,
+    "Web Attack - XSS - Attempted": 655,
+    "FTP-Patator": 3972,
+    "FTP-Patator - Attempted": 12,
+    "SSH-Patator": 2961,
+    "SSH-Patator - Attempted": 27,
+    "DoS GoldenEye": 7567,
+    "DoS Hulk": 158468,
+    "DoS Hulk - Attempted": 581,
+    "DoS Slowhttptest": 1740,
+    "DoS Slowhttptest - Attempted": 3368,
+    "DoS Slowloris": 3859,
+    "DoS Slowloris - Attempted": 1847,
+    "DoS GoldenEye - Attempted": 80,
+    "Heartbleed": 11
+  },
+  "options": {
+    "with_port": true,
+    "keep_every": 1,
+    "limit_rows": null,
+    "unsw_ethernet_header_bytes": null,
+    "unsw_features_file": null
+  },
+  "created": "2026-10-24T15:48:21+00:00"
+}

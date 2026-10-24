@@ -1,0 +1,1450 @@
+{
+ "features": [
+  "duration_s",
+  "fwd_pkts",
+  "bwd_pkts",
+  "fwd_bytes",
+  "bwd_bytes",
+  "fwd_mean_len",
+  "bwd_mean_len",
+  "fwd_iat_mean_s",
+  "bwd_iat_mean_s",
+  "pkt_rate",
+  "byte_rate",
+  "bwd_fwd_pkt_ratio",
+  "is_tcp",
+  "is_udp",
+  "dst_port"
+ ],
+ "params": {
+  "n_estimators": 300,
+  "max_depth": 8,
+  "learning_rate": 0.1,
+  "subsample": 0.8,
+  "colsample_bytree": 0.8
+ },
+ "test_fraction": 0.3,
+ "seed": 42,
+ "datasets": [
+  {
+   "dataset": "CICIDS2017",
+   "rows": 2099976,
+   "attack": 505431,
+   "raw_labels": 27
+  },
+  {
+   "dataset": "CSE-CIC-IDS-2018",
+   "rows": 2106505,
+   "attack": 117771,
+   "raw_labels": 22
+  },
+  {
+   "dataset": "UNSW-NB15",
+   "rows": 2540040,
+   "attack": 321283,
+   "raw_labels": 10
+  }
+ ],
+ "extras": [],
+ "cells": [
+  {
+   "kind": "within",
+   "train": [
+    "CICIDS2017"
+   ],
+   "test": "CICIDS2017",
+   "n": 629992,
+   "attack": 151629,
+   "auc": 0.999999,
+   "f1": 0.9999,
+   "precision": 0.9998,
+   "recall": 0.9999,
+   "false_positive_rate": 5e-05,
+   "flagged": 151632,
+   "per_raw_label": {
+    "BENIGN": {
+     "n": 474770,
+     "attack": false,
+     "flagged_as_attack": 0.0001
+    },
+    "Botnet": {
+     "n": 220,
+     "attack": true,
+     "flagged_as_attack": 0.9864
+    },
+    "Botnet - Attempted": {
+     "n": 1259,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS": {
+     "n": 28575,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Portscan": {
+     "n": 47600,
+     "attack": true,
+     "flagged_as_attack": 0.9999
+    },
+    "Infiltration": {
+     "n": 12,
+     "attack": true,
+     "flagged_as_attack": 0.9167
+    },
+    "Infiltration - Attempted": {
+     "n": 15,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - Portscan": {
+     "n": 21380,
+     "attack": true,
+     "flagged_as_attack": 0.9998
+    },
+    "Web Attack - Brute Force": {
+     "n": 17,
+     "attack": true,
+     "flagged_as_attack": 0.9412
+    },
+    "Web Attack - Brute Force - Attempted": {
+     "n": 368,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - SQL Injection": {
+     "n": 3,
+     "attack": true,
+     "flagged_as_attack": 0.6667
+    },
+    "Web Attack - SQL Injection - Attempted": {
+     "n": 1,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - XSS": {
+     "n": 7,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - XSS - Attempted": {
+     "n": 181,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "FTP-Patator": {
+     "n": 1170,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "FTP-Patator - Attempted": {
+     "n": 4,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "SSH-Patator": {
+     "n": 872,
+     "attack": true,
+     "flagged_as_attack": 0.9966
+    },
+    "SSH-Patator - Attempted": {
+     "n": 12,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS GoldenEye": {
+     "n": 2323,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DoS Hulk": {
+     "n": 47737,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DoS Hulk - Attempted": {
+     "n": 179,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Slowhttptest": {
+     "n": 517,
+     "attack": true,
+     "flagged_as_attack": 0.9961
+    },
+    "DoS Slowhttptest - Attempted": {
+     "n": 959,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Slowloris": {
+     "n": 1192,
+     "attack": true,
+     "flagged_as_attack": 0.9992
+    },
+    "DoS Slowloris - Attempted": {
+     "n": 591,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS GoldenEye - Attempted": {
+     "n": 24,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Heartbleed": {
+     "n": 4,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    }
+   },
+   "fit_seconds": 19.2,
+   "score_seconds": 1.1
+  },
+  {
+   "kind": "cross",
+   "train": [
+    "CICIDS2017"
+   ],
+   "test": "CSE-CIC-IDS-2018",
+   "n": 2106505,
+   "attack": 117771,
+   "auc": 0.755828,
+   "f1": 0.1055,
+   "precision": 0.3005,
+   "recall": 0.064,
+   "false_positive_rate": 0.00882,
+   "flagged": 25074,
+   "per_raw_label": {
+    "BENIGN": {
+     "n": 1978511,
+     "attack": false,
+     "flagged_as_attack": 0.0038
+    },
+    "Botnet Ares": {
+     "n": 4704,
+     "attack": true,
+     "flagged_as_attack": 0.997
+    },
+    "Botnet Ares - Attempted": {
+     "n": 6,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Hulk": {
+     "n": 60085,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "FTP-BruteForce - Attempted": {
+     "n": 9980,
+     "attack": false,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - Brute Force": {
+     "n": 6,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - Brute Force - Attempted": {
+     "n": 5,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - XSS": {
+     "n": 2,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Infiltration - NMAP Portscan": {
+     "n": 2981,
+     "attack": true,
+     "flagged_as_attack": 0.8531
+    },
+    "Infiltration - Communication Victim Attacker": {
+     "n": 8,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - Dropbox Download": {
+     "n": 1,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "DoS GoldenEye": {
+     "n": 764,
+     "attack": true,
+     "flagged_as_attack": 0.0275
+    },
+    "DoS GoldenEye - Attempted": {
+     "n": 129,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Slowloris": {
+     "n": 277,
+     "attack": true,
+     "flagged_as_attack": 0.9783
+    },
+    "DoS Slowloris - Attempted": {
+     "n": 89,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - SQL": {
+     "n": 1,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS-LOIC-HTTP": {
+     "n": 9643,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS-LOIC-UDP": {
+     "n": 77,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS-LOIC-UDP - Attempted": {
+     "n": 12,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "SSH-BruteForce": {
+     "n": 3142,
+     "attack": true,
+     "flagged_as_attack": 0.0013
+    },
+    "DDoS-HOIC": {
+     "n": 36080,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - Dropbox Download - Attempted": {
+     "n": 2,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    }
+   },
+   "fit_seconds": 20.8,
+   "score_seconds": 2.4
+  },
+  {
+   "kind": "cross",
+   "train": [
+    "CICIDS2017"
+   ],
+   "test": "UNSW-NB15",
+   "n": 2540040,
+   "attack": 321283,
+   "auc": 0.735405,
+   "f1": 0.0663,
+   "precision": 0.3278,
+   "recall": 0.0369,
+   "false_positive_rate": 0.010948,
+   "flagged": 36137,
+   "per_raw_label": {
+    "Analysis": {
+     "n": 2677,
+     "attack": true,
+     "flagged_as_attack": 0.0071
+    },
+    "Backdoor": {
+     "n": 2329,
+     "attack": true,
+     "flagged_as_attack": 0.0648
+    },
+    "DoS": {
+     "n": 16353,
+     "attack": true,
+     "flagged_as_attack": 0.0471
+    },
+    "Exploits": {
+     "n": 44525,
+     "attack": true,
+     "flagged_as_attack": 0.0536
+    },
+    "Fuzzers": {
+     "n": 24246,
+     "attack": true,
+     "flagged_as_attack": 0.2211
+    },
+    "Generic": {
+     "n": 215481,
+     "attack": true,
+     "flagged_as_attack": 0.0012
+    },
+    "Normal": {
+     "n": 2218757,
+     "attack": false,
+     "flagged_as_attack": 0.0109
+    },
+    "Reconnaissance": {
+     "n": 13987,
+     "attack": true,
+     "flagged_as_attack": 0.168
+    },
+    "Shellcode": {
+     "n": 1511,
+     "attack": true,
+     "flagged_as_attack": 0.3587
+    },
+    "Worms": {
+     "n": 174,
+     "attack": true,
+     "flagged_as_attack": 0.0402
+    }
+   },
+   "fit_seconds": 20.8,
+   "score_seconds": 2.7
+  },
+  {
+   "kind": "within",
+   "train": [
+    "CSE-CIC-IDS-2018"
+   ],
+   "test": "CSE-CIC-IDS-2018",
+   "n": 631951,
+   "attack": 35331,
+   "auc": 0.999994,
+   "f1": 0.9993,
+   "precision": 0.999,
+   "recall": 0.9997,
+   "false_positive_rate": 6.2e-05,
+   "flagged": 35356,
+   "per_raw_label": {
+    "BENIGN": {
+     "n": 593565,
+     "attack": false,
+     "flagged_as_attack": 0.0001
+    },
+    "Botnet Ares": {
+     "n": 1431,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Botnet Ares - Attempted": {
+     "n": 1,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Hulk": {
+     "n": 17915,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "FTP-BruteForce - Attempted": {
+     "n": 2989,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - Brute Force": {
+     "n": 3,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - Brute Force - Attempted": {
+     "n": 1,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - NMAP Portscan": {
+     "n": 865,
+     "attack": true,
+     "flagged_as_attack": 0.9896
+    },
+    "Infiltration - Communication Victim Attacker": {
+     "n": 1,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Infiltration - Dropbox Download": {
+     "n": 1,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "DoS GoldenEye": {
+     "n": 220,
+     "attack": true,
+     "flagged_as_attack": 0.9955
+    },
+    "DoS GoldenEye - Attempted": {
+     "n": 37,
+     "attack": false,
+     "flagged_as_attack": 0.027
+    },
+    "DoS Slowloris": {
+     "n": 76,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DoS Slowloris - Attempted": {
+     "n": 22,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS-LOIC-HTTP": {
+     "n": 2935,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DDoS-LOIC-UDP": {
+     "n": 26,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DDoS-LOIC-UDP - Attempted": {
+     "n": 5,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "SSH-BruteForce": {
+     "n": 926,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DDoS-HOIC": {
+     "n": 10932,
+     "attack": true,
+     "flagged_as_attack": 0.9999
+    }
+   },
+   "fit_seconds": 14.4,
+   "score_seconds": 0.8
+  },
+  {
+   "kind": "cross",
+   "train": [
+    "CSE-CIC-IDS-2018"
+   ],
+   "test": "CICIDS2017",
+   "n": 2099976,
+   "attack": 505431,
+   "auc": 0.971307,
+   "f1": 0.3288,
+   "precision": 0.971,
+   "recall": 0.1979,
+   "false_positive_rate": 0.001875,
+   "flagged": 103035,
+   "per_raw_label": {
+    "BENIGN": {
+     "n": 1582566,
+     "attack": false,
+     "flagged_as_attack": 0.0018
+    },
+    "Botnet": {
+     "n": 736,
+     "attack": true,
+     "flagged_as_attack": 0.0598
+    },
+    "Botnet - Attempted": {
+     "n": 4067,
+     "attack": false,
+     "flagged_as_attack": 0.0369
+    },
+    "DDoS": {
+     "n": 95144,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Portscan": {
+     "n": 159066,
+     "attack": true,
+     "flagged_as_attack": 0.4898
+    },
+    "Infiltration": {
+     "n": 36,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - Attempted": {
+     "n": 45,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - Portscan": {
+     "n": 71767,
+     "attack": true,
+     "flagged_as_attack": 0.2362
+    },
+    "Web Attack - Brute Force": {
+     "n": 73,
+     "attack": true,
+     "flagged_as_attack": 0.9726
+    },
+    "Web Attack - Brute Force - Attempted": {
+     "n": 1292,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - SQL Injection": {
+     "n": 13,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - SQL Injection - Attempted": {
+     "n": 5,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - XSS": {
+     "n": 18,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - XSS - Attempted": {
+     "n": 655,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "FTP-Patator": {
+     "n": 3972,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "FTP-Patator - Attempted": {
+     "n": 12,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "SSH-Patator": {
+     "n": 2961,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "SSH-Patator - Attempted": {
+     "n": 27,
+     "attack": false,
+     "flagged_as_attack": 0.6667
+    },
+    "DoS GoldenEye": {
+     "n": 7567,
+     "attack": true,
+     "flagged_as_attack": 0.0009
+    },
+    "DoS Hulk": {
+     "n": 158468,
+     "attack": true,
+     "flagged_as_attack": 0.0001
+    },
+    "DoS Hulk - Attempted": {
+     "n": 581,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Slowhttptest": {
+     "n": 1740,
+     "attack": true,
+     "flagged_as_attack": 0.7259
+    },
+    "DoS Slowhttptest - Attempted": {
+     "n": 3368,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Slowloris": {
+     "n": 3859,
+     "attack": true,
+     "flagged_as_attack": 0.9759
+    },
+    "DoS Slowloris - Attempted": {
+     "n": 1847,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS GoldenEye - Attempted": {
+     "n": 80,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Heartbleed": {
+     "n": 11,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    }
+   },
+   "fit_seconds": 19.6,
+   "score_seconds": 2.6
+  },
+  {
+   "kind": "cross",
+   "train": [
+    "CSE-CIC-IDS-2018"
+   ],
+   "test": "UNSW-NB15",
+   "n": 2540040,
+   "attack": 321283,
+   "auc": 0.323674,
+   "f1": 0.117,
+   "precision": 0.1146,
+   "recall": 0.1196,
+   "false_positive_rate": 0.133822,
+   "flagged": 335347,
+   "per_raw_label": {
+    "Analysis": {
+     "n": 2677,
+     "attack": true,
+     "flagged_as_attack": 0.7464
+    },
+    "Backdoor": {
+     "n": 2329,
+     "attack": true,
+     "flagged_as_attack": 0.8158
+    },
+    "DoS": {
+     "n": 16353,
+     "attack": true,
+     "flagged_as_attack": 0.7276
+    },
+    "Exploits": {
+     "n": 44525,
+     "attack": true,
+     "flagged_as_attack": 0.3688
+    },
+    "Fuzzers": {
+     "n": 24246,
+     "attack": true,
+     "flagged_as_attack": 0.1071
+    },
+    "Generic": {
+     "n": 215481,
+     "attack": true,
+     "flagged_as_attack": 0.0077
+    },
+    "Normal": {
+     "n": 2218757,
+     "attack": false,
+     "flagged_as_attack": 0.1338
+    },
+    "Reconnaissance": {
+     "n": 13987,
+     "attack": true,
+     "flagged_as_attack": 0.1394
+    },
+    "Shellcode": {
+     "n": 1511,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Worms": {
+     "n": 174,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    }
+   },
+   "fit_seconds": 19.6,
+   "score_seconds": 2.4
+  },
+  {
+   "kind": "within",
+   "train": [
+    "UNSW-NB15"
+   ],
+   "test": "UNSW-NB15",
+   "n": 762012,
+   "attack": 96385,
+   "auc": 0.99972,
+   "f1": 0.9587,
+   "precision": 0.923,
+   "recall": 0.9971,
+   "false_positive_rate": 0.012038,
+   "flagged": 104122,
+   "per_raw_label": {
+    "Analysis": {
+     "n": 828,
+     "attack": true,
+     "flagged_as_attack": 0.9758
+    },
+    "Backdoor": {
+     "n": 725,
+     "attack": true,
+     "flagged_as_attack": 0.9986
+    },
+    "DoS": {
+     "n": 4918,
+     "attack": true,
+     "flagged_as_attack": 0.9992
+    },
+    "Exploits": {
+     "n": 13484,
+     "attack": true,
+     "flagged_as_attack": 0.9979
+    },
+    "Fuzzers": {
+     "n": 7396,
+     "attack": true,
+     "flagged_as_attack": 0.9709
+    },
+    "Generic": {
+     "n": 64344,
+     "attack": true,
+     "flagged_as_attack": 0.9999
+    },
+    "Normal": {
+     "n": 665627,
+     "attack": false,
+     "flagged_as_attack": 0.012
+    },
+    "Reconnaissance": {
+     "n": 4234,
+     "attack": true,
+     "flagged_as_attack": 0.9995
+    },
+    "Shellcode": {
+     "n": 403,
+     "attack": true,
+     "flagged_as_attack": 0.9975
+    },
+    "Worms": {
+     "n": 53,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    }
+   },
+   "fit_seconds": 19.6,
+   "score_seconds": 0.9
+  },
+  {
+   "kind": "cross",
+   "train": [
+    "UNSW-NB15"
+   ],
+   "test": "CICIDS2017",
+   "n": 2099976,
+   "attack": 505431,
+   "auc": 0.222643,
+   "f1": 0.0303,
+   "precision": 0.0241,
+   "recall": 0.0409,
+   "false_positive_rate": 0.524494,
+   "flagged": 856986,
+   "per_raw_label": {
+    "BENIGN": {
+     "n": 1582566,
+     "attack": false,
+     "flagged_as_attack": 0.527
+    },
+    "Botnet": {
+     "n": 736,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Botnet - Attempted": {
+     "n": 4067,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS": {
+     "n": 95144,
+     "attack": true,
+     "flagged_as_attack": 0.0017
+    },
+    "Portscan": {
+     "n": 159066,
+     "attack": true,
+     "flagged_as_attack": 0.0002
+    },
+    "Infiltration": {
+     "n": 36,
+     "attack": true,
+     "flagged_as_attack": 0.8333
+    },
+    "Infiltration - Attempted": {
+     "n": 45,
+     "attack": false,
+     "flagged_as_attack": 0.0889
+    },
+    "Infiltration - Portscan": {
+     "n": 71767,
+     "attack": true,
+     "flagged_as_attack": 0.0138
+    },
+    "Web Attack - Brute Force": {
+     "n": 73,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - Brute Force - Attempted": {
+     "n": 1292,
+     "attack": false,
+     "flagged_as_attack": 0.9443
+    },
+    "Web Attack - SQL Injection": {
+     "n": 13,
+     "attack": true,
+     "flagged_as_attack": 0.3077
+    },
+    "Web Attack - SQL Injection - Attempted": {
+     "n": 5,
+     "attack": false,
+     "flagged_as_attack": 0.6
+    },
+    "Web Attack - XSS": {
+     "n": 18,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - XSS - Attempted": {
+     "n": 655,
+     "attack": false,
+     "flagged_as_attack": 0.9969
+    },
+    "FTP-Patator": {
+     "n": 3972,
+     "attack": true,
+     "flagged_as_attack": 0.7729
+    },
+    "FTP-Patator - Attempted": {
+     "n": 12,
+     "attack": false,
+     "flagged_as_attack": 0.0833
+    },
+    "SSH-Patator": {
+     "n": 2961,
+     "attack": true,
+     "flagged_as_attack": 0.9936
+    },
+    "SSH-Patator - Attempted": {
+     "n": 27,
+     "attack": false,
+     "flagged_as_attack": 0.1111
+    },
+    "DoS GoldenEye": {
+     "n": 7567,
+     "attack": true,
+     "flagged_as_attack": 0.0728
+    },
+    "DoS Hulk": {
+     "n": 158468,
+     "attack": true,
+     "flagged_as_attack": 0.0584
+    },
+    "DoS Hulk - Attempted": {
+     "n": 581,
+     "attack": false,
+     "flagged_as_attack": 0.012
+    },
+    "DoS Slowhttptest": {
+     "n": 1740,
+     "attack": true,
+     "flagged_as_attack": 0.8247
+    },
+    "DoS Slowhttptest - Attempted": {
+     "n": 3368,
+     "attack": false,
+     "flagged_as_attack": 0.0499
+    },
+    "DoS Slowloris": {
+     "n": 3859,
+     "attack": true,
+     "flagged_as_attack": 0.5444
+    },
+    "DoS Slowloris - Attempted": {
+     "n": 1847,
+     "attack": false,
+     "flagged_as_attack": 0.0991
+    },
+    "DoS GoldenEye - Attempted": {
+     "n": 80,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Heartbleed": {
+     "n": 11,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    }
+   },
+   "fit_seconds": 26.7,
+   "score_seconds": 2.9
+  },
+  {
+   "kind": "cross",
+   "train": [
+    "UNSW-NB15"
+   ],
+   "test": "CSE-CIC-IDS-2018",
+   "n": 2106505,
+   "attack": 117771,
+   "auc": 0.333211,
+   "f1": 0.055,
+   "precision": 0.0311,
+   "recall": 0.2383,
+   "false_positive_rate": 0.439545,
+   "flagged": 902207,
+   "per_raw_label": {
+    "BENIGN": {
+     "n": 1978511,
+     "attack": false,
+     "flagged_as_attack": 0.4418
+    },
+    "Botnet Ares": {
+     "n": 4704,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Botnet Ares - Attempted": {
+     "n": 6,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Hulk": {
+     "n": 60085,
+     "attack": true,
+     "flagged_as_attack": 0.3252
+    },
+    "FTP-BruteForce - Attempted": {
+     "n": 9980,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - Brute Force": {
+     "n": 6,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - Brute Force - Attempted": {
+     "n": 5,
+     "attack": false,
+     "flagged_as_attack": 0.8
+    },
+    "Web Attack - XSS": {
+     "n": 2,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Infiltration - NMAP Portscan": {
+     "n": 2981,
+     "attack": true,
+     "flagged_as_attack": 0.0594
+    },
+    "Infiltration - Communication Victim Attacker": {
+     "n": 8,
+     "attack": true,
+     "flagged_as_attack": 0.25
+    },
+    "Infiltration - Dropbox Download": {
+     "n": 1,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DoS GoldenEye": {
+     "n": 764,
+     "attack": true,
+     "flagged_as_attack": 0.805
+    },
+    "DoS GoldenEye - Attempted": {
+     "n": 129,
+     "attack": false,
+     "flagged_as_attack": 0.5891
+    },
+    "DoS Slowloris": {
+     "n": 277,
+     "attack": true,
+     "flagged_as_attack": 0.5848
+    },
+    "DoS Slowloris - Attempted": {
+     "n": 89,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - SQL": {
+     "n": 1,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DDoS-LOIC-HTTP": {
+     "n": 9643,
+     "attack": true,
+     "flagged_as_attack": 0.7087
+    },
+    "DDoS-LOIC-UDP": {
+     "n": 77,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DDoS-LOIC-UDP - Attempted": {
+     "n": 12,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "SSH-BruteForce": {
+     "n": 3142,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS-HOIC": {
+     "n": 36080,
+     "attack": true,
+     "flagged_as_attack": 0.018
+    },
+    "Infiltration - Dropbox Download - Attempted": {
+     "n": 2,
+     "attack": false,
+     "flagged_as_attack": 0.5
+    }
+   },
+   "fit_seconds": 26.7,
+   "score_seconds": 2.6
+  },
+  {
+   "kind": "leave_one_out",
+   "train": [
+    "CSE-CIC-IDS-2018",
+    "UNSW-NB15"
+   ],
+   "test": "CICIDS2017",
+   "n": 2099976,
+   "attack": 505431,
+   "auc": 0.686229,
+   "f1": 0.2557,
+   "precision": 0.3365,
+   "recall": 0.2062,
+   "false_positive_rate": 0.128877,
+   "flagged": 309698,
+   "per_raw_label": {
+    "BENIGN": {
+     "n": 1582566,
+     "attack": false,
+     "flagged_as_attack": 0.1298
+    },
+    "Botnet": {
+     "n": 736,
+     "attack": true,
+     "flagged_as_attack": 0.1372
+    },
+    "Botnet - Attempted": {
+     "n": 4067,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS": {
+     "n": 95144,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Portscan": {
+     "n": 159066,
+     "attack": true,
+     "flagged_as_attack": 0.454
+    },
+    "Infiltration": {
+     "n": 36,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - Attempted": {
+     "n": 45,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - Portscan": {
+     "n": 71767,
+     "attack": true,
+     "flagged_as_attack": 0.3222
+    },
+    "Web Attack - Brute Force": {
+     "n": 73,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - Brute Force - Attempted": {
+     "n": 1292,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - SQL Injection": {
+     "n": 13,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - SQL Injection - Attempted": {
+     "n": 5,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - XSS": {
+     "n": 18,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - XSS - Attempted": {
+     "n": 655,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "FTP-Patator": {
+     "n": 3972,
+     "attack": true,
+     "flagged_as_attack": 0.9965
+    },
+    "FTP-Patator - Attempted": {
+     "n": 12,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "SSH-Patator": {
+     "n": 2961,
+     "attack": true,
+     "flagged_as_attack": 0.0007
+    },
+    "SSH-Patator - Attempted": {
+     "n": 27,
+     "attack": false,
+     "flagged_as_attack": 0.2222
+    },
+    "DoS GoldenEye": {
+     "n": 7567,
+     "attack": true,
+     "flagged_as_attack": 0.0012
+    },
+    "DoS Hulk": {
+     "n": 158468,
+     "attack": true,
+     "flagged_as_attack": 0.0001
+    },
+    "DoS Hulk - Attempted": {
+     "n": 581,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Slowhttptest": {
+     "n": 1740,
+     "attack": true,
+     "flagged_as_attack": 0.723
+    },
+    "DoS Slowhttptest - Attempted": {
+     "n": 3368,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Slowloris": {
+     "n": 3859,
+     "attack": true,
+     "flagged_as_attack": 0.8844
+    },
+    "DoS Slowloris - Attempted": {
+     "n": 1847,
+     "attack": false,
+     "flagged_as_attack": 0.0022
+    },
+    "DoS GoldenEye - Attempted": {
+     "n": 80,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Heartbleed": {
+     "n": 11,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    }
+   },
+   "fit_seconds": 52.4,
+   "score_seconds": 3.5
+  },
+  {
+   "kind": "leave_one_out",
+   "train": [
+    "CICIDS2017",
+    "UNSW-NB15"
+   ],
+   "test": "CSE-CIC-IDS-2018",
+   "n": 2106505,
+   "attack": 117771,
+   "auc": 0.616714,
+   "f1": 0.0381,
+   "precision": 0.0661,
+   "recall": 0.0268,
+   "false_positive_rate": 0.022389,
+   "flagged": 47678,
+   "per_raw_label": {
+    "BENIGN": {
+     "n": 1978511,
+     "attack": false,
+     "flagged_as_attack": 0.0175
+    },
+    "Botnet Ares": {
+     "n": 4704,
+     "attack": true,
+     "flagged_as_attack": 0.0009
+    },
+    "Botnet Ares - Attempted": {
+     "n": 6,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Hulk": {
+     "n": 60085,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "FTP-BruteForce - Attempted": {
+     "n": 9980,
+     "attack": false,
+     "flagged_as_attack": 1.0
+    },
+    "Web Attack - Brute Force": {
+     "n": 6,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - Brute Force - Attempted": {
+     "n": 5,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - XSS": {
+     "n": 2,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "Infiltration - NMAP Portscan": {
+     "n": 2981,
+     "attack": true,
+     "flagged_as_attack": 0.8977
+    },
+    "Infiltration - Communication Victim Attacker": {
+     "n": 8,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - Dropbox Download": {
+     "n": 1,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "DoS GoldenEye": {
+     "n": 764,
+     "attack": true,
+     "flagged_as_attack": 0.0301
+    },
+    "DoS GoldenEye - Attempted": {
+     "n": 129,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "DoS Slowloris": {
+     "n": 277,
+     "attack": true,
+     "flagged_as_attack": 0.9783
+    },
+    "DoS Slowloris - Attempted": {
+     "n": 89,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "Web Attack - SQL": {
+     "n": 1,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS-LOIC-HTTP": {
+     "n": 9643,
+     "attack": true,
+     "flagged_as_attack": 0.0102
+    },
+    "DDoS-LOIC-UDP": {
+     "n": 77,
+     "attack": true,
+     "flagged_as_attack": 1.0
+    },
+    "DDoS-LOIC-UDP - Attempted": {
+     "n": 12,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    },
+    "SSH-BruteForce": {
+     "n": 3142,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "DDoS-HOIC": {
+     "n": 36080,
+     "attack": true,
+     "flagged_as_attack": 0.0
+    },
+    "Infiltration - Dropbox Download - Attempted": {
+     "n": 2,
+     "attack": false,
+     "flagged_as_attack": 0.0
+    }
+   },
+   "fit_seconds": 50.6,
+   "score_seconds": 2.6
+  },
+  {
+   "kind": "leave_one_out",
+   "train": [
+    "CICIDS2017",
+    "CSE-CIC-IDS-2018"
+   ],
+   "test": "UNSW-NB15",
+   "n": 2540040,
+   "attack": 321283,
+   "auc": 0.693001,
+   "f1": 0.0826,
+   "precision": 0.2205,
+   "recall": 0.0508,
+   "false_positive_rate": 0.026,
+   "flagged": 74011,
+   "per_raw_label": {
+    "Analysis": {
+     "n": 2677,
+     "attack": true,
+     "flagged_as_attack": 0.1233
+    },
+    "Backdoor": {
+     "n": 2329,
+     "attack": true,
+     "flagged_as_attack": 0.2095
+    },
+    "DoS": {
+     "n": 16353,
+     "attack": true,
+     "flagged_as_attack": 0.121
+    },
+    "Exploits": {
+     "n": 44525,
+     "attack": true,
+     "flagged_as_attack": 0.1122
+    },
+    "Fuzzers": {
+     "n": 24246,
+     "attack": true,
+     "flagged_as_attack": 0.1166
+    },
+    "Generic": {
+     "n": 215481,
+     "attack": true,
+     "flagged_as_attack": 0.002
+    },
+    "Normal": {
+     "n": 2218757,
+     "attack": false,
+     "flagged_as_attack": 0.026
+    },
+    "Reconnaissance": {
+     "n": 13987,
+     "attack": true,
+     "flagged_as_attack": 0.3637
+    },
+    "Shellcode": {
+     "n": 1511,
+     "attack": true,
+     "flagged_as_attack": 0.1198
+    },
+    "Worms": {
+     "n": 174,
+     "attack": true,
+     "flagged_as_attack": 0.0287
+    }
+   },
+   "fit_seconds": 41.1,
+   "score_seconds": 2.6
+  }
+ ],
+ "complete": true,
+ "started": "2026-10-24T15:55:44+00:00",
+ "finished": "2026-10-24T16:00:36+00:00"
+}

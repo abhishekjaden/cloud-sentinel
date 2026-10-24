@@ -1,0 +1,71 @@
+{
+  "dataset": "UNSW-NB15",
+  "source": "unsw",
+  "features": [
+    "duration_s",
+    "fwd_pkts",
+    "bwd_pkts",
+    "fwd_bytes",
+    "bwd_bytes",
+    "fwd_mean_len",
+    "bwd_mean_len",
+    "fwd_iat_mean_s",
+    "bwd_iat_mean_s",
+    "pkt_rate",
+    "byte_rate",
+    "bwd_fwd_pkt_ratio",
+    "is_tcp",
+    "is_udp",
+    "dst_port"
+  ],
+  "rows": 2540040,
+  "attack": 321283,
+  "dropped_missing_or_infinite": 7,
+  "repeated_headers": 0,
+  "files": [
+    {
+      "file": "UNSW-NB15_1.csv",
+      "bytes": 168979718,
+      "rows_kept": 699994,
+      "seconds": 5.1
+    },
+    {
+      "file": "UNSW-NB15_2.csv",
+      "bytes": 165221021,
+      "rows_kept": 700001,
+      "seconds": 5.5
+    },
+    {
+      "file": "UNSW-NB15_3.csv",
+      "bytes": 154588103,
+      "rows_kept": 700001,
+      "seconds": 4.8
+    },
+    {
+      "file": "UNSW-NB15_4.csv",
+      "bytes": 97588754,
+      "rows_kept": 440044,
+      "seconds": 2.5
+    }
+  ],
+  "raw_labels": {
+    "Analysis": 2677,
+    "Backdoor": 2329,
+    "DoS": 16353,
+    "Exploits": 44525,
+    "Fuzzers": 24246,
+    "Generic": 215481,
+    "Normal": 2218757,
+    "Reconnaissance": 13987,
+    "Shellcode": 1511,
+    "Worms": 174
+  },
+  "options": {
+    "with_port": true,
+    "keep_every": 1,
+    "limit_rows": null,
+    "unsw_ethernet_header_bytes": 14,
+    "unsw_features_file": "NUSW-NB15_features.csv"
+  },
+  "created": "2026-10-24T15:47:57+00:00"
+}

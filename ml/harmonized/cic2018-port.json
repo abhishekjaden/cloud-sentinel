@@ -1,0 +1,119 @@
+{
+  "dataset": "CSE-CIC-IDS-2018",
+  "source": "cic2018",
+  "features": [
+    "duration_s",
+    "fwd_pkts",
+    "bwd_pkts",
+    "fwd_bytes",
+    "bwd_bytes",
+    "fwd_mean_len",
+    "bwd_mean_len",
+    "fwd_iat_mean_s",
+    "bwd_iat_mean_s",
+    "pkt_rate",
+    "byte_rate",
+    "bwd_fwd_pkt_ratio",
+    "is_tcp",
+    "is_udp",
+    "dst_port"
+  ],
+  "rows": 2106505,
+  "attack": 117771,
+  "dropped_missing_or_infinite": 0,
+  "repeated_headers": 0,
+  "files": [
+    {
+      "file": "Friday-02-03-2018.csv",
+      "bytes": 3689837784,
+      "rows_kept": 210380,
+      "seconds": 41.7
+    },
+    {
+      "file": "Friday-16-02-2018.csv",
+      "bytes": 4211741805,
+      "rows_kept": 246342,
+      "seconds": 46.3
+    },
+    {
+      "file": "Friday-23-02-2018.csv",
+      "bytes": 3409376619,
+      "rows_kept": 199216,
+      "seconds": 41.0
+    },
+    {
+      "file": "Thursday-01-03-2018.csv",
+      "bytes": 3808397458,
+      "rows_kept": 218380,
+      "seconds": 46.3
+    },
+    {
+      "file": "Thursday-15-02-2018.csv",
+      "bytes": 2992535617,
+      "rows_kept": 180337,
+      "seconds": 36.4
+    },
+    {
+      "file": "Thursday-22-02-2018.csv",
+      "bytes": 3473832504,
+      "rows_kept": 202371,
+      "seconds": 42.0
+    },
+    {
+      "file": "Tuesday-20-02-2018.csv",
+      "bytes": 3431246090,
+      "rows_kept": 201824,
+      "seconds": 42.4
+    },
+    {
+      "file": "Wednesday-14-02-2018.csv",
+      "bytes": 3262583806,
+      "rows_kept": 196611,
+      "seconds": 39.4
+    },
+    {
+      "file": "Wednesday-21-02-2018.csv",
+      "bytes": 3952691068,
+      "rows_kept": 232087,
+      "seconds": 48.0
+    },
+    {
+      "file": "Wednesday-28-02-2018.csv",
+      "bytes": 3812223732,
+      "rows_kept": 218957,
+      "seconds": 48.6
+    }
+  ],
+  "raw_labels": {
+    "BENIGN": 1978511,
+    "Botnet Ares": 4704,
+    "Botnet Ares - Attempted": 6,
+    "DoS Hulk": 60085,
+    "FTP-BruteForce - Attempted": 9980,
+    "Web Attack - Brute Force": 6,
+    "Web Attack - Brute Force - Attempted": 5,
+    "Web Attack - XSS": 2,
+    "Infiltration - NMAP Portscan": 2981,
+    "Infiltration - Communication Victim Attacker": 8,
+    "Infiltration - Dropbox Download": 1,
+    "DoS GoldenEye": 764,
+    "DoS GoldenEye - Attempted": 129,
+    "DoS Slowloris": 277,
+    "DoS Slowloris - Attempted": 89,
+    "Web Attack - SQL": 1,
+    "DDoS-LOIC-HTTP": 9643,
+    "DDoS-LOIC-UDP": 77,
+    "DDoS-LOIC-UDP - Attempted": 12,
+    "SSH-BruteForce": 3142,
+    "DDoS-HOIC": 36080,
+    "Infiltration - Dropbox Download - Attempted": 2
+  },
+  "options": {
+    "with_port": true,
+    "keep_every": 30,
+    "limit_rows": null,
+    "unsw_ethernet_header_bytes": null,
+    "unsw_features_file": null
+  },
+  "created": "2026-10-24T15:55:40+00:00"
+}
