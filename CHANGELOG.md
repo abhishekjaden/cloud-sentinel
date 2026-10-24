@@ -3,6 +3,50 @@
 Each release is a tag on `main`; its notes say what the repository holds at
 that tag and what it does not. Dates are the tag's.
 
+## Unreleased — towards v2.1.0, *Generalization and benefit*
+
+On `main` since v2.0.0; the tag waits for the honeypot's third run and the
+second-person cases (`docs/generalization-protocol.md`,
+`docs/triage-eval-protocol.md`).
+
+- **The detector across three networks.** CICIDS2017, CSE-CIC-IDS-2018 and
+  UNSW-NB15 on fourteen shared features, with six expectations pushed before
+  any table existed. G1 and G2 met, G3 and G4 not: trained on two networks
+  and tested on the third, AUC 0.634, 0.665 and 0.884, never better than the
+  better single network, and a model trained on UNSW-NB15 worse than chance
+  on both CIC releases. With the destination port, five of six cross cells
+  fall (model card, 6.4).
+- **The honeypot's third run** (generation 4), from 24 October to 3
+  November: packet headers, never payload, captured to a retained bucket
+  through the VPC's S3 endpoint, the instance's one credential write-only;
+  flows extracted by `scripts/pcap_flows.py`, the operator's visits logged as
+  the benign side. Its flows decide G5 and G6.
+- **Triage runs kept as records**, another model asked through the same
+  prompt (`eval_triage.py --out`, `--model`), and what the model's confidence
+  is worth read from the record (`scripts/triage_calibration.py`). The
+  second-person case form, with a statement on AI assistance in every row,
+  which the converter refuses a row without.
+- **Every published advisory with a fix cleared** (25 October). The
+  manifests carried 28 in the infrastructure's lockfile (two critical), 42 in
+  the console's (three critical) and 51 in the backend's pins (37 of them
+  Pillow's, 11 pypdf's), with no security pull request raised for any. Fixed
+  by aws-cdk-lib 2.274.0, axios 1.20.0, vite 8.3.5, vitest 5.0.5,
+  cryptography 50.0.2, Pillow 13.0.0, pypdf 6.21.2 and lockfile updates;
+  every existing test passes unchanged, and the synthesized templates differ only in
+  the dashboard's deployment function and a trust condition the new library
+  adds to the remediation role. Two advisories have no fixed release
+  (python-jose, ecdsa) and are unreachable; the threat model says why, and a
+  new test pins the first — a token HMAC-signed with the pool's own public
+  key is refused. A dependency audit now runs in the Security workflow on
+  every push and weekly. The three Dependabot pull requests open since
+  September, which mixed these fixes with major upgrades that break the
+  build (TypeScript 7, cdk-nag 3, jsdom 30), are superseded.
+- **A claim corrected.** The threat model credited the dashboard's CloudFront
+  distribution with a TLS 1.2 floor. On CloudFront's default certificate the
+  floor cannot apply, as the stack's own cdk-nag suppression had said since
+  it was written; the upgraded library began warning about the setting, and
+  the row now says what holds and what does not.
+
 ## v2.0.0 — Evaluated and shown (24 October 2026)
 
 The final release of the project as a final-year work: the platform as
