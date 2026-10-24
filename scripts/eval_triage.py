@@ -22,17 +22,31 @@ which nobody wrote — each labelled before the model ran (see
 docs/triage-eval-protocol.md). They are run separately so their results are
 never mixed, and a run of the independent file reports each source apart.
 
+A run can be kept as data as well as printed: --out writes every answer —
+the note, the failures, the tokens and the latency — with the model, the
+prompt version and the case file's digest, so that calibration and a
+comparison between models are computed from the record
+(scripts/triage_calibration.py) rather than read off a terminal. --model asks
+another model with the same prompt, request and validation; the deployed
+function's choice is unchanged.
+
 Usage:
     python scripts/eval_triage.py                        # the author's cases
     python scripts/eval_triage.py --runs 3               # each case three times
     python scripts/eval_triage.py --independent --runs 3 # the independent cases
     python scripts/eval_triage.py --show NAME            # print what the model is sent
+    python scripts/eval_triage.py --independent --runs 3 --out docs/triage-runs/2026-10-25-independent-haiku.json
+    python scripts/eval_triage.py --independent --runs 3 --model us.anthropic.claude-sonnet-4-5-20250929-v1:0 \
+        --out docs/triage-runs/2026-10-25-independent-sonnet.json
 """
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -44,14 +58,22 @@ PROFILE = "cs-audit"
 REGION = "us-east-1"
 
 
-def load_handler():
+def load_handler(model=None):
     """The triage function's module, with its AWS clients stubbed: only its
-    prompt, request and validation are used here."""
+    prompt, request and validation are used here. `model` asks another model
+    through the same request; the handler reads it from the environment at
+    import, as the deployed function does."""
+    if model:
+        os.environ["TRIAGE_MODEL_ID"] = model
     spec = importlib.util.spec_from_file_location("triage_handler", HANDLER)
     module = importlib.util.module_from_spec(spec)
     with mock.patch("boto3.resource"), mock.patch("boto3.client"):
         spec.loader.exec_module(module)
     return module
+
+
+def digest(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def load_cases(path=CASES):
@@ -71,14 +93,26 @@ def check(note, expect):
     return failures
 
 
-def run_case(handler, bedrock, case):
+def run_case_recorded(handler, bedrock, case):
+    """One answer, with what the record keeps about it: the note or the
+    rejection, the failures, the tokens Bedrock reports and the round trip."""
     payload = handler.incident_payload(case["incident"], case["findings"], case.get("intel"))
+    started = time.monotonic()
     response = bedrock.converse(**handler.converse_request(payload))
+    elapsed_ms = round((time.monotonic() - started) * 1000)
+    usage = (response or {}).get("usage") or {}
+    record = {"usage": {"input_tokens": usage.get("inputTokens"), "output_tokens": usage.get("outputTokens")},
+              "latency_ms": ((response or {}).get("metrics") or {}).get("latencyMs", elapsed_ms)}
     try:
         note = handler.parse_note(response)
     except handler.InvalidTriage as exc:
-        return None, [f"rejected: {exc}"]
-    return note, check(note, case["expect"])
+        return dict(record, note=None, failures=[f"rejected: {exc}"])
+    return dict(record, note=note, failures=check(note, case["expect"]))
+
+
+def run_case(handler, bedrock, case):
+    r = run_case_recorded(handler, bedrock, case)
+    return r["note"], r["failures"]
 
 
 def main():
@@ -87,10 +121,14 @@ def main():
     parser.add_argument("--show", metavar="NAME", help="print the request for one case and exit")
     parser.add_argument("--independent", action="store_true",
                         help="run the independently written cases instead of the author's")
+    parser.add_argument("--model", metavar="MODEL_ID",
+                        help="ask this Bedrock model instead of the handler's (the same prompt and validation)")
+    parser.add_argument("--out", metavar="FILE", help="write every answer, with the run's provenance, as JSON")
     args = parser.parse_args()
 
-    handler = load_handler()
-    cases = load_cases(INDEPENDENT_CASES if args.independent else CASES)
+    handler = load_handler(args.model)
+    case_file = INDEPENDENT_CASES if args.independent else CASES
+    cases = load_cases(case_file)
     if not cases:
         sys.exit("no cases in that file yet")
 
@@ -111,9 +149,14 @@ def main():
 
     passed = total = 0
     by_source = {}
+    results = []
+    started = datetime.now(timezone.utc)
     for case in cases:
         for run in range(args.runs):
-            note, failures = run_case(handler, bedrock, case)
+            answer = run_case_recorded(handler, bedrock, case)
+            note, failures = answer["note"], answer["failures"]
+            results.append({"case": case["name"], "source": case.get("source", "written"), "run": run + 1,
+                            "passed": not failures, "expect": case["expect"], **answer})
             total += 1
             passed += not failures
             tally = by_source.setdefault(case.get("source", "written"), [0, 0])
@@ -138,7 +181,26 @@ def main():
         # wrote and an incident nobody wrote are different kinds of evidence.
         for source, (ok, n) in sorted(by_source.items()):
             print(f"  {source}: {ok}/{n}")
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(record_of(handler, case_file, args.runs, started, results, by_source), indent=1) + "\n")
+        print(f"wrote {out}")
     sys.exit(0 if passed == total else 1)
+
+
+def record_of(handler, case_file, runs, started, results, by_source):
+    """The run as the record keeps it: provenance first, then every answer."""
+    return {
+        "started": started.isoformat(timespec="seconds"),
+        "finished": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "model": handler.MODEL_ID, "prompt_version": handler.PROMPT_VERSION,
+        "case_file": str(Path(case_file).relative_to(ROOT)).replace(os.sep, "/"), "case_file_sha256": digest(case_file),
+        "cases": len({r["case"] for r in results}), "runs_per_case": runs,
+        "passed": sum(r["passed"] for r in results), "total": len(results),
+        "by_source": {source: {"passed": ok, "total": n} for source, (ok, n) in sorted(by_source.items())},
+        "results": results,
+    }
 
 
 if __name__ == "__main__":

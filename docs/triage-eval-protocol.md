@@ -193,6 +193,23 @@ date, the model, the prompt version, the pass count, and what the failures
 were — a rejected answer, a wrong flag, a severity outside its band — with the
 model's own reasons beside each failure, which the script prints.
 
+From 24 October 2026 a run is also kept as data: `--out
+docs/triage-runs/<date>-<file>-<model>.json` writes every answer — the note or
+the rejection, the failures, the tokens Bedrock reports and the round trip —
+under the model, the prompt version and the case file's SHA-256, so that two
+more questions can be answered from the record rather than from a terminal.
+`scripts/triage_calibration.py` reads one or more such records and prints the
+pass rate at each confidence level the model gave (is "high" worth more than
+"medium"?), how many cases got one severity across their runs, how often each
+flag was right, the tokens and latency, and the cost per thousand notes at
+list prices; given two records of the same case file under different models
+(`--model` asks another model through the same prompt, request and
+validation), it prints them side by side and lists every case where the two
+part on pass or fail, with both models' reasons. The runs recorded before
+that date exist as the printed output quoted in ADR 0005 and nowhere else;
+they are not re-run to make records of them, and the record says which runs
+have one.
+
 What a run of independent cases can and cannot show is stated with the
 number. Twenty cases three times is evidence about those twenty cases. It is
 not a detection rate, and the project does not quote one.

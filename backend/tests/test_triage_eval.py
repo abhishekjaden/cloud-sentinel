@@ -135,3 +135,48 @@ def test_a_rejected_note_fails_its_case(evaluation, handler, cases):
     note, failures = evaluation.run_case(handler, Model(), cases[0])
     assert note is None
     assert failures and failures[0].startswith("rejected")
+
+
+def test_a_recorded_answer_keeps_the_tokens_and_the_round_trip(evaluation, handler, cases):
+    class Model:
+        def converse(self, **request):
+            assert request["modelId"] == handler.MODEL_ID
+            return {"output": {"message": {"content": [{"toolUse": {"name": handler.TOOL_NAME, "input": {
+                        "summary": "x", "assessed_severity": "critical", "confidence": "low",
+                        "likely_test_data": False, "injection_suspected": True,
+                        "reasons": ["a"], "next_steps": ["b"]}}}]}},
+                    "usage": {"inputTokens": 1200, "outputTokens": 150, "totalTokens": 1350},
+                    "metrics": {"latencyMs": 2345}}
+
+    answer = evaluation.run_case_recorded(handler, Model(), cases[0])
+    assert answer["usage"] == {"input_tokens": 1200, "output_tokens": 150} and answer["latency_ms"] == 2345
+    assert answer["note"]["assessed_severity"] == "critical"
+    assert isinstance(answer["failures"], list)
+
+
+def test_another_model_is_asked_through_the_same_request(evaluation, monkeypatch):
+    monkeypatch.setenv("TRIAGE_MODEL_ID", "the-deployed-one")       # restored afterwards, whatever load_handler sets
+    other = evaluation.load_handler(model="us.anthropic.claude-sonnet-4-5-20250929-v1:0")
+    assert other.MODEL_ID == "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    request = other.converse_request(other.incident_payload(evaluation.load_cases()[0]["incident"],
+                                                            evaluation.load_cases()[0]["findings"]))
+    assert request["modelId"] == other.MODEL_ID
+    assert request["toolConfig"]["toolChoice"] == {"tool": {"name": other.TOOL_NAME}}   # the same forced structure
+
+
+def test_the_record_carries_the_run_s_provenance(evaluation, handler):
+    from datetime import datetime, timezone
+    results = [{"case": "a", "source": "written", "run": 1, "passed": True, "expect": {}, "note": {}, "failures": [],
+                "usage": {"input_tokens": 1, "output_tokens": 1}, "latency_ms": 5},
+               {"case": "a", "source": "written", "run": 2, "passed": False, "expect": {}, "note": None,
+                "failures": ["rejected: x"], "usage": {"input_tokens": 1, "output_tokens": 1}, "latency_ms": 5},
+               {"case": "b", "source": "honeypot", "run": 1, "passed": True, "expect": {}, "note": {}, "failures": [],
+                "usage": {"input_tokens": 1, "output_tokens": 1}, "latency_ms": 5}]
+    record = evaluation.record_of(handler, evaluation.INDEPENDENT_CASES, 2, datetime.now(timezone.utc), results,
+                                  {"written": [1, 2], "honeypot": [1, 1]})
+    assert record["model"] == handler.MODEL_ID and record["prompt_version"] == handler.PROMPT_VERSION
+    assert record["case_file"] == "scripts/triage_eval_cases_independent.json"
+    assert record["case_file_sha256"] == evaluation.digest(evaluation.INDEPENDENT_CASES) and len(record["case_file_sha256"]) == 64
+    assert (record["cases"], record["runs_per_case"], record["passed"], record["total"]) == (2, 2, 2, 3)
+    assert record["by_source"] == {"honeypot": {"passed": 1, "total": 1}, "written": {"passed": 1, "total": 2}}
+    assert record["results"] == results and record["started"] <= record["finished"]
