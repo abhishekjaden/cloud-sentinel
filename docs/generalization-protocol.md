@@ -97,7 +97,14 @@ How the run is made, from a terminal with the workload profile:
 2. Ten minutes later, `aws ec2 get-console-output --profile cs-workload
    --instance-id ID --output text | grep honeypot-` must show the sshd
    settings and `honeypot-capture: active` twice (the service and the timer).
-3. Within twenty minutes the first file is in the bucket:
+   On Windows the CLI fails to print the boot log (a character in it that the
+   console code page cannot encode, before `grep` runs); the same lines come
+   from boto3 in the venv:
+   `python -c "import boto3; print('\n'.join(l for l in boto3.Session(profile_name='cs-workload', region_name='us-east-1').client('ec2').get_console_output(InstanceId='ID').get('Output', '').splitlines() if 'honeypot-' in l))"`.
+3. Within about twenty minutes the first file is in the bucket — the capture
+   closes a file every fifteen minutes and the uploader runs five minutes
+   after boot and every five minutes after, so the first upload is the first
+   timer tick after the first file closes:
    `aws s3 ls s3://BUCKET/captures/ --recursive --profile cs-workload`. If
    nothing arrives in an hour, the capture or the upload is broken and the run
    is not started: destroy, read the console output, fix, redeploy.
@@ -179,3 +186,6 @@ is the leave-one-out row, and G5 and G6 when the honeypot's flows exist.
 | Date | Step | Result |
 |---|---|---|
 | 2026-10-24 | Protocol drafted and committed; `harmonize.py`, `cross_matrix.py` and their tests written against synthetic rows. No dataset read. | — |
+| 2026-10-24 | Expectations G1–G6 adopted: pushed to `main` in `80cfb39` at 14:20Z, before any table existed. | — |
+| 2026-10-24 | Tables built with `harmonize.py` (provenance in `ml/harmonized/*.json`, `03b7791`): `unsw` 14:52Z, `cic2017` 14:58Z, `cic2018` 15:05Z. | `cic2017`: 2,099,976 rows, 505,431 attack (the corrected release's 517,410 less the 11,979 attempted, counted benign), 27 raw labels. `cic2018`: one row in thirty of 63,195,088 → 2,106,505 rows, 117,771 attack, 22 raw labels. `unsw`: 2,540,047 rows, 321,283 attack, 10 raw labels; the nine attack categories at their published counts to the flow (Generic 215,481 … Worms 174), the first three raw files holding 700,001 rows each rather than the published 700,000. Nothing dropped for missing or infinite values in any table. |
+| 2026-10-24 | Honeypot third run started (generation 4). `CloudSentinel-Honeypot` deployed in the workload account, `CREATE_COMPLETE` 14:46:56Z: instance `i-0c271a8622a6d09d7` at 3.218.249.58, bucket `cloudsentinel-honeypot-capturesde857d5d-pnhs7xjbinfc`. Console at 15:02Z: `permitrootlogin no`, `pubkeyauthentication no`, `passwordauthentication yes`, `allowusers honeypot-no-such-user`, `honeypot-capture: active` twice. | Capture open 14:46:54Z; first file `capture-20261024T144654Z.pcap`, 125,398 bytes, in the bucket at 15:06:17Z. Visit logger started 14:49:31Z (`docs/honeypot-visits-2026-11.jsonl`, committed at the end). Ten days end 3 November 14:46Z. |

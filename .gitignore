@@ -187,3 +187,9 @@ ml/models/*_model.json
 ml/models/*.ubj
 ml/models/cross_trial.json
 findings_dump.json
+
+# Harmonized tables (docs/generalization-protocol.md, section 4): about 100 MB
+# each, rebuilt from the datasets in minutes; the .json provenance beside each
+# is committed. A table under a few megabytes (the honeypot's) is added with
+# git add -f.
+ml/harmonized/*.npz
