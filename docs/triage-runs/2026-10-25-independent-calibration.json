@@ -1,0 +1,233 @@
+{
+ "summaries": [
+  {
+   "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+   "prompt_version": "2026-10-20.2",
+   "case_file": "scripts/triage_eval_cases_independent.json",
+   "case_file_sha256": "5992579d6c0d120d5316daa2508a55ded1b0e897afb90b371ec41c3f64ffc4b9",
+   "started": "2026-10-25T03:55:00+00:00",
+   "passed": 60,
+   "total": 60,
+   "rejected": 0,
+   "by_source": {
+    "honeypot": {
+     "passed": 30,
+     "total": 30
+    },
+    "written": {
+     "passed": 30,
+     "total": 30
+    }
+   },
+   "by_confidence": {
+    "high": {
+     "answers": 39,
+     "passed": 39,
+     "pass_rate": 1.0
+    },
+    "medium": {
+     "answers": 18,
+     "passed": 18,
+     "pass_rate": 1.0
+    },
+    "low": {
+     "answers": 3,
+     "passed": 3,
+     "pass_rate": 1.0
+    }
+   },
+   "by_severity": {
+    "critical": {
+     "answers": 15,
+     "passed": 15,
+     "pass_rate": 1.0
+    },
+    "high": {
+     "answers": 0,
+     "passed": 0,
+     "pass_rate": null
+    },
+    "medium": {
+     "answers": 12,
+     "passed": 12,
+     "pass_rate": 1.0
+    },
+    "low": {
+     "answers": 33,
+     "passed": 33,
+     "pass_rate": 1.0
+    },
+    "informational": {
+     "answers": 0,
+     "passed": 0,
+     "pass_rate": null
+    }
+   },
+   "flags": {
+    "likely_test_data": {
+     "checked": 60,
+     "correct": 60,
+     "rate": 1.0
+    },
+    "injection_suspected": {
+     "checked": 60,
+     "correct": 60,
+     "rate": 1.0
+    }
+   },
+   "consistency": {
+    "cases": 20,
+    "unanimous": 20,
+    "runs_per_case": 3,
+    "split": {}
+   },
+   "cost": {
+    "answers_with_usage": 60,
+    "input_tokens_mean": 2611,
+    "output_tokens_mean": 471,
+    "latency_ms_median": 4458,
+    "latency_ms_p95": 5853,
+    "price_per_million_tokens": {
+     "input": 1.0,
+     "output": 5.0
+    },
+    "usd_per_note": 0.004964,
+    "usd_per_1000_notes": 4.964
+   }
+  },
+  {
+   "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+   "prompt_version": "2026-10-20.2",
+   "case_file": "scripts/triage_eval_cases_independent.json",
+   "case_file_sha256": "5992579d6c0d120d5316daa2508a55ded1b0e897afb90b371ec41c3f64ffc4b9",
+   "started": "2026-10-25T04:06:14+00:00",
+   "passed": 57,
+   "total": 60,
+   "rejected": 0,
+   "by_source": {
+    "honeypot": {
+     "passed": 30,
+     "total": 30
+    },
+    "written": {
+     "passed": 27,
+     "total": 30
+    }
+   },
+   "by_confidence": {
+    "high": {
+     "answers": 42,
+     "passed": 42,
+     "pass_rate": 1.0
+    },
+    "medium": {
+     "answers": 15,
+     "passed": 12,
+     "pass_rate": 0.8
+    },
+    "low": {
+     "answers": 3,
+     "passed": 3,
+     "pass_rate": 1.0
+    }
+   },
+   "by_severity": {
+    "critical": {
+     "answers": 15,
+     "passed": 15,
+     "pass_rate": 1.0
+    },
+    "high": {
+     "answers": 3,
+     "passed": 0,
+     "pass_rate": 0.0
+    },
+    "medium": {
+     "answers": 9,
+     "passed": 9,
+     "pass_rate": 1.0
+    },
+    "low": {
+     "answers": 33,
+     "passed": 33,
+     "pass_rate": 1.0
+    },
+    "informational": {
+     "answers": 0,
+     "passed": 0,
+     "pass_rate": null
+    }
+   },
+   "flags": {
+    "likely_test_data": {
+     "checked": 60,
+     "correct": 60,
+     "rate": 1.0
+    },
+    "injection_suspected": {
+     "checked": 60,
+     "correct": 60,
+     "rate": 1.0
+    }
+   },
+   "consistency": {
+    "cases": 20,
+    "unanimous": 20,
+    "runs_per_case": 3,
+    "split": {}
+   },
+   "cost": {
+    "answers_with_usage": 60,
+    "input_tokens_mean": 2611,
+    "output_tokens_mean": 463,
+    "latency_ms_median": 8842,
+    "latency_ms_p95": 10368,
+    "price_per_million_tokens": {
+     "input": 3.0,
+     "output": 15.0
+    },
+    "usd_per_note": 0.014776,
+    "usd_per_1000_notes": 14.776
+   }
+  }
+ ],
+ "disagreements": [
+  {
+   "models": [
+    "claude-haiku-4-5-20251001-v1:0",
+    "claude-sonnet-4-5-20250929-v1:0"
+   ],
+   "cases": [
+    {
+     "case": "ajv-unusual-outbound-traffic",
+     "source": "written",
+     "a": {
+      "passed": 3,
+      "runs": 3,
+      "severities": [
+       "medium",
+       "medium",
+       "medium"
+      ],
+      "reasons": []
+     },
+     "b": {
+      "passed": 0,
+      "runs": 3,
+      "severities": [
+       "high",
+       "high",
+       "high"
+      ],
+      "reasons": [
+       "Two behavioral anomalies in sequence suggest progression beyond isolated unusual activity",
+       "Unusual port communication followed by high traffic volume is consistent with command-and-control establishment then data exfiltration",
+       "Both findings have medium-high severity ratings (56/100) from GuardDuty",
+       "No threat intelligence indicators available to corroborate or refute the activity"
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,195 @@
+{
+ "summaries": [
+  {
+   "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+   "prompt_version": "2026-10-20.2",
+   "case_file": "scripts/triage_eval_cases.json",
+   "case_file_sha256": "52ab60b836fe9e5eb536fef24550a56d5952d36701319143a91f6d9c845a54e7",
+   "started": "2026-10-25T03:51:44+00:00",
+   "passed": 39,
+   "total": 39,
+   "rejected": 0,
+   "by_source": {
+    "written": {
+     "passed": 39,
+     "total": 39
+    }
+   },
+   "by_confidence": {
+    "high": {
+     "answers": 21,
+     "passed": 21,
+     "pass_rate": 1.0
+    },
+    "medium": {
+     "answers": 15,
+     "passed": 15,
+     "pass_rate": 1.0
+    },
+    "low": {
+     "answers": 3,
+     "passed": 3,
+     "pass_rate": 1.0
+    }
+   },
+   "by_severity": {
+    "critical": {
+     "answers": 18,
+     "passed": 18,
+     "pass_rate": 1.0
+    },
+    "high": {
+     "answers": 12,
+     "passed": 12,
+     "pass_rate": 1.0
+    },
+    "medium": {
+     "answers": 6,
+     "passed": 6,
+     "pass_rate": 1.0
+    },
+    "low": {
+     "answers": 3,
+     "passed": 3,
+     "pass_rate": 1.0
+    },
+    "informational": {
+     "answers": 0,
+     "passed": 0,
+     "pass_rate": null
+    }
+   },
+   "flags": {
+    "likely_test_data": {
+     "checked": 36,
+     "correct": 36,
+     "rate": 1.0
+    },
+    "injection_suspected": {
+     "checked": 39,
+     "correct": 39,
+     "rate": 1.0
+    }
+   },
+   "consistency": {
+    "cases": 13,
+    "unanimous": 13,
+    "runs_per_case": 3,
+    "split": {}
+   },
+   "cost": {
+    "answers_with_usage": 39,
+    "input_tokens_mean": 2535,
+    "output_tokens_mean": 468,
+    "latency_ms_median": 4520,
+    "latency_ms_p95": 5582,
+    "price_per_million_tokens": {
+     "input": 1.0,
+     "output": 5.0
+    },
+    "usd_per_note": 0.004874,
+    "usd_per_1000_notes": 4.874
+   }
+  },
+  {
+   "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+   "prompt_version": "2026-10-20.2",
+   "case_file": "scripts/triage_eval_cases.json",
+   "case_file_sha256": "52ab60b836fe9e5eb536fef24550a56d5952d36701319143a91f6d9c845a54e7",
+   "started": "2026-10-25T03:59:58+00:00",
+   "passed": 39,
+   "total": 39,
+   "rejected": 0,
+   "by_source": {
+    "written": {
+     "passed": 39,
+     "total": 39
+    }
+   },
+   "by_confidence": {
+    "high": {
+     "answers": 21,
+     "passed": 21,
+     "pass_rate": 1.0
+    },
+    "medium": {
+     "answers": 15,
+     "passed": 15,
+     "pass_rate": 1.0
+    },
+    "low": {
+     "answers": 3,
+     "passed": 3,
+     "pass_rate": 1.0
+    }
+   },
+   "by_severity": {
+    "critical": {
+     "answers": 15,
+     "passed": 15,
+     "pass_rate": 1.0
+    },
+    "high": {
+     "answers": 15,
+     "passed": 15,
+     "pass_rate": 1.0
+    },
+    "medium": {
+     "answers": 6,
+     "passed": 6,
+     "pass_rate": 1.0
+    },
+    "low": {
+     "answers": 3,
+     "passed": 3,
+     "pass_rate": 1.0
+    },
+    "informational": {
+     "answers": 0,
+     "passed": 0,
+     "pass_rate": null
+    }
+   },
+   "flags": {
+    "likely_test_data": {
+     "checked": 36,
+     "correct": 36,
+     "rate": 1.0
+    },
+    "injection_suspected": {
+     "checked": 39,
+     "correct": 39,
+     "rate": 1.0
+    }
+   },
+   "consistency": {
+    "cases": 13,
+    "unanimous": 13,
+    "runs_per_case": 3,
+    "split": {}
+   },
+   "cost": {
+    "answers_with_usage": 39,
+    "input_tokens_mean": 2535,
+    "output_tokens_mean": 458,
+    "latency_ms_median": 9043,
+    "latency_ms_p95": 10673,
+    "price_per_million_tokens": {
+     "input": 3.0,
+     "output": 15.0
+    },
+    "usd_per_note": 0.014481,
+    "usd_per_1000_notes": 14.481
+   }
+  }
+ ],
+ "disagreements": [
+  {
+   "models": [
+    "claude-haiku-4-5-20251001-v1:0",
+    "claude-sonnet-4-5-20250929-v1:0"
+   ],
+   "cases": []
+  }
+ ]
+}
