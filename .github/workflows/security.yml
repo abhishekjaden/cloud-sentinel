@@ -77,18 +77,14 @@ jobs:
           node-version: '22'
 
       - name: Python — the API image's pins and the test suite's
-        # Two advisories have no fixed release and are unreachable here; each
-        # is ignored by id, with its reason in docs/threat-model.md (B2, S):
-        # PYSEC-2026-4298, python-jose's HMAC key check, needs HS256 and a raw
-        # key, and the API accepts RS256 alone with a JWK (pinned by a test);
-        # PYSEC-2026-1325, ecdsa's timing attack, needs ECDSA signing, which
-        # the API never does. Both files are named: with --no-deps the
-        # "-r requirements.txt" inside the second is not followed.
+        # Both files are named: with --no-deps the "-r requirements.txt"
+        # inside the second is not followed. Nothing is ignored: the two
+        # advisories without a fixed release left with python-jose, replaced
+        # by PyJWT on 25 October 2026 (docs/threat-model.md, B2).
         run: |
           pip install pip-audit==2.10.1
           pip-audit -r backend/requirements.txt -r backend/requirements-dev.txt --no-deps --disable-pip \
-            --vulnerability-service pypi \
-            --ignore-vuln PYSEC-2026-4298 --ignore-vuln PYSEC-2026-1325
+            --vulnerability-service pypi
 
       - name: npm — the infrastructure and the console, high and critical
         run: |

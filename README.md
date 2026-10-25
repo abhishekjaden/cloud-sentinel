@@ -101,7 +101,7 @@ ML (Workload)
 | SOAR | Step Functions (approval gates via task tokens), Lambda |
 | AI triage | Amazon Bedrock (Claude Haiku 4.5, US cross-Region inference, forced tool use) |
 | API | FastAPI, Pydantic, Uvicorn, reportlab (incident reports), Docker, ECS Fargate, ALB, WAFv2, ECR |
-| Auth | Cognito (hosted UI, PKCE, required TOTP MFA, two groups), python-jose (JWT/JWKS verification) |
+| Auth | Cognito (hosted UI, PKCE, required TOTP MFA, two groups), PyJWT (JWT/JWKS verification) |
 | Frontend | React, TypeScript, Vite, Recharts, axios |
 | Hosting / DNS / TLS | S3 + CloudFront (OAC), Route 53, ACM |
 | Ops | CloudWatch (alarms, SLO dashboards, Embedded Metric Format), X-Ray, AWS Budgets, least-privilege IAM |

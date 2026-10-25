@@ -34,10 +34,12 @@ second-person cases (`docs/generalization-protocol.md`,
   cryptography 50.0.2, Pillow 13.0.0, pypdf 6.21.2 and lockfile updates;
   every existing test passes unchanged, and the synthesized templates differ only in
   the dashboard's deployment function and a trust condition the new library
-  adds to the remediation role. Two advisories have no fixed release
-  (python-jose, ecdsa) and are unreachable; the threat model says why, and a
-  new test pins the first — a token HMAC-signed with the pool's own public
-  key is refused. A dependency audit now runs in the Security workflow on
+  adds to the remediation role. Two advisories had no fixed release
+  (python-jose, ecdsa) and were unreachable; python-jose was replaced by
+  PyJWT later the same day, and ecdsa left with it, after Dependabot's first
+  scan raised both as critical and high. A new test pins the path the first
+  concerned — a token HMAC-signed with the pool's own public key is refused.
+  A dependency audit now runs in the Security workflow on
   every push and weekly. The three Dependabot pull requests open since
   September, which mixed these fixes with major upgrades that break the
   build (TypeScript 7, cdk-nag 3, jsdom 30), are superseded.

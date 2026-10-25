@@ -15,7 +15,8 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
-from jose import jwk, jwt
+import jwt
+from jwt.algorithms import RSAAlgorithm
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -92,10 +93,8 @@ def _rsa():
     private_pem = key.private_bytes(serialization.Encoding.PEM,
                                     serialization.PrivateFormat.PKCS8,
                                     serialization.NoEncryption()).decode()
-    public_pem = key.public_key().public_bytes(serialization.Encoding.PEM,
-                                               serialization.PublicFormat.SubjectPublicKeyInfo).decode()
-    public = jwk.construct(public_pem, algorithm="RS256").to_dict()
-    public["kid"] = "test-kid"
+    public = RSAAlgorithm.to_jwk(key.public_key(), as_dict=True)
+    public.update({"kid": "test-kid", "alg": "RS256", "use": "sig"})
     return private_pem, {"keys": [public]}
 
 

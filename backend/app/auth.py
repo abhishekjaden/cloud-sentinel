@@ -22,7 +22,8 @@ from functools import lru_cache
 import requests
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWK, PyJWTError
 
 from app.ratelimit import limiter
 
@@ -69,7 +70,7 @@ def require_auth(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
     token = creds.credentials
     try:
         headers = jwt.get_unverified_header(token)
-    except JWTError as e:
+    except PyJWTError as e:
         raise _unauthorized(f"malformed token: {e}")
 
     try:
@@ -81,14 +82,19 @@ def require_auth(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
         if key is None:
             raise _unauthorized("unknown signing key")
 
+        # The published key as an RSA key object, never as raw bytes: PyJWT
+        # will not use an asymmetric key as an HMAC secret, and RS256 is the
+        # only algorithm accepted, so a token signed with the public key
+        # itself is refused twice over (tests/test_auth.py pins it).
         claims = jwt.decode(
             token,
-            key,
+            PyJWK(key, algorithm="RS256").key,
             algorithms=["RS256"],
             issuer=ISSUER,
-            options={"verify_aud": False},  # access tokens carry client_id, not aud
+            options={"verify_aud": False,  # access tokens carry client_id, not aud
+                     "require": ["exp", "iss"]},
         )
-    except JWTError as e:
+    except PyJWTError as e:
         raise _unauthorized(f"invalid token: {e}")
     except requests.RequestException as e:
         # Fail closed: if the signing keys cannot be retrieved we deny access

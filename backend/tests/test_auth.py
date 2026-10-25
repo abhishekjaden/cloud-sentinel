@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
-from jose import jwt
+import jwt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -71,7 +71,7 @@ def test_forged_token_is_rejected(monkeypatch):
     forged = jwt.encode(
         {"sub": "attacker", "token_use": "access", "client_id": CLIENT,
          "iss": ISSUER, "exp": int(time.time()) + 3600},
-        "attacker-chosen-secret", algorithm="HS256",
+        "attacker-chosen-secret-of-thirty-two-bytes", algorithm="HS256",
     )
     with pytest.raises(HTTPException) as exc:
         auth_module.require_auth(creds(forged))
@@ -81,15 +81,15 @@ def test_forged_token_is_rejected(monkeypatch):
 def test_a_token_hmac_signed_with_the_published_public_key_is_rejected(monkeypatch):
     """Algorithm confusion. The pool's public key is published; a token signed
     with HS256 using that key, DER or PEM, as the HMAC secret must not verify.
-    python-jose 3.5.0 has no fixed release for PYSEC-2026-4298, which lets a
-    DER-encoded public key past its check on raw HMAC secrets. Here it is
-    unreachable twice over: decode accepts RS256 alone, and the key it is
-    handed is the pool's RSA JWK, which python-jose will not use as an HMAC
-    secret at all. This pins the first — widening the algorithm list makes it
-    fail. The forged signatures are computed by hand so that no library check
-    stands in for the API's, and a token signed properly with the private key
-    is accepted first, so the rejections are the algorithm's and not a broken
-    key."""
+    It is refused twice over: decode accepts RS256 alone — widening that list
+    makes this test fail — and the key it is handed is an RSA key object,
+    which PyJWT will not use as an HMAC secret.
+    python-jose, the library this replaced on 25 October 2026, had an advisory
+    with no fixed release on exactly this path (a DER-encoded public key
+    accepted as a raw HMAC secret). The forged signatures are computed by hand
+    so that no library check stands in for the API's, and a token signed
+    properly with the private key is accepted first, so the rejections are
+    the algorithm's and not a broken key."""
     import base64
     import hashlib
     import hmac
@@ -97,7 +97,7 @@ def test_a_token_hmac_signed_with_the_published_public_key_is_rejected(monkeypat
 
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
-    from jose import jwk
+    from jwt.algorithms import RSAAlgorithm
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     private_pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
@@ -106,8 +106,8 @@ def test_a_token_hmac_signed_with_the_published_public_key_is_rejected(monkeypat
                                                serialization.PublicFormat.SubjectPublicKeyInfo)
     public_der = key.public_key().public_bytes(serialization.Encoding.DER,
                                                serialization.PublicFormat.SubjectPublicKeyInfo)
-    published = jwk.construct(public_pem.decode(), algorithm="RS256").to_dict()
-    published["kid"] = "real-kid"
+    published = RSAAlgorithm.to_jwk(key.public_key(), as_dict=True)
+    published.update({"kid": "real-kid", "alg": "RS256", "use": "sig"})
     monkeypatch.setattr(auth_module, "_jwks", _stub_jwks({"keys": [published]}))
     claims = {"sub": "algorithm-confusion", "token_use": "access", "client_id": CLIENT,
               "iss": ISSUER, "exp": int(time.time()) + 3600}
@@ -130,7 +130,7 @@ def test_a_token_hmac_signed_with_the_published_public_key_is_rejected(monkeypat
 def test_token_signed_with_an_unknown_key_is_rejected(monkeypatch):
     """If the token's kid is not published by our pool, deny."""
     monkeypatch.setattr(auth_module, "_jwks", _stub_jwks({"keys": []}))
-    token = jwt.encode({"sub": "x"}, "secret", algorithm="HS256",
+    token = jwt.encode({"sub": "x"}, "a-throwaway-secret-of-thirty-two-bytes", algorithm="HS256",
                        headers={"kid": "unpublished"})
     with pytest.raises(HTTPException) as exc:
         auth_module.require_auth(creds(token))
@@ -147,7 +147,7 @@ def test_unreachable_jwks_denies_rather_than_erroring(monkeypatch):
 
     boom.cache_clear = lambda: None
     monkeypatch.setattr(auth_module, "_jwks", boom)
-    token = jwt.encode({"sub": "x"}, "secret", algorithm="HS256",
+    token = jwt.encode({"sub": "x"}, "a-throwaway-secret-of-thirty-two-bytes", algorithm="HS256",
                        headers={"kid": "any"})
     with pytest.raises(HTTPException) as exc:
         auth_module.require_auth(creds(token))
