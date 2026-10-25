@@ -282,25 +282,68 @@ def packets_of(files, counts):
         counts["files"] += 1
 
 
-def guess_host(files):
-    """The honeypot's own address: the one in the most packets."""
+def address_counts(files):
+    """How many packets each address appears in, as source or destination,
+    leaving out the ones no honeypot is ever known by: loopback, 0.0.0.0, and
+    broadcast and multicast destinations."""
     seen = Counter()
     for path in files:
         for ts, data, _ in records(path):
             p = parse(ts, data)
-            if p is not None:
-                seen[p.src] += 1
-                seen[p.dst] += 1
+            if p is None:
+                continue
+            for addr in {p.src, p.dst}:
+                a = ipaddress.IPv4Address(addr)
+                if not (a.is_loopback or a.is_unspecified or a.is_multicast or addr == "255.255.255.255"):
+                    seen[addr] += 1
+    return seen
+
+
+PRIVATE_RANGES = [ipaddress.IPv4Network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
+
+
+def guess_host(files, seen=None):
+    """The honeypot's own address: the one in the most packets. Every packet
+    the capture holds was sent or received by the instance, so its address is
+    in all of them but the loopback and broadcast ones. A capture with one
+    other party ties the two; the address in a private range is the
+    instance's."""
+    seen = address_counts(files) if seen is None else seen
     if not seen:
         sys.exit("no IPv4 packets in the capture")
-    return seen.most_common(1)[0][0]
+    top = max(seen.values())
+    tied = sorted(a for a, n in seen.items() if n == top)
+    private = [a for a in tied if any(ipaddress.IPv4Address(a) in net for net in PRIVATE_RANGES)]
+    return (private or tied)[0]
+
+
+def check_host(host, seen):
+    """Refuse a --host that cannot be the honeypot's address. Every flow's
+    label turns on it: an address that is in no packet, or in fewer than the
+    honeypot's own, labels the flows the honeypot began — its uploads to S3,
+    its DNS and NTP — as attacks, silently. Found on 25 October 2026, when
+    the first day's captures were run with the placeholder from the
+    instructions in place of the address."""
+    try:
+        ipaddress.IPv4Address(host)
+    except ValueError:
+        sys.exit(f"--host {host!r} is not an IPv4 address: give the instance's private address "
+                 "(aws ec2 describe-instances, PrivateIpAddress), or leave --host out to use the "
+                 "commonest address in the capture")
+    top = max(seen.values(), default=0)
+    if top == 0 or seen.get(host, 0) < top:
+        best = guess_host(None, seen) if seen else "no address"
+        sys.exit(f"--host {host} is in {seen.get(host, 0):,} packets, but {best} is in "
+                 f"{top:,}: the honeypot's own address is in every packet it captured")
+    return host
 
 
 def run(folder, host=None, cidrs=(), visits=None, out=None, log=print):
     files = pcap_files(folder)
     if not files:
         sys.exit(f"no .pcap files under {folder}")
-    host = host or guess_host(files)
+    seen = address_counts(files)
+    host = check_host(host, seen) if host else guess_host(files, seen)
     benign = benign_sources(cidrs, visits)
     counts = Counter()
     rows = []
@@ -346,7 +389,8 @@ def render(s):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("captures", help="a folder of .pcap files (searched recursively) or one file")
-    parser.add_argument("--host", help="the honeypot's private address; the commonest address in the capture if omitted")
+    parser.add_argument("--host", help="the honeypot's private address, refused unless it is the commonest address "
+                                       "in the capture; the commonest address if omitted")
     parser.add_argument("--benign-source", action="append", default=[], metavar="CIDR",
                         help="an address or range whose flows are the operator's (repeatable)")
     parser.add_argument("--visits", help="scripts/honeypot_visit.py's log; its public addresses are the operator's")

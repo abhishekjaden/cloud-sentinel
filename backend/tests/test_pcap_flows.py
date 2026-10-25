@@ -235,6 +235,34 @@ def test_the_host_is_guessed_as_the_commonest_address_and_the_csv_feeds_the_harm
     assert X[0].tolist()[:3] == pytest.approx([1.0, 5, 3]) and X[:, -1].tolist() == [22.0, 80.0]
 
 
+
+def test_a_host_that_is_not_an_address_or_not_the_honeypot_s_is_refused(flows, tmp_path):
+    """The first day's dry run, on 25 October 2026, was given the
+    instructions' placeholder for --host, and every flow the honeypot began
+    came out as an attack. A host is now refused unless it is an address and
+    the commonest in the capture, which the honeypot's own always is."""
+    write(tmp_path, brute_force() + [(T0 + 20, udp(HOST, RESOLVER, 40000, 53, 30), 72)])
+    with pytest.raises(SystemExit, match="not an IPv4 address"):
+        flows.run(tmp_path, host="PRIVATE-IP", log=lambda *_: None)
+    with pytest.raises(SystemExit, match="10.99.0.99 is in 0 packets"):
+        flows.run(tmp_path, host="10.99.0.99", log=lambda *_: None)
+    with pytest.raises(SystemExit, match=f"{REMOTE} is in 8 packets, but {HOST} is in 9"):
+        flows.run(tmp_path, host=REMOTE, log=lambda *_: None)
+    rows, summary = flows.run(tmp_path, host=HOST, log=lambda *_: None)
+    assert summary["by_category"] == {"unsolicited inbound": 1, "self-initiated": 1}
+
+
+def test_loopback_and_broadcast_do_not_win_the_guess(flows, tmp_path):
+    """A packet to itself counts its address twice, so loopback chatter could
+    outnumber the honeypot's real address; it is left out of the count, as are
+    0.0.0.0 and broadcast."""
+    chatter = [(T0 + 30 + i, udp("127.0.0.1", "127.0.0.1", 5000, 6000 + i, 10), 52) for i in range(20)]
+    dhcp = [(T0 + 60, udp("0.0.0.0", "255.255.255.255", 68, 67, 300), 342)]
+    write(tmp_path, brute_force() + chatter + dhcp)
+    rows, summary = flows.run(tmp_path, log=lambda *_: None)
+    assert summary["host"] == HOST
+
+
 # ---------------------------------------------------------------- the visits
 def test_a_visit_logs_where_it_came_from_and_what_it_got(visits):
     class Resp:

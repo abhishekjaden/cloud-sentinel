@@ -80,7 +80,7 @@ table every fifteen minutes: the correlator groups findings into incidents
 by resource and time, the enricher looks up every address and domain an
 incident names, and the triage function asks a language model for a note.
 High-severity findings also go to a Step Functions workflow that pauses at a
-human approval. Sixteen CDK stacks, 601 tests, and a deploy that only
+human approval. Sixteen CDK stacks, 603 tests, and a deploy that only
 happens after the tests and the scanners pass.
 
 ### Scene 3 — A finding arrives (2:00–3:45)

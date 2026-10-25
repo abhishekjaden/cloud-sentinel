@@ -3,7 +3,7 @@
 [![CI](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/ci.yml)
 [![Security](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/security.yml/badge.svg)](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/security.yml)
 [![Deploy](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/deploy.yml/badge.svg)](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/deploy.yml)
-[![tests](https://img.shields.io/badge/tests-601-blue)](#tests-and-gates)
+[![tests](https://img.shields.io/badge/tests-603-blue)](#tests-and-gates)
 [![backend coverage](https://img.shields.io/badge/backend_coverage-94%25-brightgreen)](#tests-and-gates)
 [![release](https://img.shields.io/github/v/tag/abhishekjaden/cloud-sentinel?label=release&sort=semver)](https://github.com/abhishekjaden/cloud-sentinel/tags)
 [![license](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
@@ -214,7 +214,7 @@ Other decisions worth naming:
 
 | Suite | Tests | What they pin |
 |---|---|---|
-| Backend (pytest) | 398, 94% coverage against an 80% floor | Normalization for all three sources, partial-batch reporting, correlation and kill-chain order, triage escaping and schema, enrichment thresholds and cache, every JWT rejection path, every route's authorization, the approval's attribution, the PDF read back, the restore rehearsal's arithmetic and its two prohibitions |
+| Backend (pytest) | 400, 94% coverage against an 80% floor | Normalization for all three sources, partial-batch reporting, correlation and kill-chain order, triage escaping and schema, enrichment thresholds and cache, every JWT rejection path, every route's authorization, the approval's attribution, the PDF read back, the restore rehearsal's arithmetic and its two prohibitions |
 | Infrastructure (Jest on synthesized CloudFormation) | 124 | Security properties, not resource counts: encryption, public-access blocks, TLS, MFA, the OIDC trust, each function's permissions, the retry policy, every alarm documented, every graphed metric emitted, the watch rules, the alarm topic's CloudWatch statement, the correlator's index grant, the one role the deploy may assume |
 | Frontend (Vitest) | 79 | The console's panels, the role-aware approvals panel and the PKCE flow |
 
@@ -226,7 +226,7 @@ On every push CI runs the three suites and, inside it, Semgrep and gitleaks pinn
 
 ```
 cdk/          CDK app — all infrastructure (lib/stacks, lib/constructs, lambda/, bin/) and 124 assertion tests
-backend/      FastAPI service (app/), Dockerfile, 398 tests
+backend/      FastAPI service (app/), Dockerfile, 400 tests
 frontend/     React + TypeScript SOC console (Vite), 79 tests
 ml/           CICIDS2017 processing, training, evaluation (the corrected-data re-evaluation; the harmonized three-dataset matrix), models, MODEL_CARD.md
 playbooks/    SOAR remediation playbook definitions
