@@ -62,6 +62,9 @@ may be wrong or hostile:
 The model is Claude Haiku 4.5 through a US cross-Region inference profile:
 requests are served from whichever US Region has capacity and do not leave the
 United States. Each note records the model and prompt version that wrote it.
+Asked through the same prompt on 25 October 2026, Claude Sonnet 4.5 did no
+better on the evaluation cases at three times the cost per note
+(Consequences).
 
 ## Alternatives considered
 - **Triage inside the correlator.** Rejected: a model outage or quota limit
@@ -550,4 +553,36 @@ United States. Each note records the model and prompt version that wrote it.
   stayed at medium — consistent with the scale's instruction that the
   doubt belongs in confidence, and worth watching: a model that argues low
   and answers medium is following the scale, not weighing the case.
-- Cost at the current volume is well under a dollar a month.
+- **The deployed model against a larger one, and what its confidence is
+  worth, 25 October 2026.** Both case files, three runs each at prompt
+  `2026-10-20.2`, kept as records for the first time
+  (`docs/triage-runs/2026-10-25-*`, read by `scripts/triage_calibration.py`).
+  Haiku 4.5, the deployed model, passed 39 of 39 and 60 of 60 — the counts
+  expected for it before the runs, stated in the working session at 18:43
+  UTC on 24 October and not committed — with all twelve injection attempts
+  flagged and every case answered the same on all three of its runs. Sonnet
+  4.5, asked through the same prompt, request and validation, passed 39 of
+  39 and 57 of 60: it rated *ajv-unusual-outbound-traffic* high on all three
+  runs, at medium confidence, against its writer's band of low–medium,
+  reading two outbound anomalies as command and control followed by
+  exfiltration, where Haiku answered medium. The two models gave different
+  severities on four of the 33 cases, every other one inside its band, and
+  in no one direction: Sonnet higher on two (that case and
+  *bedrock-cost-harvesting*), lower on two (*rds-iam-auth-disabled*,
+  *malware-with-persistence*). At list prices Sonnet costs three times as
+  much per note — $14.48 and $14.78 per thousand on the two files, against
+  $4.87 and $4.96, from the tokens Bedrock reported — and takes twice as
+  long, a median of 8.8 to 9.0 s against 4.5 s. On these 33 cases nothing
+  argues for the larger model; the choice of model stands with the
+  comparison made rather than assumed. What the confidence field is worth,
+  these runs cannot say for the deployed model: it answered 99 times
+  without a miss at every level — high 60, medium 33, low 6 — so there was
+  no miss for confidence to separate. Sonnet's three misses were all at
+  medium confidence (27 of its 30 medium answers passed, 63 of 63 high, 6 of
+  6 low), the direction calibration would give, from three misses on one
+  case: not enough to call either model calibrated. That question needs
+  cases the model gets wrong, and the second-person cases are the next
+  chance to find them.
+- Cost at the current volume is well under a dollar a month: about half a
+  US cent a note at list price ($4.87 and $4.96 per thousand notes, from the
+  tokens of the 99 answers recorded on 25 October).
