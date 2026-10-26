@@ -48,6 +48,16 @@ second-person cases (`docs/generalization-protocol.md`,
   floor cannot apply, as the stack's own cdk-nag suppression had said since
   it was written; the upgraded library began warning about the setting, and
   the row now says what holds and what does not.
+- **Four defects since the tag, thirty in all**, each closed with a test or
+  a fix and recorded where it was found: a test fixture that held a
+  real-format access key, then a shortened one (24 October; gitleaks and
+  GitHub's secret scanning; nothing was ever behind either); the advisories
+  above, for which no pull request had been raised (25 October); the threat
+  model's TLS claim above (25 October); and the flow extractor, which took
+  the protocol's placeholder as the honeypot's address and labelled every
+  flow the honeypot began as an attack (25 October; `--host` is now refused
+  unless it is the capture's commonest address, and the protocol's step
+  names the address).
 
 ## v2.0.0 — Evaluated and shown (24 October 2026)
 
