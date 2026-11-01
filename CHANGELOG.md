@@ -5,9 +5,11 @@ that tag and what it does not. Dates are the tag's.
 
 ## Unreleased — towards v2.1.0, *Generalization and benefit*
 
-On `main` since v2.0.0; the tag waits for the honeypot's third run and the
-second-person cases (`docs/generalization-protocol.md`,
-`docs/triage-eval-protocol.md`).
+On `main` since v2.0.0; the tag waits for the honeypot's third run, which
+ends on 3 November (`docs/generalization-protocol.md`). The second-person
+cases, due on 31 October, did not arrive with their writers' own
+confirmation and are recorded as missing (`docs/triage-eval-protocol.md`,
+section 5).
 
 - **The detector across three networks.** CICIDS2017, CSE-CIC-IDS-2018 and
   UNSW-NB15 on fourteen shared features, with six expectations pushed before
@@ -25,7 +27,9 @@ second-person cases (`docs/generalization-protocol.md`,
   prompt (`eval_triage.py --out`, `--model`), and what the model's confidence
   is worth read from the record (`scripts/triage_calibration.py`). The
   second-person case form, with a statement on AI assistance in every row,
-  which the converter refuses a row without.
+  which the converter refuses a row without; no case came back with its
+  writer's own confirmation by 31 October, so the source is recorded as
+  missing.
 - **Every published advisory with a fix cleared** (25 October). The
   manifests carried 28 in the infrastructure's lockfile (two critical), 42 in
   the console's (three critical) and 51 in the backend's pins (37 of them

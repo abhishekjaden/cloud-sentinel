@@ -254,6 +254,16 @@ and say so — and an ask for chains among the serious cases, which the twenty
 existing cases lack. `scripts/cases_from_form.py --source second-person`
 copies the statements with the labels and refuses a row without one.
 
+**The second person's cases, 24–31 October 2026: none.** The form went out
+on 24 October for return by 31 October. No case reached the project with its
+writer's own confirmation by that date, so none is in the record, and this
+source is recorded as missing: the evaluation stands on the thirty-three
+cases already recorded, the thirteen authored and the twenty independent of
+sections 6 and 7.
+A set that arrives later with its writers' own confirmation is run and
+recorded as a new set under its own date; nothing recorded before it
+changes.
+
 ## 6. The first independent set, 13–17 October 2026
 
 Ten cases on the form, written and labelled by the project's author on 13

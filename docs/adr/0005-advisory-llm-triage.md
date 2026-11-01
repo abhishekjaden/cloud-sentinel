@@ -583,6 +583,12 @@ better on the evaluation cases at three times the cost per note
   case: not enough to call either model calibrated. That question needs
   cases the model gets wrong, and the second-person cases are the next
   chance to find them.
+- **The second person's cases, 31 October 2026: none.** The form went out
+  on 24 October for return by 31 October, and no case reached the project
+  with its writer's own confirmation by that date. The source is recorded
+  as missing (`docs/triage-eval-protocol.md`, section 5): the independent
+  evidence stays at the twenty cases above, and the calibration question
+  stays open, since no case the deployed model gets wrong has been found.
 - Cost at the current volume is well under a dollar a month: about half a
   US cent a note at list price ($4.87 and $4.96 per thousand notes, from the
   tokens of the 99 answers recorded on 25 October).
