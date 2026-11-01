@@ -47,6 +47,14 @@ section 5).
   every push and weekly. The three Dependabot pull requests open since
   September, which mixed these fixes with major upgrades that break the
   build (TypeScript 7, cdk-nag 3, jsdom 30), are superseded.
+- **The audit's first catch** (1 November). CI failed on seven advisories
+  published against pypdf 6.21.2 since 25 October, and npm audit, run by
+  hand on the console's lockfile, found one more at high severity in
+  follow-redirects 1.16.1, which axios pulls in. pypdf 6.21.4 (a test
+  dependency, the one that reads the incident report back) and
+  follow-redirects 1.16.2 clear them; the 400 backend and 79 console tests
+  pass unchanged, and the console still lints and builds. Moderate and low
+  advisories below the gate stay listed by `npm audit`, as the gate intends.
 - **A claim corrected.** The threat model credited the dashboard's CloudFront
   distribution with a TLS 1.2 floor. On CloudFront's default certificate the
   floor cannot apply, as the stack's own cdk-nag suppression had said since
