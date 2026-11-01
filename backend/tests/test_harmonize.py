@@ -242,6 +242,7 @@ def test_the_matrix_fits_every_cell_and_keeps_each_label_apart(harmonize, matrix
     assert kinds.count("within") == 3 and kinds.count("cross") == 6 and kinds.count("leave_one_out") == 3
     assert kinds.count("extra") == 4                      # each full model, then all three together
     assert result["complete"] and json.loads((tmp_path / "m" / "matrix.json").read_text())["complete"]
+    assert result["versions"]["xgboost"] and result["versions"]["numpy"]     # recorded since 1 November
     within = [c for c in result["cells"] if c["kind"] == "within"]
     assert all(c["auc"] > 0.95 and c["n"] == 180 and c["attack"] == 90 for c in within)
     last = result["cells"][-1]

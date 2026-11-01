@@ -192,3 +192,69 @@ is the leave-one-out row, and G5 and G6 when the honeypot's flows exist.
 | 2026-10-24 | Primary run: `cross_matrix.py` on the three tables, 15:20–15:24Z (`ml/models/harmonized_matrix.json`, committed in `4592fdf`). | G1 met: diagonals 1.000, 1.000, 0.9996. G2 met: 0.771. G3 not met: UNSW-NB15 → CICIDS2017 0.260 and → CSE-CIC-IDS-2018 0.363, both inverted rather than near chance; CSE-CIC-IDS-2018 → UNSW-NB15 0.556, 0.006 above the line. G4 not met in any direction: 0.634 against 0.954, 0.665 against 0.771, 0.884 against 0.902. Read in the model card, section 6.4, with the conclusions section 5 fixed. |
 | 2026-10-24 | Secondary run: the three tables rebuilt with `--with-port` (seven UNSW-NB15 rows dropped, their port not readable as a number), the matrix in 4.9 min (`ml/models/harmonized_matrix_port.json`). | Diagonals at 1.000 as before. Five of six cross cells fell — CSE-CIC-IDS-2018 → UNSW-NB15 from 0.556 to 0.324, below chance like both UNSW-NB15 cells; CICIDS2017 → UNSW-NB15 from 0.902 to 0.735 — and one rose (CSE-CIC-IDS-2018 → CICIDS2017, 0.954 to 0.971). Leave-one-out 0.686, 0.617, 0.693. The secondary expectation held but for those two; SSH-Patator into 2017 flagged at 0.07% with the port against 9.3% without. |
 | 2026-10-25 | The extractor checked on the third run's first 19 hours, summary only and nothing scored: 77 capture files, 6.9 MB, packets from 14:46:54Z on 24 October to 10:03:56Z on 25 October. The first try was given the instructions' placeholder, `PRIVATE-IP`, as `--host`; the extractor accepted it, matched no packet to it, and labelled every flow the honeypot began as an attack. `--host` is now refused unless it is the commonest address in the capture, which the honeypot's own always is. | With `--host 10.99.0.8` (the instance's private address): 17,989 flows — 7,142 unsolicited inbound from 622 addresses (port 22: 5,064; 80: 468; 23: 377; 443: 176; 3389: 143), 10,790 self-initiated (the time service and the metadata service, DNS, DHCP, the uploads to S3), 57 the operator's visits. Inbound flows ended by a new SYN on the same ports 3,787, an RST 1,774, the end of the capture 1,277 (idle ones, flushed at the end as CICFlowMeter flushes them), both FINs 212, the 120-second limit 92. |
+
+## 7. Trained on the platform's own traffic (added 2 November 2026)
+
+Added after G1–G6 had been read, as a new experiment with its own
+expectations, written and pushed before it is run. It changes nothing
+above: the schema, the label rule and the earlier runs stand as recorded.
+
+G4 and G5 point one way: the public datasets' attacks are not this
+platform's, and a detector for it has to learn from its own traffic. The
+model trained on all three public datasets flagged 11.7% of the honeypot's
+unsolicited inbound flows. This section asks what the honeypot's own flows
+can teach a detector about the flows that reach it next.
+
+**The split.** The third run's flows, `scripts/pcap_flows.py`'s CSV, are
+split by the time each began: every flow that began before 30 October 2026
+00:00 UTC trains (the run's first five days and nine hours); every flow that
+began at or after it is tested (the last two days and about eighteen
+hours). The cut is a date, not a fraction, so that every test flow is later
+than the training flows, as it would be for a detector in use. Rows the
+harmonizer drops, a feature that is not a finite number, are dropped here
+too and counted.
+
+**The models**, each at the served settings and the served threshold of 0.5,
+with nothing tuned on the test days:
+
+- **H**, trained on the training days alone, on the fourteen features of
+  section 1, without the port.
+- **P+H**, trained on the three public tables of section 2 and the training
+  days together.
+- **B**, a baseline: the single feature and threshold that best separate
+  the training days' attack and benign flows (highest balanced accuracy,
+  either direction), applied to the test days unchanged. It says how hard
+  the task is; what one feature does, a model can claim no credit for.
+
+`ml/evaluation/honeypot_timesplit.py` fits all three and prints every
+figure below; the result goes to `ml/models/honeypot_timesplit.json`, with
+the library versions it ran under. The CSV holds addresses and is not
+committed; the result holds counts and fractions only.
+
+**Measured on the test days:** the fraction of unsolicited inbound flows
+flagged; the same for flows from addresses that began no unsolicited flow
+in the training days, attackers the model has not met; the fraction of
+benign flows flagged, with the operator's visits apart, since they are the
+only benign traffic that comes in from outside; and AUC beside each, which
+needs no threshold.
+
+| # | Expectation | If met | If not |
+|---|---|---|---|
+| G7 | **The platform's attackers are recognizable from its own traffic.** H flags at least 93% of the test days' unsolicited inbound flows. | Trained on the platform's own traffic, the detector recognizes what reaches the platform next. | Even its own traffic does not carry from five days to the next three; what arrives changes faster than that. |
+| G8 | **New attackers too.** H flags at least 93% of the test days' unsolicited inbound flows from addresses that began no unsolicited flow in the training days. | What it learned is how the traffic behaves, not which addresses sent it that week. | It recognizes returning attackers better than attack traffic; the G7 figure leans on repetition. |
+| G9 | **The platform's own traffic stays quiet.** H flags at most 1% of the test days' benign flows, and at most 10% of the operator's visits among them. | The detector could sit on the platform without its own traffic drowning the findings. | It cannot separate the honeypot's own traffic from attacks at the served threshold; flagging the operator's visits means it flags inbound traffic as such. |
+| G10 | **The public datasets add nothing once the platform's own traffic is in.** P+H flags no more than one percentage point more of the test days' unsolicited inbound flows than H. | The public datasets' attacks are not this platform's (G5), and adding them to its own traffic does not help. | The public datasets carry something about these attackers that five days of the platform's own traffic do not. |
+
+**How B is read, fixed now.** If B alone reaches G7's and G9's levels, the
+record says the task is easy on a honeypot: one feature separates its own
+traffic from what comes in, and H's figures show what the platform's flows
+allow, not what a model adds. H is then never quoted without B beside it.
+
+**What this cannot show, stated now.** The benign side is the instance's
+own traffic and one operator's scripted visits, not a population of users,
+so G9 is a false-alarm figure for this honeypot and nothing wider. Training
+and test days come from one instance and one address, eight days in all. A
+model that meets G7–G9 here is evidence that a detector for the platform
+must learn from the platform's own labelled traffic, the conclusion G4 and
+G5 point to; it is not a detection rate. The figure quoted from this
+section is H's on the test days, with B's beside it.

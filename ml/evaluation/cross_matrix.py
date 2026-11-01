@@ -133,6 +133,22 @@ def score(model, X):
     return model.predict(xgb.DMatrix(X), output_margin=True)
 
 
+def versions():
+    """The libraries a result was produced with. The run of 1 November did
+    not reproduce the 24 October cells to the digit from the same tables, and
+    the first run had recorded none, so every result records them now."""
+    import platform
+
+    import xgboost as xgb
+    out = {"python": platform.python_version(), "numpy": np.__version__, "xgboost": xgb.__version__}
+    try:
+        import pandas as pd
+        out["pandas"] = pd.__version__
+    except ImportError:
+        pass
+    return out
+
+
 class Dataset:
     def __init__(self, path, sample=None):
         self.X, self.y, self.raw, self.meta = load(path)
@@ -167,6 +183,7 @@ def run(datasets, extras, params, out, loo=True, log=print):
             sys.exit(f"{d.name} has features {d.features}; the first table has {features}. "
                      "Every table must be harmonized the same way (the same --with-port).")
     result = {"features": features, "params": params, "test_fraction": TEST_FRACTION, "seed": SEED,
+              "versions": versions(),
               "datasets": [d.summary() for d in datasets], "extras": [d.summary() for d in extras],
               "cells": [], "complete": False, "started": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     out = Path(out)
