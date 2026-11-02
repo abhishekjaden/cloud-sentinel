@@ -3,6 +3,29 @@
 Each release is a tag on `main`; its notes say what the repository holds at
 that tag and what it does not. Dates are the tag's.
 
+## Unreleased — towards v2.2.0, *The detector at work*
+
+On `main` since v2.1.0.
+
+- **The detector made a feature, its rule fixed first** (2 November). The
+  README led with the CICIDS2017 model's AUC of 0.999963, an artefact by its
+  own results table, for a model the model card rules out for the
+  platform's traffic and nothing in the pipeline calls. Rather than present
+  the detector as a study, the author kept it as a feature, and ADR 0011
+  makes it one: section 7's H, trained again and refused unless it
+  reproduces section 7's record exactly, at a threshold chosen by a rule
+  written before it was computed — the lowest at which it flags at most
+  0.5% of section 7's test days' benign flows and 5% of the operator's
+  visits, failing below 95% of their attacks
+  (`ml/evaluation/platform_detector.py`) — run on the honeypot's captures as
+  they land, each attacking address a finding a day beside GuardDuty's. The
+  fourth honeypot run's expectations are pushed with the rule
+  (`docs/generalization-protocol.md`, section 8): at least 93% of attacks
+  flagged on days nobody has seen, G9's limits on its own traffic, at least
+  93% of attacking addresses reported each day with at most 1% of reports
+  false, every report matching the offline record, each stored within two
+  minutes of its capture landing.
+
 ## v2.1.0 — Generalization and benefit (2 November 2026)
 
 Phase 5, on top of v2.0.0: what the detector carries to networks it was not

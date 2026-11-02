@@ -262,3 +262,79 @@ model that meets G7–G9 here is evidence that a detector for the platform
 must learn from the platform's own labelled traffic, the conclusion G4 and
 G5 point to; it is not a detection rate. The figure quoted from this
 section is H's on the test days, with B's beside it.
+
+## 8. The detector at work (added 2 November 2026)
+
+Added after G7–G10 had been read, as a new experiment with its own rule and
+expectations, written and pushed before the rule is computed or the run
+begins. It changes nothing above: section 7's verdicts stand as recorded.
+
+Section 7 ended on a model, H, that flags 99.95% of the honeypot's later
+unsolicited inbound flows and 1.84% of its own traffic, and said its figures
+were not a detection rate: they come from days chosen for a test, at a
+threshold nobody had chosen for the purpose, from a model nothing served.
+The author decided on 2 November that the detector is a feature of the
+platform; this section is what that takes. It puts H to work — scoring the
+honeypot's traffic as it is captured and reporting what it flags as findings
+— and measures it at work on days nobody has seen (ADR 0011).
+
+**The model.** H as section 7 trained it: the same flows, cut, features and
+settings. `ml/evaluation/platform_detector.py` trains it again and goes no
+further unless it reproduces section 7's record exactly — every count
+flagged on the test days at a probability of 0.5, in every category, and the
+AUC to six places — so that the model put to work is the one whose G7–G9
+are recorded. P+H is not served: G10 found nothing gained from the public
+datasets.
+
+**Its threshold, by a rule fixed now.** Section 7's test days are spent as a
+test. Their verdicts stand and are not read again as evidence; from here
+they are the days the threshold is chosen on. The threshold is the lowest at
+which H flags at most 0.5% of those days' benign flows and at most 5% of the
+operator's visits among them: half of G9's limits, the other half left for
+days the model has not seen. The rule fails if, at that threshold, H flags
+less than 95% of those days' unsolicited inbound flows, or of those from
+addresses new to the training days; the detector is then not put to work at
+these limits, the record says so, and different limits would be a new
+section, not an edit to this one. The script writes the model to a file git
+ignores, and its SHA-256, the threshold, the figures it was chosen on and
+the library versions to `ml/models/platform_detector.json`.
+
+**At work.** The honeypot runs a fourth time (generation 5), and each capture
+file is scored as it lands in the bucket: turned into flows by section 3's
+extractor, one file at a time; scored by H at the chosen threshold; and each
+address that began a flagged flow is reported once a UTC day as a finding of
+the platform's own source, `detector`, updated as the day goes on. Flows the
+honeypot began are scored and counted but never reported: an address the
+honeypot chose to talk to did not come at it. The run lasts at least seven
+days, with the operator's visits logged by `scripts/honeypot_visit.py` as in
+the third run, and is stopped by the author's decision, recorded with its
+time, before any of its flows is scored offline. Edits to this section are
+allowed, and dated here, until the run begins; none after.
+
+**Measured on the fourth run.** Its captures are turned into flows by
+`scripts/pcap_flows.py` over the whole capture, as in the third run, and
+scored by H at the chosen threshold for D1 and D2. The detector's findings
+and the function's own record are read beside them for D3–D5. Days are UTC
+days, and a flow belongs to the day it began.
+
+| # | Expectation | If met | If not |
+|---|---|---|---|
+| D1 | **It catches what comes in, on days nobody has seen.** H flags at least 93% of the run's unsolicited inbound flows, and at least 93% of those from addresses that began no unsolicited flow in the third run. | The detector recognizes the platform's attackers a week after its training days, newcomers included, at the threshold it serves. | What reaches the honeypot changed between the runs faster than its training days can follow; the ports and kinds of flow it misses are the finding. |
+| D2 | **Its own traffic stays quiet at the served threshold.** H flags at most 1% of the run's benign flows and at most 10% of the operator's visits among them: G9's limits, on new days. | The threshold chosen on spent days holds on new ones, and G9, not met at a probability of 0.5, is met at the threshold chosen for it. | Half of G9's limits was not margin enough: the honeypot's own traffic varies between runs more than the rule allowed for. |
+| D3 | **What it reports is right, address by address.** On each day, at least 93% of the addresses that began an unsolicited inbound flow are named by a detector finding for that day; and at most 1% of the run's detector findings name an address that began none, the operator's. | An analyst reading the detector's findings sees nearly every source that came at the platform, and almost nothing else. | Reporting by address undoes what the flow figures promise — one flagged visit names the operator for a day, one missed probe hides a source — and the unit of a finding has to change. |
+| D4 | **The pipeline carries every report and invents none.** For every day, the addresses named by detector findings in the findings table are exactly those the same code reports when run offline on the same capture files, one file at a time. | The live path is the offline computation, delivered. | Where the two part — which files, which addresses, why — is a defect in the live path. |
+| D5 | **Promptly.** For at least 95% of capture files, the last finding the file causes is stored within two minutes of the file's arrival in the bucket. | A source that comes at the platform is in the console within one capture interval and two minutes. | Where the time goes — the function, the event bus, the stream — is the finding. |
+
+**How B is read, fixed now.** Section 7's B, `fwd_mean_len` at or below
+67.6 bytes, is applied unchanged to the fourth run's flows beside H. If it
+reaches D1's and D2's levels, the record says the task is easy on this
+honeypot, and H is never quoted without B beside it.
+
+**What this cannot show, stated now.** Section 7's limits stand: one
+instance and one address, and a benign side made of the honeypot's own
+traffic and one operator's scripted visits, not users. Met, D1–D5 say that
+the platform runs a detector trained on its own traffic which reports what
+comes at its exposed host — nearly all of it, with few false reports, within
+minutes, on days it never saw. They say nothing of a host whose inbound
+traffic includes users. The figures quoted from this section are D1's and
+D2's, with B's beside them, and D3's.

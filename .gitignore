@@ -197,3 +197,7 @@ ml/harmonized/*.npz
 # address and the operator's, about 40 MB. Never committed; the provenance and
 # the results stand for them, and the file stays with the captures.
 ml/harmonized/*.csv
+# The platform detector's model (docs/generalization-protocol.md, section 8):
+# the honeypot's deployment carries it, and its SHA-256 is committed in
+# ml/models/platform_detector.json, which the serving function checks it by.
+ml/models/platform_detector.ubj
