@@ -3,13 +3,29 @@
 Each release is a tag on `main`; its notes say what the repository holds at
 that tag and what it does not. Dates are the tag's.
 
-## Unreleased — towards v2.1.0, *Generalization and benefit*
+## v2.1.0 — Generalization and benefit (2 November 2026)
 
-On `main` since v2.0.0. The honeypot's third run ended on 1 November and is
-scored (below); the tag waits on the matched E2 re-run. The second-person
-cases, due on 31 October, did not arrive with their writers' own
-confirmation and are recorded as missing (`docs/triage-eval-protocol.md`,
-section 5), and the analyst study is recorded as not done (below).
+Phase 5, on top of v2.0.0: what the detector carries to networks it was not
+trained on, the platform's own, and what it learns from the platform's own
+traffic; the triage model against a larger one; and the chaos log's last
+planned run. Every expectation was pushed before its run, and the misses
+are recorded beside the hits: G3, G4, G5 and G9 not met; G1, G2, G6, G7, G8
+and G10 met; the matched E2 re-run as expected on all six signals. Two
+things Phase 5 set out to do were not done, and the record says why: the
+second-person cases, due on 31 October, did not arrive with their writers'
+own confirmation and are recorded as missing (`docs/triage-eval-protocol.md`,
+section 5); the analyst study is recorded as not done (below).
+
+What the tag holds in all: 16 CDK stacks, 609 tests (406 backend at 94%
+coverage, 124 infrastructure, 79 console), ten ADRs, eight objectives with
+alarms, five chaos experiments, one matched re-run and one rehearsal with
+their expected signals committed before each run, 31 defects found by the
+project's own tooling and closed with a test or a fix, 33 evaluated triage
+cases with two models, the detector measured on three public networks and
+on the platform's own honeypot, and a cost measured to the rupee. Outside
+it, as at v2.0.0: the demo video, the college's second review, and the
+ICSSS 2026 paper's camera-ready if it is accepted (the decision, due on 25
+October, is still awaited on 2 November).
 
 - **The detector across three networks.** CICIDS2017, CSE-CIC-IDS-2018 and
   UNSW-NB15 on fourteen shared features, with six expectations pushed before
