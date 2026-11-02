@@ -177,7 +177,11 @@ remediation on its own; the SOAR layer routes on finding severity, and
 destructive actions require authenticated human approval.
 
 **Not intended:** autonomous blocking, evidence in an incident report, or any
-use where a false positive carries direct cost without human review.
+use where a false positive carries direct cost without human review. Nor
+detection on CloudSentinel's own traffic: a model trained on the public
+datasets flags 11.7% of the attacks on the platform's own honeypot (Section
+6.5), so a detector for the platform has to be trained on the platform's
+traffic, and none trained on it is served.
 
 **Known limitations**
 
@@ -192,7 +196,12 @@ use where a false positive carries direct cost without human review.
   by three networks, a model trained on two of them scores AUC 0.63 to 0.88
   on the third, never better than the better single network, and one
   trained on UNSW-NB15 is worse than chance on both CIC releases (Section
-  6.4). A detector for this platform should be trained on its own traffic.
+  6.4). A detector for this platform should be trained on its own traffic,
+  and the platform's honeypot says so from both sides (Section 6.5): the
+  model trained on all three datasets flags 11.7% of the attacks on it,
+  while one trained on the honeypot's own first five days flags 99.95% of
+  the next days' attacks — and 1.84% of the honeypot's own traffic, above
+  the 1% set for it in advance.
 - Bot and Infiltration are supported by too little data to be relied on.
 - No drift monitoring. Performance on traffic unlike the training distribution
   is unmeasured.
@@ -374,7 +383,11 @@ flood it does flag brute force and HTTP floods — SSH-Patator 99.9%,
 FTP-Patator 74.3%, and in 2018 LOIC-HTTP 99.8% and GoldenEye 99.0%. The pair
 the schema cannot bridge is UNSW-NB15 to either CIC release. The third weak
 cell, CSE-CIC-IDS-2018 → UNSW-NB15, passes the line by 0.006: it flags 10.2%
-of UNSW-NB15's normal traffic and no attack family above 7.2%.
+of UNSW-NB15's normal traffic and no attack family above 7.2%. Its margin
+is smaller than the difference between two runs: trained again on the same
+tables on 1 November, under library versions installed after this run, the
+cell read 0.520, and G3 failed on three cells rather than two (Section 6.5,
+reproducibility). The verdict is the same either way.
 
 **G4.** Not met in any direction: a model trained on two networks never
 matched the better of the two single-network models on the third. The
@@ -446,19 +459,91 @@ expectations fixed first. `ml/models/harmonized_matrix.json` and
 and flagged fraction; `cross_matrix.py --report FILE --verbose` prints every
 table again without the data.
 
+
+### 6.5 The platform's own traffic
+
+The honeypot's third run kept the packet headers of everything the instance
+exchanged from 14:46 UTC on 24 October to 18:29 UTC on 1 November 2026,
+eight days and four hours, stopped short of the ten the protocol set by the
+author's decision before any flow was scored. `scripts/pcap_flows.py` made
+177,478 flows of them on the schema, each labelled by who began it: 76,668
+unsolicited inbound from 4,412 addresses, 71% of them to port 22, attack by
+construction; 100,288 begun by the instance itself (its uploads to S3, DNS,
+NTP, the metadata service); and 522 from the operator's visits to the lure
+page. GuardDuty raised 2 incidents on the instance over the same days.
+
+**The public datasets' models on it (G5, G6).** Every model of Section 6.4
+scored the flows; G5 and G6 read the one trained on all three:
+
+| Trained on | AUC | Unsolicited inbound flagged (76,668) | Benign flagged (100,810) |
+|---|---|---|---|
+| CICIDS2017 | 0.792 | 60.6% | 3.26% |
+| CSE-CIC-IDS-2018 | 0.790 | 15.8% | 0.05% |
+| UNSW-NB15 | 0.519 | 3.4% | 0.21% |
+| All three (G5, G6) | 0.824 | **11.7%** | **0.43%** |
+
+G5 not met, G6 met. The reading the protocol fixed in advance: the public
+datasets' attacks are not this platform's, the detector earns its place
+only from the platform's own labelled flows, and the intended use (Section
+5) narrows accordingly. The all-three model ranks the flows better than
+chance, but at the served threshold it is quiet and nearly blind. The
+single-dataset rows are read beside G5, not instead of it: choosing the
+CICIDS2017 model for its 60.6% would be choosing a model on the test set.
+
+**Trained on the platform's own traffic (G7–G10).** The protocol's section
+7, pushed before the run: the flows begun before 30 October 00:00 UTC train
+(113,865), those begun from it on test (63,613), every model at the served
+settings and threshold, nothing tuned on the test days.
+
+| Model | AUC | Inbound flagged (30,115) | From new addresses (8,400; 1,233 addresses) | Benign flagged (33,498) | Operator's visits flagged (100) |
+|---|---|---|---|---|---|
+| H, the honeypot's first days | 0.9997 | **99.95%** | **99.92%** | **1.84%** | 6 |
+| P+H, the three public tables and the first days | 0.9996 | 99.65% | 99.04% | 1.85% | 10 |
+| B, `fwd_mean_len` ≤ 67.6 bytes | 0.946 | 96.41% | 91.50% | 3.11% | 10 |
+
+G7, G8 and G10 met; G9 not met: H flags 612 of the honeypot's own 33,398
+flows, 1.84% against a limit of 1%, and 6 of the operator's 100 visits,
+inside the limit of 10. The baseline reaches G7's level on one feature —
+an unsolicited flow's packets are small — but not G9's; what the model adds
+over it is 3.5 points of recall, 8.4 points on addresses it had not met,
+and 40% fewer false alarms. Adding the public datasets cost 0.3 points
+(G10).
+
+Read with the limits the protocol states: the benign side is the instance's
+own traffic and one operator's scripted visits, not a population of users,
+so 1.84% is a false-alarm figure for this honeypot and nothing wider, about
+220 of its own flows a day at the served threshold; and both halves come
+from one instance and one address over eight days. The result supports the
+conclusion G4 and G5 point to — a detector for this platform must learn
+from the platform's own labelled traffic — and is not a detection rate. No
+model from it is served.
+
+**Reproducibility.** The run of 1 November trained the nine models of
+Section 6.4 again on the same tables, and its cells differ from 24
+October's by up to 0.036 AUC (CSE-CIC-IDS-2018 → UNSW-NB15 0.520 against
+0.556), the leave-one-out cells by up to 0.026 (0.651, 0.639, 0.884). The
+venv's XGBoost 3.3.0 and NumPy 2.5.1 were installed on 25 October, after
+the first run, which recorded no versions; at those versions the models are
+identical run to run (checked on synthetic data). G1, G2 and G4 read the
+same in both runs, and G3 fails in both. The figures quoted in Section 6.4
+are the first run's, as recorded; every result file now records the
+versions it ran under.
+
+`ml/models/harmonized_matrix_honeypot.json` and
+`ml/models/honeypot_timesplit.json` hold every figure above; their scripts'
+`--report` prints them again without the data.
+
 ---
 
 ## 7. Future work
 
-- Collect labelled flows from the platform's own environment for a small
-  in-domain evaluation set: Sections 6.3 and 6.4 say a model trained on one
-  network, or on two, cannot be trusted on another. The honeypot's third
-  run, from 24 October 2026, captures them (`scripts/pcap_flows.py`;
-  `docs/generalization-protocol.md`, section 3); it gives attack flows by
-  construction, and only a narrow benign side — the honeypot's own traffic
-  and the operator's visits. Training a detector on the platform's own
-  traffic, as Section 6.4 concludes it should be, needs a benign population
-  the platform does not have.
+- A benign population. The honeypot gave the platform's attack side by
+  construction, and a model trained on five days of it recognises the next
+  days' attacks (Section 6.5); its benign side is the instance's own traffic
+  and the operator's visits. A detector the platform could use needs
+  labelled normal traffic from a service with users, and a threshold chosen
+  on data held apart from its test, before its false-alarm rate means
+  anything outside a honeypot.
 - Separate relabelling from re-extraction (Section 6.1). The two CICIDS2017
   releases share no row-level key — the flows themselves were re-extracted —
   so this means applying the corrected release's labelling to the original
@@ -510,4 +595,19 @@ python ml/evaluation/harmonize.py cic2018 --data CSECICIDS2018_improved.zip --ke
 python ml/evaluation/harmonize.py unsw --data UNSW --out ml/harmonized/unsw.npz
 python ml/evaluation/cross_matrix.py --data ml/harmonized/cic2017.npz ml/harmonized/cic2018.npz \
     ml/harmonized/unsw.npz --out ml/models/harmonized_matrix.json
+
+# 6.5: the honeypot's captures to flows and a table, the matrix again with them
+# scored by every model (about 6 minutes), then the time split (about 2)
+python scripts/pcap_flows.py ~/Downloads/honeypot-captures --host 10.99.0.8 \
+    --visits docs/honeypot-visits-2026-11.jsonl --out ml/harmonized/honeypot-flows.csv
+python ml/evaluation/harmonize.py flows --data ml/harmonized/honeypot-flows.csv --out ml/harmonized/honeypot.npz
+python ml/evaluation/cross_matrix.py --data ml/harmonized/cic2017.npz ml/harmonized/cic2018.npz \
+    ml/harmonized/unsw.npz --extra ml/harmonized/honeypot.npz --out ml/models/harmonized_matrix_honeypot.json
+python ml/evaluation/honeypot_timesplit.py --flows ml/harmonized/honeypot-flows.csv \
+    --public ml/harmonized/cic2017.npz ml/harmonized/cic2018.npz ml/harmonized/unsw.npz \
+    --out ml/models/honeypot_timesplit.json
 ```
+
+The committed visit log has the operator's addresses replaced by labels, so
+the extractor's operator flows are reproduced from the unmasked log kept with
+the captures; the committed results are the run's own.

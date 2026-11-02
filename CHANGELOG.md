@@ -5,11 +5,11 @@ that tag and what it does not. Dates are the tag's.
 
 ## Unreleased — towards v2.1.0, *Generalization and benefit*
 
-On `main` since v2.0.0; the tag waits for the honeypot's third run, which
-ends on 3 November (`docs/generalization-protocol.md`). The second-person
+On `main` since v2.0.0. The honeypot's third run ended on 1 November and is
+scored (below); the tag waits on the matched E2 re-run. The second-person
 cases, due on 31 October, did not arrive with their writers' own
 confirmation and are recorded as missing (`docs/triage-eval-protocol.md`,
-section 5).
+section 5), and the analyst study is recorded as not done (below).
 
 - **The detector across three networks.** CICIDS2017, CSE-CIC-IDS-2018 and
   UNSW-NB15 on fourteen shared features, with six expectations pushed before
@@ -23,6 +23,29 @@ section 5).
   through the VPC's S3 endpoint, the instance's one credential write-only;
   flows extracted by `scripts/pcap_flows.py`, the operator's visits logged as
   the benign side. Its flows decide G5 and G6.
+- **The honeypot's third run, scored** (1 November). Stopped after eight
+  days and four hours, short of the ten planned, by the author's decision
+  and before any flow was scored; 177,478 flows, 76,668 of them unsolicited
+  inbound from 4,412 addresses, and 2 GuardDuty incidents over the same
+  days. The model trained on the three public datasets flags 11.7% of the
+  unsolicited inbound flows (G5 not met) and 0.43% of the benign (G6 met).
+  The visit log is committed with the operator's addresses replaced by
+  labels.
+- **Trained on the platform's own traffic** (protocol, section 7, its
+  expectations pushed before the run). Trained on the honeypot's first five
+  days and nine hours, a model flags 99.95% of the next 2.8 days'
+  unsolicited inbound flows (G7) and 99.92% of those from 1,233 addresses it
+  had not met (G8), but 1.84% of the honeypot's own traffic against a limit
+  of 1% (G9 not met); adding the public datasets changes nothing (G10). One
+  feature alone reaches 96.41% at 3.11%. `ml/evaluation/honeypot_timesplit.py`;
+  model card, 6.5.
+- **Results record their library versions.** The 1 November matrix did not
+  reproduce 24 October's cells to the digit (up to 0.036 AUC) after a
+  reinstall of XGBoost and NumPy that nothing had recorded; the verdicts are
+  unchanged, and every result file now records the versions it ran under.
+- **Not done: the analyst study.** At most five participants, one session
+  each, cannot measure whether the advisory notes make triage faster or
+  better; the limit "not analyst benefit" stands. Decided 2 November.
 - **Triage runs kept as records**, another model asked through the same
   prompt (`eval_triage.py --out`, `--model`), and what the model's confidence
   is worth read from the record (`scripts/triage_calibration.py`). The

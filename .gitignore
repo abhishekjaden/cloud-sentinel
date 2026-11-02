@@ -190,6 +190,10 @@ findings_dump.json
 
 # Harmonized tables (docs/generalization-protocol.md, section 4): about 100 MB
 # each, rebuilt from the datasets in minutes; the .json provenance beside each
-# is committed. A table under a few megabytes (the honeypot's) is added with
-# git add -f.
+# is committed. A table under a few megabytes (the honeypot's) can be added
+# with git add -f.
 ml/harmonized/*.npz
+# The honeypot's flows as scripts/pcap_flows.py writes them: every attacker's
+# address and the operator's, about 40 MB. Never committed; the provenance and
+# the results stand for them, and the file stays with the captures.
+ml/harmonized/*.csv

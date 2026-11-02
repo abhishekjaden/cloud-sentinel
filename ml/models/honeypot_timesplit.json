@@ -1,0 +1,200 @@
+{
+ "cut": "2026-10-30T00:00:00Z",
+ "params": {
+  "n_estimators": 300,
+  "max_depth": 8,
+  "learning_rate": 0.1,
+  "subsample": 0.8,
+  "colsample_bytree": 0.8
+ },
+ "versions": {
+  "python": "3.12.6",
+  "numpy": "2.5.1",
+  "xgboost": "3.3.0",
+  "pandas": "3.1.0"
+ },
+ "features": [
+  "duration_s",
+  "fwd_pkts",
+  "bwd_pkts",
+  "fwd_bytes",
+  "bwd_bytes",
+  "fwd_mean_len",
+  "bwd_mean_len",
+  "fwd_iat_mean_s",
+  "bwd_iat_mean_s",
+  "pkt_rate",
+  "byte_rate",
+  "bwd_fwd_pkt_ratio",
+  "is_tcp",
+  "is_udp"
+ ],
+ "dropped_non_finite": 0,
+ "training": {
+  "flows": 113865,
+  "attack": 46553,
+  "first_began": "2026-10-24T14:46:54.588259Z",
+  "last_began": "2026-10-29T23:59:59.730738Z",
+  "by_category": {
+   "operator": 422,
+   "self-initiated": 66890,
+   "unsolicited inbound": 46553
+  }
+ },
+ "test": {
+  "flows": 63613,
+  "attack": 30115,
+  "first_began": "2026-10-30T00:00:13.519358Z",
+  "last_began": "2026-11-01T18:28:51.254878Z",
+  "by_category": {
+   "operator": 100,
+   "self-initiated": 33398,
+   "unsolicited inbound": 30115
+  }
+ },
+ "training_attack_addresses": 3179,
+ "models": {
+  "H": {
+   "auc": 0.999748,
+   "inbound": {
+    "n": 30115,
+    "flagged": 30099,
+    "fraction": 0.999469
+   },
+   "inbound_new_addresses": {
+    "n": 8400,
+    "flagged": 8393,
+    "fraction": 0.999167,
+    "addresses": 1233
+   },
+   "benign": {
+    "n": 33498,
+    "flagged": 618,
+    "fraction": 0.018449
+   },
+   "by_category": {
+    "operator": {
+     "n": 100,
+     "flagged": 6,
+     "fraction": 0.06
+    },
+    "self-initiated": {
+     "n": 33398,
+     "flagged": 612,
+     "fraction": 0.018324
+    },
+    "unsolicited inbound": {
+     "n": 30115,
+     "flagged": 30099,
+     "fraction": 0.999469
+    }
+   },
+   "trained_on": "the training days",
+   "fit_seconds": 2.7
+  },
+  "P+H": {
+   "auc": 0.999586,
+   "inbound": {
+    "n": 30115,
+    "flagged": 30010,
+    "fraction": 0.996513
+   },
+   "inbound_new_addresses": {
+    "n": 8400,
+    "flagged": 8319,
+    "fraction": 0.990357,
+    "addresses": 1233
+   },
+   "benign": {
+    "n": 33498,
+    "flagged": 621,
+    "fraction": 0.018538
+   },
+   "by_category": {
+    "operator": {
+     "n": 100,
+     "flagged": 10,
+     "fraction": 0.1
+    },
+    "self-initiated": {
+     "n": 33398,
+     "flagged": 611,
+     "fraction": 0.018295
+    },
+    "unsolicited inbound": {
+     "n": 30115,
+     "flagged": 30010,
+     "fraction": 0.996513
+    }
+   },
+   "trained_on": "CICIDS2017 + CSE-CIC-IDS-2018 + UNSW-NB15 + the training days",
+   "fit_seconds": 69.6
+  },
+  "B": {
+   "auc": 0.946373,
+   "inbound": {
+    "n": 30115,
+    "flagged": 29033,
+    "fraction": 0.964071
+   },
+   "inbound_new_addresses": {
+    "n": 8400,
+    "flagged": 7686,
+    "fraction": 0.915,
+    "addresses": 1233
+   },
+   "benign": {
+    "n": 33498,
+    "flagged": 1043,
+    "fraction": 0.031136
+   },
+   "by_category": {
+    "operator": {
+     "n": 100,
+     "flagged": 10,
+     "fraction": 0.1
+    },
+    "self-initiated": {
+     "n": 33398,
+     "flagged": 1033,
+     "fraction": 0.03093
+    },
+    "unsolicited inbound": {
+     "n": 30115,
+     "flagged": 29033,
+     "fraction": 0.964071
+    }
+   },
+   "rule": {
+    "feature": "fwd_mean_len",
+    "index": 5,
+    "direction": "<=",
+    "threshold": 67.5999984741211,
+    "balanced_accuracy_training": 0.932485
+   }
+  }
+ },
+ "started": "2026-11-01T19:28:26+00:00",
+ "expectations": {
+  "G7": {
+   "value": 0.999469,
+   "met": true
+  },
+  "G8": {
+   "value": 0.999167,
+   "met": true
+  },
+  "G9": {
+   "value": 0.018449,
+   "operator": 0.06,
+   "met": false
+  },
+  "G10": {
+   "value": -0.002956,
+   "met": true
+  },
+  "baseline_at_G7_and_G9_levels": false
+ },
+ "complete": true,
+ "finished": "2026-11-01T19:29:38+00:00"
+}

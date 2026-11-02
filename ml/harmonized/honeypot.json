@@ -1,0 +1,45 @@
+{
+  "dataset": "flows in the schema",
+  "source": "flows",
+  "features": [
+    "duration_s",
+    "fwd_pkts",
+    "bwd_pkts",
+    "fwd_bytes",
+    "bwd_bytes",
+    "fwd_mean_len",
+    "bwd_mean_len",
+    "fwd_iat_mean_s",
+    "bwd_iat_mean_s",
+    "pkt_rate",
+    "byte_rate",
+    "bwd_fwd_pkt_ratio",
+    "is_tcp",
+    "is_udp"
+  ],
+  "rows": 177478,
+  "attack": 76668,
+  "dropped_missing_or_infinite": 0,
+  "repeated_headers": 0,
+  "files": [
+    {
+      "file": "honeypot-flows.csv",
+      "bytes": 40950217,
+      "rows_kept": 177478,
+      "seconds": 1.6
+    }
+  ],
+  "raw_labels": {
+    "operator": 522,
+    "self-initiated": 100288,
+    "unsolicited inbound": 76668
+  },
+  "options": {
+    "with_port": false,
+    "keep_every": 1,
+    "limit_rows": null,
+    "unsw_ethernet_header_bytes": null,
+    "unsw_features_file": null
+  },
+  "created": "2026-11-01T18:39:18+00:00"
+}

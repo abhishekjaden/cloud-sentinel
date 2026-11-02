@@ -180,13 +180,19 @@ measured here.
 | 13 Oct 2026 | Trained on all of the corrected CICIDS2017 (83 features), scored on all 63,195,088 flows of the corrected CSE-CIC-IDS-2018 | AUC 0.577; F1 0.082 at the served threshold; DoS Hulk 47 of 1,803,160 flows flagged | model card, 6.3 |
 | 24 Oct 2026 | Three datasets — both corrected CIC releases and UNSW-NB15 — on fourteen shared features, trained on each and on each pair and tested on the rest; six expectations pushed before any table existed | G1 and G2 met; G3 not met, a model trained on UNSW-NB15 worse than chance on both CIC releases (AUC 0.260 and 0.363); G4 not met in any direction. Trained on two, tested on the third: AUC **0.634, 0.665, 0.884**, F1 0.250, 0.041, 0.069 | model card, 6.4; `docs/generalization-protocol.md` |
 | 24 Oct 2026 | The same with the destination port added | five of six cross cells lower, three of them now below chance; leave-one-out 0.686, 0.617, 0.693 | model card, 6.4 |
-| from 24 Oct 2026 | The honeypot's own flows, labelled by construction, scored by the model trained on all three (G5, G6) | running; ten days end 3 November | protocol, sections 3 and 6 |
+| 1 Nov 2026 | The honeypot's own flows — 177,478 over eight days, labelled by construction — scored by the model trained on all three (G5, G6) | **G5 not met**: 11.7% of 76,668 unsolicited inbound flows flagged (AUC 0.824); **G6 met**: 0.43% of the 100,810 benign | model card, 6.5; protocol, section 6 |
+| 1 Nov 2026 | Trained on the honeypot's first five days and nine hours, tested on its last 2.8, expectations G7–G10 pushed before the run | **G7 met**: 99.95% of 30,115 inbound flagged; **G8 met**: 99.92% from 1,233 addresses not seen in training; **G9 not met**: 1.84% of the honeypot's own traffic against 1%; **G10 met**: the public datasets add nothing. A one-feature baseline: 96.41% and 3.11% | model card, 6.5; protocol, section 7 |
 
 The leave-one-out row is the figure the project quotes. It says a detector
 trained on public datasets does not carry to a network it has not seen, and
 the protocol's fourth expectation, missed, fixed the conclusion before the
 run: a detector for this platform should be trained on this platform's
-traffic.
+traffic. The honeypot confirmed it from both sides: the public datasets'
+model caught 11.7% of the platform's attackers, and five days of the
+platform's own traffic taught a model to catch 99.95% of the next days' —
+with 1.84% of the honeypot's own traffic flagged, missing the 1% target set
+for that, on a benign side that is the instance's own traffic and not a
+population of users.
 
 ## 5. The controls
 

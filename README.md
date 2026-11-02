@@ -3,7 +3,7 @@
 [![CI](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/ci.yml)
 [![Security](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/security.yml/badge.svg)](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/security.yml)
 [![Deploy](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/deploy.yml/badge.svg)](https://github.com/abhishekjaden/cloud-sentinel/actions/workflows/deploy.yml)
-[![tests](https://img.shields.io/badge/tests-603-blue)](#tests-and-gates)
+[![tests](https://img.shields.io/badge/tests-609-blue)](#tests-and-gates)
 [![backend coverage](https://img.shields.io/badge/backend_coverage-94%25-brightgreen)](#tests-and-gates)
 [![release](https://img.shields.io/github/v/tag/abhishekjaden/cloud-sentinel?label=release&sort=semver)](https://github.com/abhishekjaden/cloud-sentinel/tags)
 [![license](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
@@ -30,7 +30,7 @@ Each figure was measured on the deployed system and is recorded where the last c
 | Alarms | correlation silence alarmed 49.7 min after the last run (45–50 by design); a hand-made control change alarmed in a median of 73 s (n = 8); notifications delivered within the second of each state change since 13 Oct — before that, 0 of 49 ever were | [`docs/slos.md`](docs/slos.md) |
 | Advisory triage model | 20 cases independent of the prompt's author: **57 of 60** runs (60 of 60 on a band adjudicated afterwards); 13 authored cases: 39 of 39 on their widened bands; **12 of 12** injection attempts flagged. Run again on 25 Oct and kept as records: the deployed Haiku 4.5 **99 of 99**; Sonnet 4.5, asked through the same prompt, 96 of 99 at three times the cost per note | [ADR 0005](docs/adr/0005-advisory-llm-triage.md), [`docs/triage-eval-protocol.md`](docs/triage-eval-protocol.md), [`docs/triage-runs/`](docs/triage-runs/) |
 | Access controls, each driven past its limit once | an analyst's decision refused 403, an approver's recorded; 110 of 150 burst requests answered and 40 refused 429 with Retry-After; 2,436 of 3,000 unauthenticated requests answered and 564 blocked by the firewall | [`docs/slos.md`](docs/slos.md), objective 7 |
-| Intrusion detector | within CICIDS2017 AUC 0.99996 — a documented artefact of the dataset; on the corrected release binary F1 0.9999, macro-F1 0.980; on another network (CSE-CIC-IDS-2018, 63 M flows) AUC **0.58**; on three networks sharing 14 features, trained on two and tested on the third, AUC **0.63, 0.66, 0.88** — never above the better single network, two of four expectations written beforehand met | [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md) 6.3–6.4, [`docs/generalization-protocol.md`](docs/generalization-protocol.md) |
+| Intrusion detector | within CICIDS2017 AUC 0.99996 — a documented artefact of the dataset; on the corrected release binary F1 0.9999, macro-F1 0.980; on another network (CSE-CIC-IDS-2018, 63 M flows) AUC **0.58**; on three networks sharing 14 features, trained on two and tested on the third, AUC **0.63, 0.66, 0.88** — never above the better single network, two of four expectations written beforehand met; on the platform's own honeypot (177,478 flows), the public-data model caught **11.7%** of the attacks, and a model trained on the honeypot's first five days caught **99.95%** of the next days' (99.92% from addresses it had not seen) while flagging 1.84% of the honeypot's own traffic, above the 1% set in advance; one feature alone reached 96.4% | [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md) 6.3–6.5, [`docs/generalization-protocol.md`](docs/generalization-protocol.md) |
 | Cost | ₹3,763 (about $33) for the whole organization in September 2026; about $25 a month idle; $9.13 per 1,000 findings for the week of 14–21 Oct, Bedrock a quarter of it | [`docs/evaluation.md`](docs/evaluation.md) §2 |
 | Defects found by the project's own tooling | 30, each recorded where it was found and closed with a test or a re-run; four of them since v2.0.0 | [`docs/evaluation.md`](docs/evaluation.md), [`docs/chaos-experiments.md`](docs/chaos-experiments.md), [`CHANGELOG.md`](CHANGELOG.md) (Unreleased) |
 
@@ -165,8 +165,14 @@ UNSW-NB15 as well, with the expectations written before any table existed,
 a model trained on two of the three networks never beat the better single
 one on the third, and one trained on UNSW-NB15 was worse than chance on
 both CIC releases: a detector for this platform should be trained on its
-own traffic, and the honeypot's third run is collecting the attack side of
-it.
+own traffic. The honeypot's third run tested that from both sides. The model
+trained on all three public datasets caught 11.7% of the attacks on it; a
+model trained on its first five days caught 99.95% of the next days' attacks,
+99.92% of those from addresses it had not met, but flagged 1.84% of the
+honeypot's own traffic, missing the 1% target written before the run — and a
+single feature, the size of a flow's packets, already caught 96.4%. The
+benign side is the instance's own traffic, not users, and the record says so
+beside every figure.
 
 What has been measured, and what each number is allowed to mean, is in
 [`docs/evaluation.md`](docs/evaluation.md); the platform is reviewed against the
@@ -214,7 +220,7 @@ Other decisions worth naming:
 
 | Suite | Tests | What they pin |
 |---|---|---|
-| Backend (pytest) | 400, 94% coverage against an 80% floor | Normalization for all three sources, partial-batch reporting, correlation and kill-chain order, triage escaping and schema, enrichment thresholds and cache, every JWT rejection path, every route's authorization, the approval's attribution, the PDF read back, the restore rehearsal's arithmetic and its two prohibitions |
+| Backend (pytest) | 406, 94% coverage against an 80% floor | Normalization for all three sources, partial-batch reporting, correlation and kill-chain order, triage escaping and schema, enrichment thresholds and cache, every JWT rejection path, every route's authorization, the approval's attribution, the PDF read back, the restore rehearsal's arithmetic and its two prohibitions |
 | Infrastructure (Jest on synthesized CloudFormation) | 124 | Security properties, not resource counts: encryption, public-access blocks, TLS, MFA, the OIDC trust, each function's permissions, the retry policy, every alarm documented, every graphed metric emitted, the watch rules, the alarm topic's CloudWatch statement, the correlator's index grant, the one role the deploy may assume |
 | Frontend (Vitest) | 79 | The console's panels, the role-aware approvals panel and the PKCE flow |
 
@@ -226,7 +232,7 @@ On every push CI runs the three suites and, inside it, Semgrep and gitleaks pinn
 
 ```
 cdk/          CDK app — all infrastructure (lib/stacks, lib/constructs, lambda/, bin/) and 124 assertion tests
-backend/      FastAPI service (app/), Dockerfile, 400 tests
+backend/      FastAPI service (app/), Dockerfile, 406 tests
 frontend/     React + TypeScript SOC console (Vite), 79 tests
 ml/           CICIDS2017 processing, training, evaluation (the corrected-data re-evaluation; the harmonized three-dataset matrix), models, MODEL_CARD.md
 playbooks/    SOAR remediation playbook definitions
@@ -245,9 +251,12 @@ Outside the tag by the author's decision: the demo video, to be recorded from [`
 
 After the tag, towards v2.1.0 (*Generalization and benefit*): the detector
 across three networks on one schema, recorded on 24 October with two of its
-four expectations met (model card, 6.4); the honeypot's third run, which
-keeps packet headers, from 24 October to 3 November; and cases from two
-people who are not the author, written without an AI tool.
+four expectations met (model card, 6.4); the honeypot's third run, 24
+October to 1 November, with the detector scored on its flows and trained on
+them (model card, 6.5); the triage runs kept as records, with a second model
+and what confidence is worth. The second-person cases are recorded as
+missing, and the analyst study as not done (five people at most cannot
+measure benefit).
 
 This is a production-*grade* portfolio project — screenshot-backed and conservatively described — not a commercial production service.
 
