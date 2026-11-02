@@ -39,6 +39,16 @@ section 5), and the analyst study is recorded as not done (below).
   of 1% (G9 not met); adding the public datasets changes nothing (G10). One
   feature alone reaches 96.41% at 3.11%. `ml/evaluation/honeypot_timesplit.py`;
   model card, 6.5.
+- **The matched E2 re-run** (2 November), the chaos log's one planned run:
+  the first run's 200 findings and 15-minute denial under the final
+  configuration. All six expected signals: the denial reported and alarmed
+  in 42 s, 2,401 failed deliveries and none rejected, iterator age 14.1
+  minutes at the denial's end and findings-fresh in ALARM 11 min 9 s after
+  the flood, nothing reported lost, 200 of 200 stored once IAM's change took
+  effect, and the inbox holding the six alarm e-mails in the order of the
+  histories and the two control-change messages, nothing else. Detection
+  and delivery checked together on an injected failure for the first time
+  (`docs/chaos-experiments.md`, E2).
 - **Results record their library versions.** The 1 November matrix did not
   reproduce 24 October's cells to the digit (up to 0.036 AUC) after a
   reinstall of XGBoost and NumPy that nothing had recorded; the verdicts are
@@ -83,8 +93,8 @@ section 5), and the analyst study is recorded as not done (below).
   floor cannot apply, as the stack's own cdk-nag suppression had said since
   it was written; the upgraded library began warning about the setting, and
   the row now says what holds and what does not.
-- **Four defects since the tag, thirty in all**, each closed with a test or
-  a fix and recorded where it was found: a test fixture that held a
+- **Five defects since the tag, thirty-one in all**, each closed with a test
+  or a fix and recorded where it was found: a test fixture that held a
   real-format access key, then a shortened one (24 October; gitleaks and
   GitHub's secret scanning; nothing was ever behind either); the advisories
   above, for which no pull request had been raised (25 October); the threat
@@ -92,7 +102,9 @@ section 5), and the analyst study is recorded as not done (below).
   the protocol's placeholder as the honeypot's address and labelled every
   flow the honeypot began as an attack (25 October; `--host` is now refused
   unless it is the capture's commonest address, and the protocol's step
-  names the address).
+  names the address); and the E2 helper's evidence collection, whose two log
+  queries Git Bash rewrote into Windows paths (2 November; the helper sets
+  `MSYS_NO_PATHCONV` for every call).
 
 ## v2.0.0 — Evaluated and shown (24 October 2026)
 

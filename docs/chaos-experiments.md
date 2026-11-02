@@ -37,7 +37,7 @@ signal includes its notification arriving, and is checked in the inbox.
 | # | Experiment | Objectives exercised | Status |
 |---|---|---|---|
 | E1 | A record the normalizer cannot read | 1 (stored), 2 (fresh), 8 (controls) | **run, 7 October 2026**; **re-run under ADR 0007, 12 October** — the record held the shard for an hour, and the finding 4.6 seconds behind it was never stored by the automatic path; **third run under ADR 0008, 13 October** — rejected on first sight, 11 seconds after it arrived, and the finding behind it stored by the same invocation |
-| E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day**; **matched re-run under ADRs 0007 and 0008 planned** — the first run's workload, with every notification checked in the inbox; expected signals written |
+| E2 | The normalizer denied its table | 1, 2 (fresh), 8 | **run, 8 October 2026; re-run under ADR 0007 the same day**; **matched re-run under ADRs 0007 and 0008, 2 November** — the first run's workload and timeline under the final configuration: all six expected signals, nothing lost, every notification in the inbox in the order of the alarms' histories |
 | E3 | The correlation schedule disabled | 3 (current), 8 | **run, 8 October 2026** — the alarm did not fire; **re-run 11 October** — it fired, but 77 minutes after the last run; **third run 11 October**, on a wall-clock window — fired 49 min 41 s after the last run, as designed |
 | E4 | Ten times the volume | 1, 2, 3 | **run, 8 October 2026** |
 | E5 | A control changed by hand | 8 | **run, 3 October 2026** |
@@ -472,6 +472,62 @@ evidence; `e2cleanup` last) and removes the denial on Ctrl-C.
 Rollback: the `delete-role-policy` of step 5 is part of the run, and
 `e2abort` makes it early; after `e2collect`, `e2cleanup` purges the queue
 and the flood findings, incidents and notes.
+
+**Observed, 2 November 2026** (times UTC; 12:34–13:10 IST). The sender's
+clock agreed with AWS's to the second this time: CloudTrail recorded the
+`PutRolePolicy` at 07:04:26, as the script printed it. The denial lasted 15
+min 49 s — `PutRolePolicy` at 07:04:26, `DeleteRolePolicy` at 07:20:15,
+seven seconds later than planned because the script's status checks ran
+first — and 200 flood findings (run `sypl`, fifty instances) were sent under
+it at 07:06:15–07:06:25.
+
+1. **The denial is reported and notified.** As expected. The control-change
+   message for `PutRolePolicy` on the normalizer's role, naming the SSO
+   session, the operator's address and the CLI command, arrived at 12:34
+   IST, within the minute; controls-unchanged went OK → ALARM at 07:05:08,
+   **42 seconds** after the call, its history reading `Successfully executed
+   action`, and its ALARM e-mail arrived at 12:35 IST, the minute of the
+   state change.
+2. **Every record is handed back and retried, none rejected.** As expected.
+   In the first minute 800 deliveries failed — the immediate attempts — and
+   then 100 a minute, one batch of 100, for as long as the denial held:
+   2,401 failed deliveries, and 2,401 `AccessDeniedException` lines in the
+   normalizer's log, one for each. `RecordsRejected` was 0 in every minute,
+   and the log holds no `Rejected record` line.
+3. **The shard is held and the outage alarmed.** As expected. Iterator age
+   rose by about a minute a minute, to **14.1 minutes** (846.6 s) in the
+   minute the denial was removed; findings-fresh went OK → ALARM at
+   07:17:24, **11 min 9 s** after the first flood finding, its ALARM e-mail
+   at 12:47 IST. Iterator age kept climbing, to 18.4 minutes, until the
+   held batches could write.
+4. **Nothing is reported as lost.** As expected. The failure queue held no
+   message at any check, findings-stored has no history entry in the window,
+   and no e-mail came from it.
+5. **The held findings store themselves.** As expected, more slowly than on
+   8 October. IAM's deletion reached the table's authorizer between 2 min
+   31 s and 3 min 42 s after the call — no write at 07:22:46, 99 findings
+   at 07:23:57 — against about two minutes on 8 October; the first batch
+   wrote with one record failing once more, the rest by 07:25:08: **200 of
+   200**, nothing to replay, stored a median 18.4 minutes after reaching the
+   stream. The watch reported `DeleteRolePolicy` in a message at 12:50 IST;
+   controls-unchanged, which had cleared at 07:20:08, seven seconds before
+   the call, went to ALARM again at 07:21:08 (**53 seconds** after it) and
+   back to OK at 07:36:08; findings-fresh returned to OK at 07:40:24 — each
+   with its e-mail.
+6. **The inbox matches the histories.** As expected. The three alarms'
+   histories hold six state changes, each followed within 60 ms by
+   `Successfully executed action`; the inbox held six alarm e-mails in the
+   same order (12:35, 12:47, 12:50, 12:51, 13:06, 13:10 IST), the two
+   control-change messages (12:34, 12:50), and nothing else from the topic.
+   Detection and delivery were checked together on an injected failure for
+   the first time, and both held.
+
+One defect, in the evidence script rather than the platform: `e2collect`'s
+two log queries failed, because Git Bash rewrites an argument beginning
+with `/` into a Windows path and the log groups' names begin with one. They
+were re-run by hand with `MSYS_NO_PATHCONV=1`, which the helper now sets for
+every call. After the evidence was collected, `e2cleanup` removed the
+flood's findings, incidents and notes.
 
 ---
 

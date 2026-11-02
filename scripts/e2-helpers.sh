@@ -50,7 +50,12 @@ E2_FLOOD_AT=108      # seconds after the denial, as on 7 October (19:05:41 → 1
 E2_DELETE_AT=942     # seconds after the denial, as on 7 October (19:05:41 → 19:21:23)
 E2_DENY_DOC='{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"dynamodb:PutItem","Resource":"*"}]}'
 
-e2_aws() { aws --profile "$E2_PROFILE" --region "$E2_REGION" "$@"; }
+# MSYS_NO_PATHCONV: Git Bash on Windows rewrites an argument that begins with
+# "/" into a Windows path, so a log group named /cloudsentinel/control-changes
+# reached the API as C:/Program Files/Git/cloudsentinel/... and was refused.
+# That is how e2collect lost its two log sections on 2 November; elsewhere the
+# variable is ignored.
+e2_aws() { MSYS_NO_PATHCONV=1 aws --profile "$E2_PROFILE" --region "$E2_REGION" "$@"; }
 
 e2_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 

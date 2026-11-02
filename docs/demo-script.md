@@ -181,7 +181,7 @@ aws events enable-rule  --profile cs-audit --name cloudsentinel-control-keys
 ```
 
 *(Switch to the inbox. The two messages arrive within the minute; the alarm
-follows in about seventy seconds — the recorded median is 73 s over eight
+follows in about seventy seconds — the recorded median is 73 s over ten
 changes. Keep talking over the wait.)*
 
 Both calls are reported with who made them, from where, and with what tool;
