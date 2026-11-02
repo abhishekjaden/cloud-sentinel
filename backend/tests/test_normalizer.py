@@ -308,6 +308,35 @@ def test_unknown_source_does_not_raise(normalizer):
     assert out["title"] == "unrecognized finding source"
 
 
+def test_the_detector_s_finding_is_one_per_address_per_day_and_carries_its_file(normalizer):
+    """The platform's own detector (ADR 0011) sends an address's day again with
+    every capture file that reports it. Each copy must land on the same item,
+    so created_at is when the address was first reported that day, which later
+    copies repeat; and each carries its file and when the file landed, which
+    section 8's D5 is measured from."""
+    detail = {"finding_id": "f" * 32, "account_id": "743181156000", "instance_id": "i-0abc", "severity": 20,
+              "type": "CloudSentinel:EC2/HostileFlows", "title": "Hostile flows from 8.8.4.4 to the honeypot",
+              "day": "2026-11-06", "address": "8.8.4.4", "flows": 7, "ports": [22, 23], "files": 2,
+              "first_seen": "2026-11-06T00:01:02.000000Z", "last_seen": "2026-11-06T00:20:00.000000Z",
+              "first_reported_at": "2026-11-06T00:16:30.000000Z", "file": "captures/i-0abc/capture-1.pcap",
+              "file_arrived_at": "2026-11-06T00:21:00Z", "reported_at": "2026-11-06T00:21:04.000000Z",
+              "model_sha256": "4c9d", "threshold_margin": "0.22165387868881226"}
+    event = {"source": "cloudsentinel.detector", "account": "743181156000", "region": "us-east-1",
+             "time": "2026-11-06T00:21:05Z", "detail": detail}
+    out = normalizer._normalize(event)
+    assert out["source"] == "detector" and out["finding_id"] == "f" * 32
+    assert out["created_at"] == "2026-11-06T00:16:30.000000Z"          # stable across the day's copies
+    assert out["severity"] == 20 and normalizer._severity_bucket(out["severity"]) == "LOW"
+    assert out["indicators"] == {"ips": ["8.8.4.4"]}
+    assert json.loads(out["resource"]) == {"instanceId": "i-0abc"}
+    assert out["detector"]["file"] == "captures/i-0abc/capture-1.pcap"
+    assert out["detector"]["file_arrived_at"] == "2026-11-06T00:21:00Z" and out["detector"]["ports"] == [22, 23]
+    later = normalizer._normalize({**event, "detail": {**detail, "flows": 9, "file": "captures/i-0abc/capture-2.pcap"}})
+    assert (later["created_at"], later["finding_id"]) == (out["created_at"], out["finding_id"])
+    # A detector event is never one the remediation router could take: it is low, and not GuardDuty's.
+    assert normalizer._normalize({**event, "detail": {**detail, "address": "10.99.0.1"}})["indicators"] is None
+
+
 def test_securityhub_event_with_no_findings_does_not_raise(normalizer):
     out = normalizer._normalize({"source": "aws.securityhub", "detail": {"findings": []}})
     assert out["source"] == "securityhub"
@@ -332,11 +361,12 @@ def test_every_source_the_normalizer_writes_is_one_the_routes_query(normalizer, 
         {"source": "aws.guardduty", "detail": {}},
         {"source": "aws.securityhub", "detail": {"findings": [{}]}},
         {"source": "aws.inspector2", "detail": {}},
+        {"source": "cloudsentinel.detector", "detail": {}},
         {"source": "aws.macie", "detail": {}},   # a service nothing routes yet
         {"source": "", "detail": {}},
         {},                                      # not an EventBridge event at all
     )}
-    # Equality both ways: every source is asked for, and none of the four the
+    # Equality both ways: every source is asked for, and none of the five the
     # routes ask for is a partition that can never exist.
     assert written == set(routes.SOURCES)
 

@@ -181,7 +181,11 @@ use where a false positive carries direct cost without human review. Nor
 detection on CloudSentinel's own traffic: a model trained on the public
 datasets flags 11.7% of the attacks on the platform's own honeypot (Section
 6.5), so a detector for the platform has to be trained on the platform's
-traffic, and none trained on it is served.
+traffic. The one that is — section 6.5's H, at the threshold chosen by the
+rule in `docs/generalization-protocol.md`, section 8 — is served by the
+detector that runs beside the honeypot, on its captures and nowhere else
+(ADR 0011); the models this card describes stay the console's comparison with
+the public benchmark.
 
 **Known limitations**
 

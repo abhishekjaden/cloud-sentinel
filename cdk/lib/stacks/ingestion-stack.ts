@@ -15,8 +15,8 @@ import {
   suppressLambdaBaseline, suppressFailureDestination, suppressStreamEncryption,
 } from '../nag-suppressions';
 import {
-  DEPLOY_ROLE_NAME, FAILED_FINDINGS_QUEUE_NAME, FINDINGS_STREAM_NAME, FUNCTION_NAMES,
-  INGESTION_RULE_NAMES, SMOKE_TEST_ROLE_NAME,
+  DEPLOY_ROLE_NAME, DETECTOR_DETAIL_TYPE, DETECTOR_SOURCE, FAILED_FINDINGS_QUEUE_NAME, FINDINGS_STREAM_NAME,
+  FUNCTION_NAMES, INGESTION_RULE_NAMES, SMOKE_TEST_ROLE_NAME,
 } from '../names';
 import { ACCOUNTS } from '../config';
 
@@ -24,7 +24,8 @@ import { ACCOUNTS } from '../config';
  * IngestionStack — deploys to the Audit account (118821712739).
  *
  * Capture -> buffer -> normalize:
- *  - EventBridge rules match GuardDuty / Security Hub / Inspector findings
+ *  - EventBridge rules match GuardDuty / Security Hub / Inspector findings,
+ *    and the platform's own detector's from the workload account (ADR 0011),
  *    and route them to a Kinesis Data Stream (decoupled, buffered).
  *  - A Lambda normalizer consumes the stream and maps every source's native
  *    shape into one common schema, emitting to CloudWatch Logs (interim sink;
@@ -146,12 +147,15 @@ export class IngestionStack extends cdk.Stack {
       },
     }));
 
-    // EventBridge rules -> Kinesis, one per finding source
-    const sources = [
+    // EventBridge rules -> Kinesis, one per finding source. The detector's is
+    // the one that names an account: its events are forwarded from the
+    // workload account, the only account the bus policy below admits them from.
+    const sources: { id: keyof typeof INGESTION_RULE_NAMES; source: string; detailType: string; account?: string }[] = [
       { id: 'GuardDuty', source: 'aws.guardduty', detailType: 'GuardDuty Finding' },
       { id: 'SecurityHub', source: 'aws.securityhub', detailType: 'Security Hub Findings - Imported' },
       { id: 'Inspector', source: 'aws.inspector2', detailType: 'Inspector2 Finding' },
-    ] as const;
+      { id: 'Detector', source: DETECTOR_SOURCE, detailType: DETECTOR_DETAIL_TYPE, account: ACCOUNTS.workload },
+    ];
 
     for (const s of sources) {
       new events.Rule(this, `${s.id}Rule`, {
@@ -160,10 +164,36 @@ export class IngestionStack extends cdk.Stack {
         eventPattern: {
           source: [s.source],
           detailType: [s.detailType],
+          ...(s.account ? { account: [s.account] } : {}),
         },
         targets: [new targets.KinesisStream(stream)],
       });
     }
+
+    // The detector runs beside the honeypot in the workload account and its
+    // findings reach this bus by a rule there that forwards them. This account's
+    // default bus admits events from the workload account only with the
+    // detector's source and detail type, so nothing else that account could
+    // put — a forwarded copy of an AWS service's event, say — reaches a rule here.
+    // The L1, with the statement written out: this CDK's EventBusPolicy L2
+    // passes its PolicyStatement to the template unrendered.
+    new events.CfnEventBusPolicy(this, 'DetectorFindingsFromWorkload', {
+      eventBusName: 'default',
+      statementId: 'CloudSentinelDetectorFromWorkload',
+      statement: {
+        Sid: 'CloudSentinelDetectorFromWorkload',
+        Effect: 'Allow',
+        Principal: { AWS: `arn:aws:iam::${ACCOUNTS.workload}:root` },
+        Action: 'events:PutEvents',
+        Resource: `arn:aws:events:${this.region}:${this.account}:event-bus/default`,
+        Condition: {
+          'ForAllValues:StringEquals': {
+            'events:source': [DETECTOR_SOURCE],
+            'events:detail-type': [DETECTOR_DETAIL_TYPE],
+          },
+        },
+      },
+    });
 
     // Correlation runs on a schedule rather than per record: grouping requires
     // seeing findings together, which a stream handler processing one record at

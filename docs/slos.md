@@ -113,7 +113,12 @@ CloudSentinel is written to the findings table.
 is gone:
 
 - events EventBridge matched but could not deliver to the stream, after its own
-  retries (`FailedInvocations` on the three ingestion rules);
+  retries (`FailedInvocations` on the four ingestion rules: GuardDuty's,
+  Security Hub's, Inspector's and, from 2 November 2026, the platform's own
+  detector's, ADR 0011). A detector finding the workload account's forwarding
+  rule cannot deliver to this account goes to the detector's failure queue
+  there instead, which no alarm watches; the honeypot run's D4 counts it
+  (`docs/generalization-protocol.md`, section 8);
 - records reported to the `cloudsentinel-failed-findings` queue
   (`NumberOfMessagesSent`), of two kinds. A record the normalizer can never
   store — one it cannot read, or one the table refuses as invalid — it

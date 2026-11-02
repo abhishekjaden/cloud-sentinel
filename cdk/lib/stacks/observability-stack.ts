@@ -145,11 +145,12 @@ export class ObservabilityStack extends cdk.Stack {
     const normalizerErrors = errors(normalizer, 'normalizer batch errors');
     const lostInNormalizer = failureQueue('NumberOfMessagesSent', 'Sum', 'reported to the failure queue');
     const ingestionUndelivered = new cloudwatch.MathExpression({
-      expression: 'SUM([gd, sh, insp])',
+      expression: 'SUM([gd, sh, insp, det])',
       usingMetrics: {
         gd: undelivered(INGESTION_RULE_NAMES.GuardDuty),
         sh: undelivered(INGESTION_RULE_NAMES.SecurityHub),
         insp: undelivered(INGESTION_RULE_NAMES.Inspector),
+        det: undelivered(INGESTION_RULE_NAMES.Detector),
       },
       label: 'undelivered by EventBridge',
       period: FIVE_MINUTES,

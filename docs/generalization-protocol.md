@@ -311,6 +311,14 @@ the third run, and is stopped by the author's decision, recorded with its
 time, before any of its flows is scored offline. Edits to this section are
 allowed, and dated here, until the run begins; none after.
 
+*Edit, 2 November 2026, before the run.* Only addresses on the internet are
+reported. A flow begun by one of the VPC's own services — its DHCP server
+answering the instance at boot, say — is labelled unsolicited inbound by
+section 3's extractor, but section 3's rule is about someone on the internet,
+and the detector does not report the VPC's own addresses, link-local ones or
+loopback. D3 and D4 count addresses on the internet; D1 and D2 count flows as
+section 3 labels them, unchanged.
+
 **Measured on the fourth run.** Its captures are turned into flows by
 `scripts/pcap_flows.py` over the whole capture, as in the third run, and
 scored by H at the chosen threshold for D1 and D2. The detector's findings

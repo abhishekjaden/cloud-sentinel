@@ -25,6 +25,19 @@ On `main` since v2.1.0.
   93% of attacking addresses reported each day with at most 1% of reports
   false, every report matching the offline record, each stored within two
   minutes of its capture landing.
+- **The detector put in the pipeline** (2 November). A function in the
+  honeypot stack scores each capture file as it lands, with the offline
+  extractor and schema copied into its image unchanged and the model refused
+  unless its SHA-256 and XGBoost version are section 8's record's; it
+  reports each address on the internet that began a flagged flow once a
+  day, a file counted once however often it is retried. The workload
+  account forwards the findings to the audit account's bus, which admits
+  nothing else from it, and they are stored under a fifth source,
+  `detector`, which the findings routes and the findings-stored objective
+  now count. Not correlated into incidents or triaged (ADR 0011). A test
+  pins that a capture file flags exactly the flows the offline record flags
+  from it. The README's "What it does" describes both detectors, and no
+  longer leads with the CICIDS2017 model's artefact AUC.
 
 ## v2.1.0 — Generalization and benefit (2 November 2026)
 

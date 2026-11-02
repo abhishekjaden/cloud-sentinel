@@ -43,7 +43,12 @@ describe('the honeypot instance', () => {
     expect(instance.KeyName).toBeUndefined();
     expect(instance.IamInstanceProfile).toEqual({ Ref: expect.stringMatching(/^CaptureProfile/) });
     expect(Object.keys(t.findResources('AWS::IAM::InstanceProfile'))).toHaveLength(1);
-    expect(Object.keys(t.findResources('AWS::IAM::Role')).filter((id) => !id.startsWith('VpcFlowLog'))).toHaveLength(1);
+    // The only role an instance can take is the capture writer. The stack's
+    // other roles are the flow logs' and, from generation 5, the detector's
+    // (ADR 0011) — assumed by Lambda and EventBridge, never by EC2.
+    const ec2Roles = Object.entries(t.findResources('AWS::IAM::Role')).filter(([, role]) =>
+      JSON.stringify((role as any).Properties.AssumeRolePolicyDocument).includes('ec2.amazonaws.com'));
+    expect(ec2Roles.map(([id]) => id)).toEqual([expect.stringMatching(/^CaptureWriter/)]);
   });
 
   test('requires IMDSv2 with a hop limit of one, so metadata cannot be read through a web bug', () => {
@@ -92,7 +97,7 @@ describe('the honeypot instance', () => {
   test('is replaced, not merely updated, when its first-boot script changes', () => {
     const [id] = Object.keys(t.findResources('AWS::EC2::Instance'));
     expect(id).toBe(`Instance${INSTANCE_GENERATION}`);
-    expect(INSTANCE_GENERATION).toBe(4);
+    expect(INSTANCE_GENERATION).toBe(5);
   });
 
   test('lives in the workload account, never beside the platform', () => {

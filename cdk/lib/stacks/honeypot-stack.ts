@@ -1,9 +1,22 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as destinations from 'aws-cdk-lib/aws-lambda-destinations';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { NagSuppressions } from 'cdk-nag';
+import { ACCOUNTS } from '../config';
+import { DETECTOR_DETAIL_TYPE, DETECTOR_SOURCE } from '../names';
 import { suppressLambdaBaseline } from '../nag-suppressions';
 
 /**
@@ -22,8 +35,64 @@ export const HONEYPOT_PORTS = [22, 23, 80, 443, 3306, 3389, 5900, 8080];
  * instance, which is the only way a changed script takes effect.
  *
  * Generation 4 (24 October 2026) adds the packet capture for the third run.
+ * Generation 5 (the fourth run) is the same instance with the platform's own
+ * detector beside it (ADR 0011); the number marks the run.
  */
-export const INSTANCE_GENERATION = 4;
+export const INSTANCE_GENERATION = 5;
+
+const REPO = path.join(__dirname, '..', '..', '..');
+
+/**
+ * Section 8's record (docs/generalization-protocol.md): the model's SHA-256,
+ * the threshold its rule chose and the library versions it was chosen under.
+ * Committed; the model itself is not, and travels with the deployment.
+ */
+export const DETECTOR_RECORD = path.join(REPO, 'ml', 'models', 'platform_detector.json');
+
+/**
+ * What the detector's image is built from, by the name each has in the image:
+ * its own Dockerfile and handler, and — unchanged — the extractor and schema
+ * the offline record uses and the model section 8's rule chose.
+ */
+export const DETECTOR_IMAGE_FILES: Record<string, string> = {
+  'Dockerfile': 'cdk/lambda/detector/Dockerfile',
+  'handler.py': 'cdk/lambda/detector/handler.py',
+  'pcap_flows.py': 'scripts/pcap_flows.py',
+  'harmonize.py': 'ml/evaluation/harmonize.py',
+  'cross_dataset.py': 'ml/evaluation/cross_dataset.py',
+  'platform_detector.ubj': 'ml/models/platform_detector.ubj',
+};
+
+export interface DetectorRecord {
+  sha256: string;
+  /** The margin, as JSON wrote it: the shortest decimal that is that float32's value. */
+  threshold: string;
+  xgboost: string;
+}
+
+/** The record, refused unless section 8's rule was met and a model written. */
+export function readDetectorRecord(file = DETECTOR_RECORD): DetectorRecord {
+  const r = JSON.parse(fs.readFileSync(file, 'utf-8'));
+  if (!r.reproduction?.reproduced || !r.rule_met || !r.model?.sha256) {
+    throw new Error(`${file}: section 8's rule was not met, so there is no detector to deploy`);
+  }
+  return { sha256: r.model.sha256, threshold: String(r.threshold.margin), xgboost: r.versions.xgboost };
+}
+
+/**
+ * A folder holding the image's files and nothing else. The repository root
+ * holds them all, but also every node_modules folder, which a build context
+ * would have to walk; copying six files is cheaper and says exactly what the
+ * image is made of. The image's hash is its files' contents, not this path.
+ */
+export function detectorImageContext(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cloudsentinel-detector-'));
+  for (const [name, from] of Object.entries(DETECTOR_IMAGE_FILES)) {
+    const source = path.join(REPO, from);
+    if (fs.existsSync(source)) fs.copyFileSync(source, path.join(dir, name));
+  }
+  return dir;
+}
 
 /**
  * Amazon's prefix list for S3 in each Region the project uses: the one
@@ -37,6 +106,9 @@ export const S3_PREFIX_LISTS: Record<string, string> = { 'us-east-1': 'pl-63a540
 
 /** Every finished capture file lands under this prefix, one folder per instance. */
 export const CAPTURE_PREFIX = 'captures/';
+
+/** The honeypot's own VPC: nothing of the platform's shares an address in it. */
+export const HONEYPOT_CIDR = '10.99.0.0/24';
 
 /**
  * HoneypotStack — deploys to the workload account (743181156000), on demand.
@@ -72,6 +144,13 @@ export const CAPTURE_PREFIX = 'captures/';
  * passwords attackers try are not kept. scripts/pcap_flows.py turns the
  * files into flows on the detector's schema.
  *
+ * From the fourth run the platform's own detector runs beside it (ADR 0011):
+ * each capture file that lands in the bucket is scored by the model trained on
+ * the honeypot's own traffic, and each address on the internet that began a
+ * flow it flags is reported once a day as a finding, forwarded to the audit
+ * account's ingestion. The detector can read the capture prefix and nothing
+ * else of the bucket; the instance's one credential is unchanged.
+ *
  * Run it for a week or two, then `cdk destroy CloudSentinel-Honeypot`. The
  * bucket is retained with its files. About ₹25 a day while it exists
  * (docs/triage-eval-protocol.md, section 1, has the second run's invoice).
@@ -94,7 +173,7 @@ export class HoneypotStack extends cdk.Stack {
     // NAT gateway, so the only route out is the internet gateway — which the
     // security group below refuses to use for anything but S3.
     const vpc = new ec2.Vpc(this, 'Vpc', {
-      ipAddresses: ec2.IpAddresses.cidr('10.99.0.0/24'),
+      ipAddresses: ec2.IpAddresses.cidr(HONEYPOT_CIDR),
       maxAzs: 1,
       natGateways: 0,
       subnetConfiguration: [{ name: 'public', subnetType: ec2.SubnetType.PUBLIC, cidrMask: 28 }],
@@ -321,9 +400,115 @@ export class HoneypotStack extends cdk.Stack {
     // and the writer's one statement names the bucket's objects with /*.
     suppressLambdaBaseline(this);
 
+    // ------------------------------------------------------------ the detector
+    // ADR 0011; what it is measured by is docs/generalization-protocol.md,
+    // section 8. The record decides what is served: the model by its SHA-256,
+    // which the function checks before it loads the file, and the threshold.
+    const record = readDetectorRecord();
+    if (!fs.existsSync(path.join(REPO, DETECTOR_IMAGE_FILES['platform_detector.ubj']))) {
+      cdk.Annotations.of(this).addWarningV2('cloudsentinel:detector-model',
+        `${DETECTOR_IMAGE_FILES['platform_detector.ubj']} is not here, so the detector's image cannot be ` +
+        'built: run ml/evaluation/platform_detector.py first (docs/generalization-protocol.md, section 8)');
+    }
+
+    // Each address's day so far: the flagged flows it began, the ports, the
+    // files that reported it. A day's running tally, read back by nothing but
+    // the next file, and kept three days past its day.
+    const state = new dynamodb.Table(this, 'DetectorState', {
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'expires_at',
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+    NagSuppressions.addResourceSuppressions(state, [{
+      id: 'AwsSolutions-DDB3',
+      reason:
+        'The table is the detector\'s running tally of the current day, rebuilt ' +
+        'from the capture files, which the bucket keeps after the stack is gone; ' +
+        'the run is measured from those files and the findings table, not from ' +
+        'this one. A backup would restore a tally nothing reads.',
+    }]);
+
+    // Where a capture file the function could not score after its retries is
+    // reported, and an event the forwarding rule could not deliver: anything
+    // here is a finding the run lost, which section 8's D4 would show.
+    const failures = new sqs.Queue(this, 'DetectorFailures', {
+      retentionPeriod: cdk.Duration.days(14),
+      enforceSSL: true,
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+    });
+    NagSuppressions.addResourceSuppressions(failures, [{
+      id: 'AwsSolutions-SQS3',
+      reason:
+        'This queue is itself the end of the line: the detector function\'s ' +
+        'on-failure destination and the forwarding rule\'s dead-letter queue. ' +
+        'cdk-nag recognises a dead-letter queue only by another queue\'s ' +
+        'redrive policy or a function\'s DeadLetterConfig; a redrive policy of ' +
+        'its own would move the same question one queue further along.',
+    }]);
+
+    const detector = new lambda.DockerImageFunction(this, 'Detector', {
+      description: 'CloudSentinel detector: scores each honeypot capture file and reports attacking addresses (ADR 0011)',
+      code: lambda.DockerImageCode.fromImageAsset(detectorImageContext(), { platform: Platform.LINUX_AMD64 }),
+      architecture: lambda.Architecture.X86_64,
+      memorySize: 1024,
+      timeout: cdk.Duration.minutes(5),
+      retryAttempts: 2,
+      onFailure: new destinations.SqsDestination(failures),
+      environment: {
+        MODEL_SHA256: record.sha256,
+        THRESHOLD_MARGIN: record.threshold,
+        XGBOOST_VERSION: record.xgboost,
+        // The honeypot's subnet: the commonest address in a file, which is the
+        // honeypot's own, must be in it or the file is refused. The instance's
+        // id comes from the file's key, under which the uploader files it;
+        // naming the instance here would make the function wait for the
+        // instance, which waits for the function (below).
+        HOST_NETWORK: HONEYPOT_CIDR,
+        ACCOUNT_ID: this.account,
+        CAPTURE_PREFIX,
+        STATE_TABLE: state.tableName,
+      },
+    });
+    detector.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'ReadCaptureFiles',
+      actions: ['s3:GetObject'],
+      resources: [captures.arnForObjects(`${CAPTURE_PREFIX}*`)],
+    }));
+    detector.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'TallyTheDay',
+      actions: ['dynamodb:UpdateItem', 'dynamodb:GetItem'],
+      resources: [state.tableArn],
+    }));
+    detector.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'ReportToThisAccountsBus',
+      actions: ['events:PutEvents'],
+      resources: [`arn:aws:events:${this.region}:${this.account}:event-bus/default`],
+    }));
+
+    captures.addEventNotification(s3.EventType.OBJECT_CREATED, new s3n.LambdaDestination(detector),
+      { prefix: CAPTURE_PREFIX, suffix: '.pcap' });
+    // The instance boots only once the bucket notifies the detector, so no
+    // capture file can land before there is something to score it.
+    instance.node.addDependency(captures.node.findChild('Notifications'));
+
+    // The findings go to the audit account's ingestion, whose bus admits this
+    // account's events with the detector's source and detail type only.
+    const auditBus = events.EventBus.fromEventBusArn(this, 'AuditBus',
+      `arn:aws:events:${this.region}:${ACCOUNTS.audit}:event-bus/default`);
+    new events.Rule(this, 'DetectorToAudit', {
+      ruleName: 'cloudsentinel-detector-forward',
+      description: 'Forward the detector findings to the audit account ingestion (ADR 0011)',
+      eventPattern: { source: [DETECTOR_SOURCE], detailType: [DETECTOR_DETAIL_TYPE] },
+      targets: [new targets.EventBus(auditBus, { deadLetterQueue: failures })],
+    });
+
     new cdk.CfnOutput(this, 'InstanceId', { value: instance.ref });
     new cdk.CfnOutput(this, 'PublicIp', { value: instance.attrPublicIp });
     new cdk.CfnOutput(this, 'CaptureBucket', { value: captures.bucketName });
+    new cdk.CfnOutput(this, 'DetectorFunction', { value: detector.functionName });
+    new cdk.CfnOutput(this, 'DetectorFailuresQueue', { value: failures.queueUrl });
   }
 }
 

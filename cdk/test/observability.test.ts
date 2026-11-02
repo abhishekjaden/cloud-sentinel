@@ -265,7 +265,8 @@ describe('objectives', () => {
     // which is exactly the mistake that would switch this objective off.
     const stored = byName(pipelineAlarms).get('cloudsentinel-slo-findings-stored')!;
     expect(counted(stored).sort()).toEqual([
-      'AWS/Events/FailedInvocations',   // EventBridge gave up on an event
+      'AWS/Events/FailedInvocations',   // EventBridge gave up on an event, for each of the four sources
+      'AWS/Events/FailedInvocations',
       'AWS/Events/FailedInvocations',
       'AWS/Events/FailedInvocations',
       'AWS/SQS/NumberOfMessagesSent',   // a record rejected, or a batch Lambda gave up on

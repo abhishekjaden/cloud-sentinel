@@ -32,8 +32,9 @@ _table = _dynamodb.Table(TABLE_NAME)
 TIME_INDEX = "source-time-index"
 SEVERITY_INDEX = "severity-index"
 
-#: Every value the normalizer writes to `source`.
-SOURCES = ("guardduty", "securityhub", "inspector", "unknown")
+#: Every value the normalizer writes to `source`: the three AWS services, the
+#: platform's own detector (ADR 0011), and "unknown" for anything else.
+SOURCES = ("guardduty", "securityhub", "inspector", "detector", "unknown")
 #: Every value the normalizer writes to `severity_bucket`.
 BUCKETS = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 

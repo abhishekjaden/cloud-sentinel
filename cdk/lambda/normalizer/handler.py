@@ -9,8 +9,9 @@ DynamoDB item keys:
   pk = "<source>#<account_id>"
   sk = "<created_at>#<finding_id>"
   severity_bucket = CRITICAL|HIGH|MEDIUM|LOW|INFO  (for severity GSI)
-  indicators = {ips, domains} the finding names (GuardDuty only), kept for
-               threat-intelligence enrichment; absent when it names none
+  indicators = {ips, domains} the finding names (GuardDuty, and the detector's
+               one address), kept for threat-intelligence enrichment; absent
+               when it names none
   event_time, queued_at, stored_at = when EventBridge emitted the event, when it
                reached the stream, and when this function wrote it: the three
                stamps the latency measurement (scripts/measure.py) reads
@@ -97,7 +98,7 @@ def _severity_to_score(source, raw):
             return round(float(raw) / 8.9 * 100)
         except (TypeError, ValueError):
             return 0
-    if source == "securityhub":
+    if source in ("securityhub", "detector"):
         try:
             return int(raw)
         except (TypeError, ValueError):
@@ -260,12 +261,14 @@ def _normalize(event):
             "resource": json.dumps(detail.get("resources", []))[:1024],
             "created_at": _inspector_time(detail.get("firstObservedAt"), event.get("time")),
         }
+    if src == DETECTOR_SOURCE:
+        return _detector(event, detail)
     # Anything else is stored under "unknown" rather than under its own source
     # name, with the name it came with kept beside it. The findings routes
     # query one partition per source and count the same way, so a source they
     # have never heard of would be neither listed nor counted — invisible in
     # the one place it most needs to be seen. This keeps the set of sources
-    # closed at four, which is what makes those queries cover the table.
+    # closed at five, which is what makes those queries cover the table.
     return {
         "finding_id": event.get("id"),
         "source": "unknown",
@@ -278,6 +281,37 @@ def _normalize(event):
         "finding_type": None,
         "resource": None,
         "created_at": event.get("time"),
+    }
+
+
+# The platform's own detector, at work on the honeypot (ADR 0011): one
+# finding per attacking address per day, sent again with the day's figures
+# each time a capture file reports the address, and stored over the last copy
+# — the key is the same, since created_at is when the address was first
+# reported that day, which later files do not change.
+DETECTOR_SOURCE = "cloudsentinel.detector"
+DETECTOR_FIELDS = ("day", "address", "flows", "ports", "files", "first_seen", "last_seen", "file",
+                   "file_arrived_at", "reported_at", "model_sha256", "threshold_margin")
+
+
+def _detector(event, detail):
+    public = _public_ip(detail.get("address")) if detail.get("address") else None
+    return {
+        "finding_id": detail.get("finding_id"),
+        "source": "detector",
+        "account_id": detail.get("account_id") or event.get("account"),
+        "region": event.get("region"),
+        "severity": _severity_to_score("detector", detail.get("severity")),
+        "raw_severity_label": None if detail.get("severity") is None else str(detail.get("severity")),
+        "title": detail.get("title"),
+        "finding_type": detail.get("type"),
+        "resource": json.dumps({"instanceId": detail.get("instance_id")})[:1024],
+        "created_at": detail.get("first_reported_at") or event.get("time"),
+        "indicators": {"ips": [public]} if public else None,
+        # What the detector saw that day, as of the capture file that sent
+        # this copy: the file and when it landed are what objective D5 of
+        # docs/generalization-protocol.md, section 8, is measured from.
+        "detector": {k: detail[k] for k in DETECTOR_FIELDS if detail.get(k) not in (None, "")},
     }
 
 

@@ -33,7 +33,16 @@ export const INGESTION_RULE_NAMES = {
   GuardDuty: 'cloudsentinel-guardduty-findings',
   SecurityHub: 'cloudsentinel-securityhub-findings',
   Inspector: 'cloudsentinel-inspector-findings',
+  Detector: 'cloudsentinel-detector-findings',
 } as const;
+
+/**
+ * The platform's own detector (ADR 0011) reports from the workload account
+ * under this source and detail type; the workload account's bus forwards them
+ * to the audit account's, whose policy admits these and nothing else from it.
+ */
+export const DETECTOR_SOURCE = 'cloudsentinel.detector';
+export const DETECTOR_DETAIL_TYPE = 'CloudSentinel Detector Finding';
 
 export const REMEDIATION_RULE_NAME = 'cloudsentinel-highsev-remediation';
 export const TRIAGE_TABLE_NAME = 'cloudsentinel-triage';

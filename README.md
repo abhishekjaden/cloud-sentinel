@@ -40,8 +40,8 @@ Each figure was measured on the deployed system and is recorded where the last c
 
 | Stage | Capability |
 |-------|-----------|
-| **Detect** | Ingests findings from GuardDuty, Security Hub, and Inspector across all accounts, normalizing each source into one common schema and keeping the public addresses and domains each finding names. |
-| **Classify** | Two XGBoost models are trained on network flows: a binary intrusion detector (AUC 0.999963) and an eight-class attack-family classifier (macro-F1 0.9586). Both are evaluated on a held-out split and documented with their limitations in the model card. `/predict` serves both: the binary model's verdict and, beside it, the family the multiclass model finds most likely with its probability — reported even when the two disagree. |
+| **Detect** | Ingests findings from GuardDuty, Security Hub, and Inspector across all accounts, and from the platform's own detector on the honeypot, normalizing each source into one common schema and keeping the public addresses and domains each finding names. |
+| **Classify** | XGBoost scores network flows in two places. On the honeypot, the platform's own detector — trained on the honeypot's own traffic, served at a threshold chosen by a rule written before it was computed — scores each capture file as it lands and reports every attacking address as a finding, once a day ([ADR 0011](docs/adr/0011-the-platforms-own-detector.md); measured on the fourth honeypot run against expectations pushed first). In the console, `/predict` serves two models trained on CICIDS2017, a binary detector and an eight-class attack-family classifier: near-perfect on a held-out split of their own dataset (AUC 0.999963, an artefact of it) and not on other networks or the platform's own traffic (Results; model card). The binary verdict comes with the family the multiclass model finds most likely and its probability, reported even when the two disagree. |
 | **Respond** | High-severity findings trigger a Step Functions SOAR workflow that routes each threat to the correct playbook and **pauses at a human approval gate** before any destructive action. |
 | **Enrich** | The addresses and domains an incident names are looked up in AbuseIPDB and AlienVault OTX — once a week each, ten a run — and the verdict is shown beside the indicator, printed in the report and given to the triage model as a fact about the indicator, never about the activity. |
 | **Triage** | A language model on Amazon Bedrock drafts an advisory note for each correlated incident — what likely happened and what to check next — contained so that no answer it gives, however steered, can cause an action. |
@@ -58,7 +58,7 @@ AWS Organization (Control Tower, 4 accounts)
 ├── Management    — org root, DNS apex, delegation role
 ├── Log Archive   — centralized CloudTrail
 ├── Audit         — security services + the entire platform
-└── Workload      — ML training environment; honeypot (on demand, own VPC)
+└── Workload      — ML training environment; honeypot and its detector (on demand, own VPC)
 
 Detection pipeline (Audit)
   GuardDuty / Security Hub / Inspector
@@ -80,6 +80,10 @@ Serving layer (Audit, on demand)
 Watching itself (Audit)
   8 objectives → CloudWatch alarms → SNS → the operator's inbox
   12 EventBridge rules on CloudTrail → any control changed by anyone but the deploy role is reported with who did it
+
+Detector (Workload, deployed with the honeypot)
+  capture file → S3 event → detector function: flows → XGBoost trained on the honeypot's own traffic
+    → one finding per attacking address per day → the audit account's bus → the ingestion stream above
 
 ML (Workload)
   SageMaker Studio → CICIDS2017 → XGBoost → model promoted to Audit for serving
