@@ -70,11 +70,11 @@ export interface DetectorRecord {
   xgboost: string;
 }
 
-/** The record, refused unless section 8's rule was met and a model written. */
-export function readDetectorRecord(file = DETECTOR_RECORD): DetectorRecord {
-  const r = JSON.parse(fs.readFileSync(file, 'utf-8'));
+/** The record's text, refused unless section 8's rule was met and a model written. */
+export function parseDetectorRecord(text: string): DetectorRecord {
+  const r = JSON.parse(text);
   if (!r.reproduction?.reproduced || !r.rule_met || !r.model?.sha256) {
-    throw new Error(`${file}: section 8's rule was not met, so there is no detector to deploy`);
+    throw new Error('section 8\'s rule was not met, so there is no detector to deploy');
   }
   return { sha256: r.model.sha256, threshold: String(r.threshold.margin), xgboost: r.versions.xgboost };
 }
@@ -404,7 +404,7 @@ export class HoneypotStack extends cdk.Stack {
     // ADR 0011; what it is measured by is docs/generalization-protocol.md,
     // section 8. The record decides what is served: the model by its SHA-256,
     // which the function checks before it loads the file, and the threshold.
-    const record = readDetectorRecord();
+    const record = parseDetectorRecord(fs.readFileSync(DETECTOR_RECORD, 'utf-8'));
     if (!fs.existsSync(path.join(REPO, DETECTOR_IMAGE_FILES['platform_detector.ubj']))) {
       cdk.Annotations.of(this).addWarningV2('cloudsentinel:detector-model',
         `${DETECTOR_IMAGE_FILES['platform_detector.ubj']} is not here, so the detector's image cannot be ` +

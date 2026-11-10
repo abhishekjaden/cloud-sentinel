@@ -8,4 +8,7 @@ FROM public.ecr.aws/lambda/python:3.12
 # without the GPU support, a twentieth of the size.
 RUN pip install --no-cache-dir numpy==2.5.1 pandas==3.1.0 xgboost-cpu==3.3.0
 COPY handler.py pcap_flows.py harmonize.py cross_dataset.py platform_detector.ubj ${LAMBDA_TASK_ROOT}/
+# Lambda runs every image as its own unprivileged user whatever is written
+# here; this is for the image run anywhere else, where nothing in it needs root.
+USER 65534:65534
 CMD ["handler.handler"]

@@ -279,7 +279,7 @@ def send(entries):
         if not refused:
             return len(entries)
         pending = refused
-        time.sleep(2 ** attempt)
+        time.sleep(2 ** attempt)  # nosemgrep: python.lang.best-practice.arbitrary-sleep
     raise RuntimeError(f"{len(pending)} of {len(entries)} detector findings could not be sent")
 
 

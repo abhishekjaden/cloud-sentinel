@@ -9,7 +9,6 @@
  * reach, and that the bus admits nothing else from the workload account.
  */
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import * as cdk from 'aws-cdk-lib/core';
 import { Match, Template } from 'aws-cdk-lib/assertions';
@@ -17,7 +16,7 @@ import { ACCOUNTS, env } from '../lib/config';
 import { DETECTOR_DETAIL_TYPE, DETECTOR_SOURCE, INGESTION_RULE_NAMES } from '../lib/names';
 import {
   CAPTURE_PREFIX, DETECTOR_IMAGE_FILES, DETECTOR_RECORD, HONEYPOT_CIDR, HoneypotStack, detectorImageContext,
-  readDetectorRecord,
+  parseDetectorRecord,
 } from '../lib/stacks/honeypot-stack';
 import { IngestionStack } from '../lib/stacks/ingestion-stack';
 
@@ -78,14 +77,17 @@ describe('the detector function', () => {
   test('builds its image from its own files and, unchanged, the extractor, the schema and the model', () => {
     const dir = detectorImageContext();
     try {
-      const expected = Object.keys(DETECTOR_IMAGE_FILES)
-        .filter((name) => fs.existsSync(path.join(REPO, DETECTOR_IMAGE_FILES[name])));
-      expect(fs.readdirSync(dir).sort()).toEqual(expected.sort());
-      for (const name of expected) {
-        expect(fs.readFileSync(path.join(dir, name)).equals(fs.readFileSync(path.join(REPO, DETECTOR_IMAGE_FILES[name]))))
-          .toBe(true);
+      // Everything the image names that is here: all but the model, which git ignores.
+      const expected: string[] = [];
+      for (const [name, from] of Object.entries(DETECTOR_IMAGE_FILES)) {
+        const source = path.join(REPO, from);
+        if (!fs.existsSync(source)) continue;
+        expected.push(name);
+        expect(fs.readFileSync(path.join(dir, name)).equals(fs.readFileSync(source))).toBe(true);
       }
-      const dockerfile = fs.readFileSync(path.join(REPO, DETECTOR_IMAGE_FILES.Dockerfile), 'utf-8');
+      expect(fs.readdirSync(dir).sort()).toEqual(expected.sort());
+      expect(expected).toEqual(expect.arrayContaining(['Dockerfile', 'handler.py', 'pcap_flows.py', 'harmonize.py']));
+      const dockerfile = fs.readFileSync(path.join(dir, 'Dockerfile'), 'utf-8');
       expect(dockerfile).toContain('xgboost-cpu==3.3.0');
       expect(dockerfile).toContain('COPY handler.py pcap_flows.py harmonize.py cross_dataset.py platform_detector.ubj');
     } finally {
@@ -93,12 +95,13 @@ describe('the detector function', () => {
     }
   });
 
-  test('is not deployed from a record whose rule was not met', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'record-'));
-    const failed = path.join(dir, 'platform_detector.json');
-    fs.writeFileSync(failed, JSON.stringify({ reproduction: { reproduced: true }, rule_met: false }));
-    expect(() => readDetectorRecord(failed)).toThrow(/rule was not met/);
-    fs.rmSync(dir, { recursive: true, force: true });
+  test('is not deployed from a record whose rule was not met, or whose model does not reproduce section 7', () => {
+    const met = { reproduction: { reproduced: true }, rule_met: true, model: { sha256: 'a' }, threshold: { margin: 0.5 },
+      versions: { xgboost: '3.3.0' } };
+    expect(parseDetectorRecord(JSON.stringify(met))).toEqual({ sha256: 'a', threshold: '0.5', xgboost: '3.3.0' });
+    expect(() => parseDetectorRecord(JSON.stringify({ ...met, rule_met: false }))).toThrow(/rule was not met/);
+    expect(() => parseDetectorRecord(JSON.stringify({ ...met, reproduction: { reproduced: false } })))
+      .toThrow(/rule was not met/);
   });
 });
 

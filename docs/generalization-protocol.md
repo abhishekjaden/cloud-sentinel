@@ -311,7 +311,7 @@ the third run, and is stopped by the author's decision, recorded with its
 time, before any of its flows is scored offline. Edits to this section are
 allowed, and dated here, until the run begins; none after.
 
-*Edit, 2 November 2026, before the run.* Only addresses on the internet are
+*Edit, written 2 November 2026 and pushed on the 10th, before the run.* Only addresses on the internet are
 reported. A flow begun by one of the VPC's own services — its DHCP server
 answering the instance at boot, say — is labelled unsolicited inbound by
 section 3's extractor, but section 3's rule is about someone on the internet,

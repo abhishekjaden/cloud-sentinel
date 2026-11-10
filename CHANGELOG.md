@@ -25,9 +25,10 @@ On `main` since v2.1.0.
   93% of attacking addresses reported each day with at most 1% of reports
   false, every report matching the offline record, each stored within two
   minutes of its capture landing.
-- **The detector put in the pipeline** (2 November). A function in the
-  honeypot stack scores each capture file as it lands, with the offline
-  extractor and schema copied into its image unchanged and the model refused
+- **The detector put in the pipeline** (built 2 November, deployed on the
+  10th). A function in the honeypot stack scores each capture file as it
+  lands, with the offline extractor and schema copied into its image
+  unchanged and the model refused
   unless its SHA-256 and XGBoost version are section 8's record's; it
   reports each address on the internet that began a flagged flow once a
   day, a file counted once however often it is retried. The workload
