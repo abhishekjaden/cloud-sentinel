@@ -1,0 +1,167 @@
+{
+ "protocol_section": 8,
+ "cut": "2026-10-30T00:00:00Z",
+ "params": {
+  "n_estimators": 300,
+  "max_depth": 8,
+  "learning_rate": 0.1,
+  "subsample": 0.8,
+  "colsample_bytree": 0.8
+ },
+ "features": [
+  "duration_s",
+  "fwd_pkts",
+  "bwd_pkts",
+  "fwd_bytes",
+  "bwd_bytes",
+  "fwd_mean_len",
+  "bwd_mean_len",
+  "fwd_iat_mean_s",
+  "bwd_iat_mean_s",
+  "pkt_rate",
+  "byte_rate",
+  "bwd_fwd_pkt_ratio",
+  "is_tcp",
+  "is_udp"
+ ],
+ "versions": {
+  "python": "3.12.6",
+  "numpy": "2.5.1",
+  "xgboost": "3.3.0",
+  "pandas": "3.1.0"
+ },
+ "recorded_versions": {
+  "python": "3.12.6",
+  "numpy": "2.5.1",
+  "xgboost": "3.3.0",
+  "pandas": "3.1.0"
+ },
+ "dropped_non_finite": 0,
+ "rule": {
+  "benign_at_most": 0.005,
+  "operator_at_most": 0.05,
+  "recall_at_least": 0.95,
+  "chosen_on": "section 7's test days"
+ },
+ "started": "2026-11-02T09:51:18+00:00",
+ "reproduction": {
+  "reproduced": true,
+  "checks": {
+   "inbound": {
+    "recorded": [
+     30115,
+     30099
+    ],
+    "now": [
+     30115,
+     30099
+    ]
+   },
+   "inbound_new_addresses": {
+    "recorded": [
+     8400,
+     8393
+    ],
+    "now": [
+     8400,
+     8393
+    ]
+   },
+   "benign": {
+    "recorded": [
+     33498,
+     618
+    ],
+    "now": [
+     33498,
+     618
+    ]
+   },
+   "category: operator": {
+    "recorded": [
+     100,
+     6
+    ],
+    "now": [
+     100,
+     6
+    ]
+   },
+   "category: self-initiated": {
+    "recorded": [
+     33398,
+     612
+    ],
+    "now": [
+     33398,
+     612
+    ]
+   },
+   "category: unsolicited inbound": {
+    "recorded": [
+     30115,
+     30099
+    ],
+    "now": [
+     30115,
+     30099
+    ]
+   },
+   "auc": {
+    "recorded": 0.999748,
+    "now": 0.999748
+   }
+  }
+ },
+ "threshold": {
+  "margin": 0.22165432572364807,
+  "probability": 0.555187815,
+  "from_benign_limit": 0.22165432572364807,
+  "from_operator_limit": 0.20778225362300873
+ },
+ "at_threshold": {
+  "auc": 0.999748,
+  "inbound": {
+   "n": 30115,
+   "flagged": 29561,
+   "fraction": 0.981604
+  },
+  "inbound_new_addresses": {
+   "n": 8400,
+   "flagged": 8003,
+   "fraction": 0.952738,
+   "addresses": 1233
+  },
+  "benign": {
+   "n": 33498,
+   "flagged": 52,
+   "fraction": 0.001552
+  },
+  "by_category": {
+   "operator": {
+    "n": 100,
+    "flagged": 5,
+    "fraction": 0.05
+   },
+   "self-initiated": {
+    "n": 33398,
+    "flagged": 47,
+    "fraction": 0.001407
+   },
+   "unsolicited inbound": {
+    "n": 30115,
+    "flagged": 29561,
+    "fraction": 0.981604
+   }
+  }
+ },
+ "rule_met": true,
+ "model": {
+  "file": "platform_detector.ubj",
+  "sha256": "4c9de7f04666c51b8289dc9c0fe6ff72c9fa08cb57ed4c77c03f8c30b03537b5",
+  "bytes": 622625,
+  "trees": 300
+ },
+ "complete": true,
+ "finished": "2026-11-02T09:51:20+00:00"
+}
